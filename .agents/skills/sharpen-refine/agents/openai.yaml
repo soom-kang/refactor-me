@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Refine"
+  short_description: "Improve one artifact without changing its behavior"
+  default_prompt: "Use $sharpen-refine to make the requested bounded improvement while preserving contracts and protected regions."
+policy:
+  allow_implicit_invocation: true

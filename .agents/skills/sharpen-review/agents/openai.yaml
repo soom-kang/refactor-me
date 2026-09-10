@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Review"
+  short_description: "Review a change through the risks it can exhibit"
+  default_prompt: "Use $sharpen-review to report supported defects in this change without manufacturing perspectives or findings."
+policy:
+  allow_implicit_invocation: true

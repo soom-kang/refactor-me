@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Brief"
+  short_description: "Rebuild lost project context from evidence"
+  default_prompt: "Use $sharpen-brief to report current outcomes and still-open blockers using the baseline only for new changes."
+policy:
+  allow_implicit_invocation: true

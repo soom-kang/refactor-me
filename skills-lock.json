@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "sharpen-assess": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-assess/SKILL.md",
+      "computedHash": "9d68ee295d12ceacaffda20a8c5c46499d236efcc877645dfdec5a4336e0a60d"
+    },
+    "sharpen-brief": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-brief/SKILL.md",
+      "computedHash": "9755c07d875c663837b513fbd97d3f0412a01375a95c59a421cc3612369229f4"
+    },
+    "sharpen-challenge": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-challenge/SKILL.md",
+      "computedHash": "7a18dfa862374f46b8500a63e768397223bdfdc9f055b728d291d2f9afeb0f4d"
+    },
+    "sharpen-clarify": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-clarify/SKILL.md",
+      "computedHash": "80f050358d583be51154aba006eb65cbf65949860c75fe574d70a06866ee8f42"
+    },
+    "sharpen-cold-review": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-cold-review/SKILL.md",
+      "computedHash": "a95237d4a65dc7758cb29fd948b1a4404663235dc12f4806adbf85c49a83ad06"
+    },
+    "sharpen-dedupe": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-dedupe/SKILL.md",
+      "computedHash": "672eff2c645f5c12e4674cbc31f8aad237e087e5af5f761af2935f391bc0fb91"
+    },
+    "sharpen-refine": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-refine/SKILL.md",
+      "computedHash": "17aa0489d45a190de760ea7287f9602b1a62ac701fc8a8e2cf4f5d7a5a39d703"
+    },
+    "sharpen-review": {
+      "source": "soom-kang/sharpen-me",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen-review/SKILL.md",
+      "computedHash": "753d7628e6a5ca61dd22ea3ce7b540098a1ad505f5d5ef8b213cabb5293bd16d"
+    }
+  }
+}

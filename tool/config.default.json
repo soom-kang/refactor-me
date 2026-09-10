@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "workspace": {
+    "branch_prefix": "refactor/auto-",
+    "worktree_parent": "",
+    "keep_worktree": true
+  },
+  "agents": {
+    "primary": "codex",
+    "fallback": "claude",
+    "codex": {
+      "enabled": true,
+      "bin": "codex",
+      "model": "",
+      "timeout_sec": 1800,
+      "effort_by_phase": {}
+    },
+    "claude": {
+      "enabled": true,
+      "bin": "claude",
+      "model": "",
+      "timeout_sec": 1800,
+      "max_budget_usd": 0,
+      "effort_by_phase": {}
+    }
+  },
+  "policy": {
+    "allowed_risks": [
+      "L0_LOW",
+      "L1_MODERATE",
+      "L2_HIGH"
+    ],
+    "auto_characterization": true,
+    "cross_provider_review": true,
+    "max_cycles": 25,
+    "max_commits": 20,
+    "max_consecutive_failures": 3,
+    "max_attempts_per_fingerprint": 2,
+    "empty_audits_to_stop": 2,
+    "max_files_per_candidate": 8,
+    "max_changed_lines": 600,
+    "max_audit_candidates": 8,
+    "max_wall_clock_min": 180,
+    "cooldown_minutes": 20,
+    "extra_forbidden_globs": []
+  },
+  "verification": {
+    "locked": false,
+    "commands": []
+  }
+}

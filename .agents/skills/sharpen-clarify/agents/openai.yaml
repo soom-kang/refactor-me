@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Clarify"
+  short_description: "Settle an ambiguous request before implementing it"
+  default_prompt: "Use $sharpen-clarify to resolve material ambiguity from the request and repository evidence."
+policy:
+  allow_implicit_invocation: true

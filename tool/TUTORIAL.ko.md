@@ -1,6 +1,6 @@
 # refactor-me 실행 가이드
 
-[프로젝트](../docs/README.ko.md) · [English](TUTORIAL.md) · [상세 문서](README.ko.md)
+[프로젝트](../docs/README.ko.md) · [English](TUTORIAL.md) · [상세 문서](README.ko.md) · [Workflow](WORKFLOW.ko.md)
 
 도구를 설치하고 대상 저장소에서 실행한 뒤 결과 브랜치를 검토하는 절차입니다. 명시한 디렉터리에서 실행하고 예시 경로를 실제 경로로 바꾸세요.
 
@@ -98,14 +98,16 @@ Claude를 대체 프로바이더로 사용하려면 다음과 같이 실행합�
 
 리포트에는 커밋한 변경, 제외한 후보, 검증 근거, 프로바이더 사용량과 worktree 경로가 있습니다. 미보고 비용을 0으로 해석하지 마세요. 일부 비용만 집계한 금액은 최소 금액입니다.
 
-리포트에 나온 기준 커밋과 결과 브랜치를 사용합니다.
+리포트의 파일 통계와 diff 미리보기를 먼저 확인하세요. 전체 텍스트 비교는 `.refactor/runs/<id>/changes.patch`에서 볼 수 있습니다. 시작 커밋과 최종 반영 커밋의 고정 OID를 기록하므로 이후 브랜치가 움직여도 비교 결과는 바뀌지 않습니다. 비교 실패는 실행 결과와 별개이므로 기록된 사유를 확인하세요.
+
+Git에서 다시 확인하려면 `codeComparison`의 시작·최종 반영 커밋 전체 OID를 사용합니다.
 
 ```bash
-git log --oneline <base-commit>..<result-branch>
-git diff <base-commit>...<result-branch>
+git log --oneline <base-commit>..<published-commit>
+git diff <base-commit> <published-commit>
 ```
 
-Diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행한 뒤 병합 여부를 결정하세요. 기준선과 같게 실패한 검사는 통과가 아닙니다. `handoff.md`는 중간 상태이므로 최종 결과는 리포트에서 확인하세요.
+Diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행한 뒤 병합 여부를 결정하세요. 기준선과 같게 실패한 검사는 통과가 아닙니다. 후보 검증은 변경된 영역을 선택하고 루트 영역이 있으면 함께 실행합니다. 실행 결과가 모든 영역의 검증 통과를 뜻하지는 않습니다. 검사 과정과 모델 응답 예시는 [Workflow](WORKFLOW.ko.md)에서 확인하세요. `handoff.md`는 중간 상태이므로 최종 결과는 리포트에서 확인하세요.
 
 ## 중단된 실행 확인
 

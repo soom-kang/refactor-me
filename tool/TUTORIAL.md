@@ -1,6 +1,6 @@
 # refactor-me guide
 
-[Project](../README.md) · [한국어](TUTORIAL.ko.md) · [Reference](README.md)
+[Project](../README.md) · [한국어](TUTORIAL.ko.md) · [Reference](README.md) · [Workflow](WORKFLOW.md)
 
 This walkthrough installs the tool, runs it on a target repository, and reviews the resulting branch. Run commands from the directories shown and substitute your own paths.
 
@@ -98,14 +98,16 @@ Each run saves one `report.md`. Viewing another language renders `report.json` w
 
 The report lists committed changes, skipped candidates, validation evidence, provider usage, and the worktree path. Missing cost is not zero cost. A partial cost total is a lower bound.
 
-Use the exact base commit and result branch shown in the report:
+Start with the report's file statistics and diff preview. Open `.refactor/runs/<id>/changes.patch` for the full text comparison. The report records immutable start and final published commit OIDs, so later branch movement does not change this evidence. A comparison failure is separate from the run result; inspect its recorded reason.
+
+Use the full start and final published OIDs from `codeComparison` for another Git view:
 
 ```bash
-git log --oneline <base-commit>..<result-branch>
-git diff <base-commit>...<result-branch>
+git log --oneline <base-commit>..<published-commit>
+git diff <base-commit> <published-commit>
 ```
 
-Check the diff and run any omitted service, browser, or integration checks before deciding whether to merge. Baseline failures that remained unchanged are not passing tests. `handoff.md` is an intermediate snapshot; use the final report for the outcome.
+Check the diff and run any omitted service, browser, or integration checks before deciding whether to merge. Baseline failures that remained unchanged are not passing tests. Candidate validation selects changed areas and the root area when present. A run does not establish that all areas passed. The [Workflow](WORKFLOW.md) explains these checks and shows model responses. `handoff.md` is an intermediate snapshot; use the final report for the outcome.
 
 ## Handle a stopped run
 

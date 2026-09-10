@@ -4,7 +4,7 @@
 
 Run behavior-preserving refactors with Codex and Claude Code. Review the resulting local branch and validation report before merging.
 
-[한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Changelog](tool/CHANGELOG.md)
+[한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
 refactor-me audits a repository, selects one candidate, checks its evidence, implements the change in a detached worktree, validates it, and requests an independent review. It commits accepted changes to a local `refactor/auto-*` branch and repeats within the configured limits.
 
@@ -51,7 +51,7 @@ To use both providers or narrow candidate discovery:
 ./.refactor/bin/refactor-me --target app/web --target app/api
 ```
 
-`--target` limits where the audit looks for candidates. A candidate can require changes to callers and tests outside that directory. Reachability searches and validation remain repository-wide.
+`--target` limits where the audit looks for candidates. A candidate can require changes to callers and tests outside that directory. Reachability searches cover the repository. Baseline validation runs the discovered commands; candidate validation selects changed areas and the root area when present.
 
 A run can create local commits and a result branch. It does not merge, push, or deploy. Keep the source checkout clean during execution.
 
@@ -82,6 +82,8 @@ English is the default. Choose Korean for a run or for viewing a saved report:
 ```
 
 Each run writes one `report.md` in the selected language and a language-neutral `report.json`. Reading a report with another language renders the saved JSON without overwriting either file or calling a model. Translated labels cover headings, statuses, and known reasons. Commit subjects, model explanations, commands, and error text retain their original wording.
+
+The code comparison uses the run's recorded start and final published commits. It includes file statistics, a bounded diff preview and a link to `changes.patch`, the full text patch. It includes published characterization tests and excludes rejected edits. See the [Workflow](tool/WORKFLOW.md) for response examples and failure branches.
 
 ## Verify
 

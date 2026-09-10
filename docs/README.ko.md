@@ -4,7 +4,7 @@
 
 Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행합니다. 결과로 남긴 로컬 브랜치와 검증 리포트를 확인한 뒤 병합하세요.
 
-[English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [상세 문서](../tool/README.ko.md) · [변경 이력](../tool/CHANGELOG.md)
+[English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [상세 문서](../tool/README.ko.md) · [Workflow](../tool/WORKFLOW.ko.md) · [변경 이력](../tool/CHANGELOG.md)
 
 refactor-me는 저장소를 조사해 후보 하나를 고르고, 근거를 확인한 뒤 별도 worktree에서 수정합니다. 검증과 독립 리뷰를 통과한 변경을 `refactor/auto-*` 로컬 브랜치에 커밋하고, 설정한 한도 안에서 반복합니다.
 
@@ -51,7 +51,7 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 ./.refactor/bin/refactor-me --target app/web --target app/api
 ```
 
-`--target`은 후보를 찾는 범위를 제한합니다. 후보에 따라 지정한 폴더 밖의 호출부와 테스트도 수정할 수 있습니다. 도달성 검색과 검증은 저장소 전체를 기준으로 수행합니다.
+`--target`은 후보를 찾는 범위를 제한합니다. 후보에 따라 지정한 폴더 밖의 호출부와 테스트도 수정할 수 있습니다. 도달성 검색은 저장소 전체를 확인합니다. 기준선은 탐색한 검증 명령을 실행하며, 후보 검증은 변경된 영역을 선택하고 루트 영역이 있으면 함께 실행합니다.
 
 실행 중 로컬 커밋과 결과 브랜치를 만듭니다. merge, push, 배포는 수행하지 않습니다. 실행하는 동안 원본 checkout에 변경을 추가하지 마세요.
 
@@ -82,6 +82,8 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 ```
 
 실행마다 선택한 언어의 `report.md` 하나와 언어에 영향을 받지 않는 `report.json`을 저장합니다. 다른 언어로 조회할 때는 저장된 JSON을 렌더링하며 파일을 덮어쓰거나 모델을 호출하지 않습니다. 제목, 상태와 알려진 사유를 번역합니다. 커밋 제목, 모델 설명, 명령과 오류 메시지는 원문을 유지합니다.
+
+코드 비교는 실행 시작 커밋과 최종 반영 커밋을 기준으로 합니다. 파일 통계, 길이를 제한한 diff 미리보기와 전체 텍스트 patch인 `changes.patch` 링크를 제공합니다. 반영한 characterization 테스트를 포함하고 거절한 수정은 제외합니다. 단계별 응답 예시와 실패 분기는 [Workflow](../tool/WORKFLOW.ko.md)에서 확인하세요.
 
 ## 검증
 

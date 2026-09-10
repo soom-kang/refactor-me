@@ -1,6 +1,6 @@
 # refactor-me reference
 
-[Project](../README.md) · [한국어](README.ko.md) · [Guide](TUTORIAL.md) · [Changelog](CHANGELOG.md)
+[Project](../README.md) · [한국어](README.ko.md) · [Guide](TUTORIAL.md) · [Workflow](WORKFLOW.md) · [Changelog](CHANGELOG.md)
 
 Use this reference to configure a run and interpret its checks. The [guide](TUTORIAL.md) covers installation and result review.
 
@@ -17,7 +17,7 @@ The audit looks for four categories:
 
 Behavior preservation includes return values, side effects, ordering, errors, rendered output, and persisted data shapes. The loop assesses behavior reachable from existing entrypoints and published surfaces. It excludes bug fixes and speculative improvements.
 
-`--target <dir>` is repeatable and resolves relative to the directory where you invoke the command. It limits candidate discovery, while checks of callers and validation remain repository-wide. Candidates must relate to a target, and the resulting change must include a target file. Invalid paths and targets without tracked source files stop execution.
+`--target <dir>` is repeatable and resolves relative to the directory where you invoke the command. It limits candidate discovery. Caller and reachability checks cover the repository; candidate validation selects affected areas and the root area when present. Candidates must relate to a target, and the resulting change must include a target file. Invalid paths and targets without tracked source files stop execution.
 
 ## Execution and safety checks
 
@@ -29,7 +29,7 @@ After implementation, the controller checks the diff against the frozen task pac
 
 The tool creates local commits and a result branch. It does not merge, push, deploy, or install application dependencies as a separate step. Existing validation commands and build tools may access the network or populate caches.
 
-`sharpen-cold-review` runs in a separate provider session. When both providers are available and cross-provider review is enabled, the loop prefers the provider that did not implement the change. A quota or authentication failure switches providers at a candidate boundary; the next provider receives the frozen task packet. `handoff.md` describes that transition, not the final result.
+`sharpen-cold-review` runs in a separate provider session. When both providers are available and cross-provider review is enabled, the loop prefers the provider that did not implement the change. A quota or authentication failure can switch providers within the same phase. The next session receives that phase's inputs, including the frozen task packet where applicable. `handoff.md` describes that transition, not the final result.
 
 ## Skill availability
 
@@ -112,13 +112,29 @@ To supply explicit commands, create `.refactor/commands.json` in the target repo
 
 Use unique IDs, repository-relative `area` and `cwd`, argument arrays, and tiers `T1`, `T2`, or `T3`. A locked file replaces discovery. Review these commands before running: the controller executes them in the worktree.
 
-Baseline results distinguish passing checks, readable failures, commands that cannot run, and failures without useful signatures. A readable baseline failure is compared with later failures; it is not counted as a passing check. New errors and failures of previously passing commands reject a candidate. A baseline without a passing signal stops the run.
+Baseline results distinguish passing checks, readable failures, commands that cannot run, and failures without useful signatures. A readable baseline failure is compared with later failures; it is not counted as a passing check. New errors and failures of previously passing commands reject a candidate. A baseline without a passing signal stops the run. The baseline attempts the selected commands across discovered areas. After a candidate changes files, the validation ladder selects the deepest affected area for each path and adds the root area when present. It skips commands whose baseline was `TIMEOUT`, `UNRUNNABLE` or `OPAQUE` and stops at the first failed check. This does not establish that every repository area passed validation.
 
 ## Reports and language
 
 `--lang en|ko` is supported by `run` and `report`, with `en` as the default. It changes the final summary, `report.md`, and fixed handoff header. Progress logs and doctor output remain in English. Model explanations, raw errors, paths, and commit subjects are not translated.
 
 Each run writes one `report.md` and one `report.json`. `report --lang ko` reads the latest JSON and renders Korean to stdout without updating stored artifacts. It works for older JSON reports with missing version or usage fields. Missing or invalid JSON produces an error; existing Markdown remains intact. `--json` returns the same data in either language.
+
+Code comparison uses `state.baseOid` and `state.publishedOid` in the source repository. It includes the net published changes, including characterization commits, after worktree cleanup. The report shows file statistics and a diff preview with three context lines, limited to 200 complete lines or UTF-8 32 KiB. `changes.patch` stores the full text patch; it omits binary bodies and retains binary and file-mode metadata. External diff and textconv are disabled.
+
+The optional `codeComparison` object in `report.json` contains:
+
+| Field | Content |
+| --- | --- |
+| `status` | `AVAILABLE`, `NO_CHANGES` or `UNAVAILABLE` |
+| `baseCommit`, `resultCommit` | Recorded full OIDs; `resultCommit` is null without publication |
+| `files` | Path, old path for a rename, Git status, old/new mode, insertions, deletions and binary flag |
+| `totals` | File count, text insertions/deletions and binary-file count; binary line counts are null per file |
+| `patchFile` | `changes.patch`, relative to the run directory, or null if no patch was saved |
+| `preview`, `truncated` | Stored diff excerpt and whether the full patch exceeds it |
+| `error` | Original collection/storage error, or null |
+
+No publication produces `NO_CHANGES` without a patch. Published commits with identical trees produce an empty patch. Missing Git objects or a patch-storage failure produces `UNAVAILABLE` without changing the run status or exit code. Old JSON without this field shows a missing-comparison notice. Viewing a report never recollects a comparison. `accepted.patch` is a pre-review snapshot and may belong to a rejected candidate; use the final comparison to inspect committed changes.
 
 Usage includes failed calls and schema-repair processes. Missing provider cost stays unreported; a mixed total with missing costs is a lower bound. The loop does not enforce a combined monetary budget. Claude's budget option is a provider setting, not a total run limit. Use cycle, commit, and elapsed-time limits to bound a run.
 

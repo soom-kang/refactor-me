@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import * as S from './state.mjs';
+import { collectCodeComparison } from './code-comparison.mjs';
 import { mergeUsage, newUsage, costOf, fmtMs, fmtTokens, PHASE_EFFORT } from './provider.mjs';
 
 export function validateLanguage(language) {
@@ -161,6 +162,7 @@ export function buildReport(ctx, language = 'en') {
     counters: state.counters,
     commits: state.commits,
     skipped: state.seen.skipped,
+    codeComparison: collectCodeComparison(state, runDir),
     validation: {
       describe: baseline?.describe ?? null,
       ran: (commands ?? []).map((c) => `${c.area} ${c.tier} ${c.name}: ${c.argv.join(' ')}`),
@@ -194,7 +196,7 @@ export function renderMarkdown(j, language = 'en') {
     lines.push(`- \`${commit.oid.slice(0, 7)}\` **${commit.category}** ${commit.subject}`,
       `  - ${t('Paths', '경로')}: ${commit.paths.map((p) => `\`${p}\``).join(', ')}`);
   }
-  lines.push('', t('## Skipped candidates', '## 제외한 후보'), '');
+  lines.push('', ...renderCodeComparison(j.codeComparison, t), '', t('## Skipped candidates', '## 제외한 후보'), '');
   if (!j.skipped.length) lines.push(t('None.', '없음.'));
   const grouped = new Map();
   for (const skipped of j.skipped) {
@@ -227,8 +229,9 @@ export function renderMarkdown(j, language = 'en') {
   }
   lines.push('', ...renderUsage(j, t), t('## Next steps', '## 다음 단계'), '');
   if (j.branch) {
-    lines.push('```bash', `git log --oneline ${j.baseCommit.slice(0, 7)}..${j.branch}`,
-      `git diff --stat ${j.baseCommit.slice(0, 7)}...${j.branch}`, '```', '',
+    const resultRef = j.codeComparison?.resultCommit ?? j.branch;
+    lines.push('```bash', `git log --oneline ${j.baseCommit}..${resultRef}`,
+      `git diff --stat ${j.baseCommit} ${resultRef}`, '```', '',
       t('Review the local branch before merging. refactor-me does not merge, push, or deploy.',
         '로컬 브랜치를 검토한 뒤 병합하세요. refactor-me는 merge, push, 배포를 수행하지 않습니다.'));
   } else lines.push(t('No changes were committed; there is no result branch to review.', '커밋된 변경이 없어 검토할 결과 브랜치가 없습니다.'));
@@ -263,4 +266,48 @@ export function renderSummary(j, runDir, language = 'en') {
   lines.push(line(t('report', '리포트'), path.join(runDir, 'report.md')), line('worktree', j.worktree));
   if (j.branch) lines.push(line(t('inspect', '확인'), `git log --oneline ${j.baseCommit.slice(0, 7)}..${j.branch}`));
   return lines.join('\n');
+}
+
+function fencedEvidence(text, language = '') {
+  const width = Math.max(3, ...[...text.matchAll(/`+/g)].map((match) => match[0].length + 1));
+  const fence = '`'.repeat(width);
+  return `${fence}${language}\n${text}${text.endsWith('\n') ? '' : '\n'}${fence}`;
+}
+
+function tableCode(value) {
+  return `<code>${String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;').replaceAll('`', '&#96;').replaceAll('|', '&#124;').replaceAll('\n', '&#92;n')
+    .replaceAll('\r', '&#92;r').replaceAll('\t', '&#92;t')}</code>`;
+}
+
+function renderCodeComparison(comparison, t) {
+  const lines = [t('## Code comparison', '## 코드 비교'), ''];
+  if (!comparison) return [...lines, t('No code comparison was saved for this run.', '이 실행에는 코드 비교가 저장되지 않았습니다.')];
+  lines.push(`${t('Base commit', '시작 커밋')}: ${tableCode(comparison.baseCommit ?? '-')}`, '',
+    `${t('Published commit', '최종 반영 커밋')}: ${tableCode(comparison.resultCommit ?? '-')}`, '');
+  if (comparison.status === 'UNAVAILABLE') return [...lines,
+    t('Code comparison is unavailable. The run result is unchanged.', '코드 비교를 수집하지 못했습니다. 실행 결과에는 영향을 주지 않습니다.'), '',
+    fencedEvidence(comparison.error ?? '')];
+  if (comparison.status === 'NO_CHANGES') lines.push(t('No committed code changes.', '커밋된 코드 변경이 없습니다.'));
+  else {
+    const totals = comparison.totals;
+    lines.push(t(`${totals.files} files; +${totals.insertions} / -${totals.deletions} text lines; ${totals.binary} binary files.`,
+      `파일 ${totals.files}개 · 텍스트 +${totals.insertions}줄 / -${totals.deletions}줄 · 바이너리 ${totals.binary}개`), '',
+    t('| File | Status | Added | Deleted | Mode |', '| 파일 | 상태 | 추가 | 삭제 | 파일 모드 |'), '|---|---|---:|---:|---|');
+    const statuses = { A: ['Added', '추가'], D: ['Deleted', '삭제'], M: ['Modified', '수정'],
+      R: ['Renamed', '이름 변경'], C: ['Copied', '복사'], T: ['Type changed', '유형 변경'] };
+    for (const file of comparison.files) {
+      const name = file.oldPath ? `${tableCode(file.oldPath)} → ${tableCode(file.path)}` : tableCode(file.path);
+      const status = statuses[file.status[0]];
+      lines.push(`| ${name} | ${status ? t(...status) : file.status}${file.binary ? t(' (binary)', ' (바이너리)') : ''} | ${file.insertions ?? '—'} | ${file.deletions ?? '—'} | ${file.oldMode} → ${file.newMode} |`);
+    }
+    lines.push('', t('The comparison includes published characterization commits. Rejected or rolled-back edits are excluded.',
+      '최종 반영된 characterization 커밋을 포함합니다. 거절되거나 롤백된 수정은 제외합니다.'), '',
+      t('### Diff preview', '### Diff 미리보기'), '', fencedEvidence(comparison.preview, 'diff'));
+    if (comparison.truncated) lines.push('', t('Preview omitted after 200 lines or 32 KiB, at a line boundary. See the full text patch below.',
+      '200줄 또는 32 KiB 한도에서 줄 단위로 미리보기를 생략했습니다. 아래 전체 텍스트 patch를 확인하세요.'));
+  }
+  if (comparison.patchFile) lines.push('', `[${t('Full text patch', '전체 텍스트 patch')}](${encodeURI(comparison.patchFile).replaceAll('(', '%28').replaceAll(')', '%29')})`, '',
+    t('Binary contents are omitted; binary and file mode changes appear as metadata.', '바이너리 본문은 생략하며 바이너리·파일 모드 변경은 메타데이터로 표시합니다.'));
+  return lines;
 }

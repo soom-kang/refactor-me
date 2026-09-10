@@ -4,6 +4,9 @@ The runtime version is defined in `src/version.mjs`. This file describes the cur
 
 ## Unreleased
 
+- Add a committed-code comparison to reports with file statistics, a bounded diff preview and `changes.patch`. Preserve report viewing for older JSON.
+- Add English and Korean Workflow documents with schema-checked response examples and failure branches. Clarify candidate validation scope and provider switching.
+
 - Use `refactor-me` for the CLI, installer output, version identity, reports, commit author, and new worktree cache directories.
 - Route all eight skills to `soom-kang/sharpen-me`, including phase prompts and doctor checks.
 - Keep `.refactor` configuration and run records, stored worktree paths, and the `refactor/auto-` branch prefix.

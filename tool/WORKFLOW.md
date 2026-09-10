@@ -10,35 +10,9 @@ The example removes `src/legacy-parser.mjs` from the [local fixture generator](f
 
 ## Flow
 
-```mermaid
-flowchart TD
-  I[INIT and doctor] --> B[Baseline]
-  B --> A[Audit and rank]
-  A --> D[Deep check]
-  D --> C{Characterization needed and enabled?}
-  C -->|Yes| T[Test-only change and validation]
-  T --> TC[Commit and publish tests]
-  TC --> P[Preflight]
-  C -->|No| P
-  P --> E[Execute]
-  E --> G[Diff gate and validation]
-  G --> R[Independent review]
-  R --> K[Commit and publish refactor]
-  K --> A
-  D -->|Not ready| S[Record candidate outcome]
-  P -->|Blocked| S
-  T -->|Rejected| S
-  E -->|Rejected| X[Roll back candidate edits]
-  G -->|Rejected| X
-  R -->|Rejected| X
-  X --> S
-  S --> A
-  A -->|No eligible candidates or limit| F[Final report and code comparison]
-  I -->|Blocking prerequisite| F
-  B -->|No passing signal| F
-  G -->|Unsafe invariant| H[Safety halt and retain evidence]
-  H --> F
-```
+![Workflow overview: initialization, baseline, audit, preparation, execution, checks, review, publication and final report.](../docs/assets/workflow/overview.en.png)
+
+[HTML source](../docs/assets/workflow/overview.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
 
 The diagram shows the candidate path. The controller also checks run limits and provider availability between units of work. A rejected candidate can lead to another audit or a configured stop. A safety halt preserves the worktree; an ordinary candidate rejection restores its recorded pre-write state.
 
@@ -175,6 +149,10 @@ In this fixture, a readable typecheck failure in `src/broken.mjs` demonstrates t
 
 ## 4. Preflight
 
+![Execution preparation: deep check, optional characterization tests, separate test commit and preflight decisions.](../docs/assets/workflow/preparation.en.png)
+
+[HTML source](../docs/assets/workflow/preparation.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
+
 **Controller → preflight model:** “State the strongest concrete failure hypothesis for this packet and try to falsify it.” The session uses `sharpen-challenge` and reads the packet, repository facts and baseline summary without editing code.
 
 **Response:** The proposed string-loader objection is `FALSIFIED`; there are no blocking reasons and the verdict is `READY_TO_EXECUTE`.
@@ -289,6 +267,10 @@ The report shows file statistics and up to 200 complete diff lines or 32 KiB of 
 `codeComparison.status` is `AVAILABLE`, `NO_CHANGES` or `UNAVAILABLE`. No publication means no committed changes. Collection or patch-storage failures record a reason without changing the run outcome or exit code. Older JSON without `codeComparison` gets a missing-comparison notice. `report --lang ko` renders stored JSON without collecting a new diff, changing files or calling a model.
 
 ## Failure and recovery branches
+
+![Rejection restores candidate edits before re-audit; a safety halt retains the worktree and produces a report.](../docs/assets/workflow/outcomes.en.png)
+
+[HTML source](../docs/assets/workflow/outcomes.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
 
 ### Insufficient evidence and unknown risk
 

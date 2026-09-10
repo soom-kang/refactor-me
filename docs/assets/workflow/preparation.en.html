@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evidence before implementation · refactor-me</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Noto+Sans+KR:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root { color-scheme: light; --paper: #FDF7EC; --ink: #050505; --muted: #625B52; --accent: #DE5C20; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Geist', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; }
+main { width: min(100%, 1040px); margin: 0 auto; padding: 40px; }
+figure { margin: 0; }
+svg { display: block; width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 16px; line-height: 1.6; margin-top: 16px; }
+@media (max-width: 640px) { main { padding: 16px; } }
+@media print { main { padding: 0; width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+<figure>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" width="960" height="600" role="img" aria-labelledby="preparation.en-title preparation.en-desc">
+<title id="preparation.en-title">Evidence before implementation</title>
+<desc id="preparation.en-desc">Deep check branches into optional characterization, a separate test commit and preflight; blocked or unready candidates stop before implementation.</desc>
+<defs>
+<marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#625B52"/></marker>
+<marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#DE5C20"/></marker>
+<marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#625B52"/></marker>
+</defs>
+<rect width="960" height="600" fill="#FDF7EC"/>
+<text x="40" y="32" font-size="12" font-weight="500" fill="#625B52" text-anchor="start" font-family="&#x27;Geist Mono&#x27;, monospace" >refactor-me</text>
+<text x="920" y="32" font-size="12" font-weight="500" fill="#625B52" text-anchor="end" font-family="&#x27;Geist Mono&#x27;, monospace" >02 / WORKFLOW</text>
+<text x="40" y="72" font-size="28" font-weight="600" fill="#050505" text-anchor="start" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Evidence before implementation</text>
+<path data-edge="e04" data-points="[[216, 176], [288, 176]]" d="M 216 176 L 288 176" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e05" data-points="[[512, 176], [568, 176]]" d="M 512 176 L 568 176" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e06" data-points="[[656, 208], [656, 288]]" d="M 656 208 L 656 288" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e07" data-points="[[568, 324], [488, 324]]" d="M 568 324 L 488 324" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e08" data-points="[[400, 232], [400, 288]]" d="M 400 232 L 400 288" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e09" data-points="[[400, 360], [400, 456]]" d="M 400 360 L 400 456" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e14" data-points="[[128, 208], [128, 456]]" d="M 128 208 L 128 456" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e15" data-points="[[312, 324], [264, 324], [264, 484], [216, 484]]" d="M 312 324 L 272 324 Q 264 324 264 332 L 264 476 Q 264 484 256 484 L 216 484" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e16" data-points="[[744, 176], [856, 176], [856, 528], [128, 528], [128, 512]]" d="M 744 176 L 848 176 Q 856 176 856 184 L 856 520 Q 856 528 848 528 L 136 528 Q 128 528 128 520 L 128 512" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)" stroke-dasharray="4,4"/>
+<g data-label="e05" data-box="520,148,40,20"><rect x="520" y="148" width="40" height="20" rx="4" fill="#FDF7EC"/><text x="540.0" y="164" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >yes</text></g>
+<g data-label="e08" data-box="408,248,64,20"><rect x="408" y="248" width="64" height="20" rx="4" fill="#FDF7EC"/><text x="440.0" y="264" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >no</text></g>
+<g data-label="e09" data-box="408,392,80,20"><rect x="408" y="392" width="80" height="20" rx="4" fill="#FDF7EC"/><text x="448.0" y="408" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >ready</text></g>
+<g data-label="e14" data-box="40,312,80,20"><rect x="40" y="312" width="80" height="20" rx="4" fill="#FDF7EC"/><text x="80.0" y="328" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >not ready</text></g>
+<g data-label="e15" data-box="192,368,64,20"><rect x="192" y="368" width="64" height="20" rx="4" fill="#FDF7EC"/><text x="224.0" y="384" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >blocked</text></g>
+<g data-label="e16" data-box="752,252,96,20"><rect x="752" y="252" width="96" height="20" rx="4" fill="#FDF7EC"/><text x="800.0" y="268" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >rejected</text></g>
+<g data-node="D" data-source="D" data-box="40,144,176,64">
+<rect x="40" y="144" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="128" y="172" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Deep check</text>
+<text x="128" y="196" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >freeze task packet</text>
+</g>
+<g data-node="C" data-source="C" data-box="288,120,224,112">
+<polygon points="400,120 512,176 400,232 288,176" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="400" y="172" font-size="16" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Tests needed</text>
+<text x="400" y="196" font-size="16" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >and enabled?</text>
+</g>
+<g data-node="T" data-source="T" data-box="568,144,176,64">
+<rect x="568" y="144" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="656" y="172" font-size="16" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Write + check tests</text>
+<text x="656" y="196" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >production unchanged</text>
+</g>
+<g data-node="TC" data-source="TC" data-box="568,288,176,72">
+<rect x="568" y="288" width="176" height="72" rx="8" fill="#FAE8DB" stroke="#DE5C20" stroke-width="1.2"/>
+<text x="656" y="320" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Commit tests</text>
+<text x="656" y="344" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >retained on rejection</text>
+</g>
+<g data-node="P" data-source="P" data-box="312,288,176,72">
+<rect x="312" y="288" width="176" height="72" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="400" y="320" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Preflight</text>
+<text x="400" y="344" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >falsify the objection</text>
+</g>
+<g data-node="E" data-source="E" data-box="312,456,176,56">
+<rect x="312" y="456" width="176" height="56" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="400" y="480" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Execute</text>
+<text x="400" y="500" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >frozen scope</text>
+</g>
+<g data-node="S" data-source="S" data-box="40,456,176,56">
+<rect x="40" y="456" width="176" height="56" rx="8" fill="#F4EEE3" stroke="#050505" stroke-width="1.2"/>
+<text x="128" y="480" font-size="16" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Record outcome</text>
+<text x="128" y="500" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >record candidate result</text>
+</g>
+<line x1="40" y1="540" x2="920" y2="540" stroke="#CFC7BB" stroke-width="0.8"/>
+<text x="40" y="560" font-size="12" font-weight="400" fill="#625B52" text-anchor="start" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >A test commit can remain when the later refactor is rejected. Candidate outcomes continue in 03.</text>
+</svg>
+<figcaption>Deep check branches into optional characterization, a separate test commit and preflight; blocked or unready candidates stop before implementation.</figcaption>
+</figure>
+</main>
+</body>
+</html>

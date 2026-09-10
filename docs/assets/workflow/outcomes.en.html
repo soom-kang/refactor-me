@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rejection, rollback and safety halt · refactor-me</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Noto+Sans+KR:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root { color-scheme: light; --paper: #FDF7EC; --ink: #050505; --muted: #625B52; --accent: #DE5C20; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Geist', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; }
+main { width: min(100%, 1040px); margin: 0 auto; padding: 40px; }
+figure { margin: 0; }
+svg { display: block; width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 16px; line-height: 1.6; margin-top: 16px; }
+@media (max-width: 640px) { main { padding: 16px; } }
+@media print { main { padding: 0; width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+<figure>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" width="960" height="600" role="img" aria-labelledby="outcomes.en-title outcomes.en-desc">
+<title id="outcomes.en-title">Rejection, rollback and safety halt</title>
+<desc id="outcomes.en-desc">Implementation, gate or review rejection restores candidate edits and records an outcome before re-audit; an unsafe gate retains the worktree and ends with a report.</desc>
+<defs>
+<marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#625B52"/></marker>
+<marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#DE5C20"/></marker>
+<marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#625B52"/></marker>
+</defs>
+<rect width="960" height="600" fill="#FDF7EC"/>
+<text x="40" y="32" font-size="12" font-weight="500" fill="#625B52" text-anchor="start" font-family="&#x27;Geist Mono&#x27;, monospace" >refactor-me</text>
+<text x="920" y="32" font-size="12" font-weight="500" fill="#625B52" text-anchor="end" font-family="&#x27;Geist Mono&#x27;, monospace" >03 / WORKFLOW</text>
+<text x="40" y="72" font-size="28" font-weight="600" fill="#050505" text-anchor="start" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Rejection, rollback and safety halt</text>
+<path data-edge="e10" data-points="[[216, 160], [296, 160]]" d="M 216 160 L 296 160" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e11" data-points="[[472, 160], [552, 160]]" d="M 472 160 L 552 160" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e17" data-points="[[128, 192], [128, 240], [344, 240], [344, 288]]" d="M 128 192 L 128 232 Q 128 240 136 240 L 336 240 Q 344 240 344 248 L 344 288" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e18" data-points="[[384, 192], [384, 288]]" d="M 384 192 L 384 288" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e19" data-points="[[640, 192], [640, 240], [424, 240], [424, 288]]" d="M 640 192 L 640 232 Q 640 240 632 240 L 432 240 Q 424 240 424 248 L 424 288" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e20" data-points="[[384, 360], [384, 432]]" d="M 384 360 L 384 432" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e21" data-points="[[296, 464], [216, 464]]" d="M 296 464 L 216 464" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e25" data-points="[[424, 128], [424, 104], [856, 104], [856, 324], [824, 324]]" d="M 424 128 L 424 112 Q 424 104 432 104 L 848 104 Q 856 104 856 112 L 856 316 Q 856 324 848 324 L 824 324" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path data-edge="e26" data-points="[[736, 360], [736, 432]]" d="M 736 360 L 736 432" fill="none" stroke="#625B52" stroke-width="1.2" marker-end="url(#arrow)"/>
+<g data-label="e17" data-box="136,204,96,20"><rect x="136" y="204" width="96" height="20" rx="4" fill="#FDF7EC"/><text x="184.0" y="220" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >rejected</text></g>
+<g data-label="e18" data-box="392,208,88,20"><rect x="392" y="208" width="88" height="20" rx="4" fill="#FDF7EC"/><text x="436.0" y="224" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >rejected</text></g>
+<g data-label="e19" data-box="648,204,80,20"><rect x="648" y="204" width="80" height="20" rx="4" fill="#FDF7EC"/><text x="688.0" y="220" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >rejected</text></g>
+<g data-label="e25" data-box="752,224,96,20"><rect x="752" y="224" width="96" height="20" rx="4" fill="#FDF7EC"/><text x="800.0" y="240" font-size="12" font-weight="500" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >unsafe</text></g>
+<g data-node="E" data-source="E" data-box="40,128,176,64">
+<rect x="40" y="128" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="128" y="156" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Execute</text>
+<text x="128" y="180" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >frozen scope</text>
+</g>
+<g data-node="G" data-source="G" data-box="296,128,176,64">
+<rect x="296" y="128" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="384" y="156" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Gate + checks</text>
+<text x="384" y="180" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >diff + validation</text>
+</g>
+<g data-node="R" data-source="R" data-box="552,128,176,64">
+<rect x="552" y="128" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="640" y="156" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Review</text>
+<text x="640" y="180" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >independent session</text>
+</g>
+<g data-node="X" data-source="X" data-box="296,288,176,72">
+<rect x="296" y="288" width="176" height="72" rx="8" fill="#F4EEE3" stroke="#050505" stroke-width="1.2"/>
+<text x="384" y="320" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Restore edits</text>
+<text x="384" y="344" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >pre-write commit</text>
+</g>
+<g data-node="S" data-source="S" data-box="296,432,176,64">
+<rect x="296" y="432" width="176" height="64" rx="8" fill="#F4EEE3" stroke="#050505" stroke-width="1.2"/>
+<text x="384" y="460" font-size="16" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Record outcome</text>
+<text x="384" y="484" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >record candidate result</text>
+</g>
+<g data-node="A" data-source="A" data-box="40,432,176,64">
+<rect x="40" y="432" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="128" y="460" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Audit + rank</text>
+<text x="128" y="484" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >search + select</text>
+</g>
+<g data-node="H" data-source="H" data-box="648,288,176,72">
+<rect x="648" y="288" width="176" height="72" rx="8" fill="#FAE8DB" stroke="#DE5C20" stroke-width="1.2"/>
+<text x="736" y="320" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Safety halt</text>
+<text x="736" y="344" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >retain worktree</text>
+</g>
+<g data-node="F" data-source="F" data-box="648,432,176,64">
+<rect x="648" y="432" width="176" height="64" rx="8" fill="#FDF7EC" stroke="#050505" stroke-width="1.2"/>
+<text x="736" y="460" font-size="20" font-weight="600" fill="#050505" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Final report</text>
+<text x="736" y="484" font-size="12" font-weight="400" fill="#625B52" text-anchor="middle" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >committed comparison</text>
+</g>
+<line x1="40" y1="540" x2="920" y2="540" stroke="#CFC7BB" stroke-width="0.8"/>
+<text x="40" y="560" font-size="12" font-weight="400" fill="#625B52" text-anchor="start" font-family="&#x27;Geist&#x27;, &#x27;Noto Sans KR&#x27;, &#x27;Apple SD Gothic Neo&#x27;, sans-serif" >Rollback keeps published test commits. A safety halt keeps the worktree as evidence.</text>
+</svg>
+<figcaption>Implementation, gate or review rejection restores candidate edits and records an outcome before re-audit; an unsafe gate retains the worktree and ends with a report.</figcaption>
+</figure>
+</main>
+</body>
+</html>

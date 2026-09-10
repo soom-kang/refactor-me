@@ -10,35 +10,9 @@
 
 ## 전체 흐름
 
-```mermaid
-flowchart TD
-  I[INIT와 doctor] --> B[기준선]
-  B --> A[Audit과 후보 정렬]
-  A --> D[Deep check]
-  D --> C{Characterization 필요 및 자동 작성 활성화?}
-  C -->|예| T[테스트만 수정하고 검증]
-  T --> TC[테스트 커밋과 반영]
-  TC --> P[Preflight]
-  C -->|아니요| P
-  P --> E[구현]
-  E --> G[Diff gate와 검증]
-  G --> R[독립 리뷰]
-  R --> K[리팩터링 커밋과 반영]
-  K --> A
-  D -->|준비 미완료| S[후보 결과 기록]
-  P -->|차단| S
-  T -->|거절| S
-  E -->|거절| X[후보 수정 복원]
-  G -->|거절| X
-  R -->|거절| X
-  X --> S
-  S --> A
-  A -->|후보 없음 또는 한도 도달| F[최종 리포트와 코드 비교]
-  I -->|필수 조건 미충족| F
-  B -->|통과 신호 없음| F
-  G -->|안전 불변식 위반| H[안전 정지와 증거 보존]
-  H --> F
-```
+![전체 흐름: 초기화, 기준선, 후보 조사, 실행 준비, 구현, 검증, 리뷰, 반영과 최종 리포트.](../docs/assets/workflow/overview.ko.png)
+
+[HTML 원본](../docs/assets/workflow/overview.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
 
 도표는 후보 하나의 처리 경로를 보여줍니다. 컨트롤러는 작업 사이에 실행 한도와 프로바이더 상태도 확인합니다. 후보를 거절한 뒤 다시 조사하거나 설정된 조건에 따라 종료할 수 있습니다. 안전 정지 시에는 worktree를 증거로 남깁니다. 일반적인 후보 거절 시에는 해당 수정 직전의 상태로 복원합니다.
 
@@ -175,6 +149,10 @@ flowchart TD
 
 ## 4. Preflight
 
+![실행 전 조건: deep check, 필요한 characterization 테스트, 별도 테스트 커밋과 preflight 판정.](../docs/assets/workflow/preparation.ko.png)
+
+[HTML 원본](../docs/assets/workflow/preparation.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
+
 **컨트롤러 → preflight 모델:** “이 작업 명세가 실패할 수 있는 구체적인 가설을 하나 세우고, 그 가설을 반증해 보라.” 세션은 `sharpen-challenge`를 사용하며 코드 수정 없이 작업 명세, 저장소 정보와 기준선 요약을 읽습니다.
 
 **응답:** 문자열 로더가 참조할 수 있다는 가설에 `FALSIFIED`를 반환합니다. 차단 사유는 없고 판정은 `READY_TO_EXECUTE`입니다.
@@ -289,6 +267,10 @@ flowchart TD
 `codeComparison.status`는 `AVAILABLE`, `NO_CHANGES`, `UNAVAILABLE` 중 하나입니다. 반영한 커밋이 없으면 변경 없음으로 표시합니다. 비교 수집이나 patch 저장에 실패해도 사유만 기록하고 실행 결과와 종료 코드는 유지합니다. 과거 JSON에 `codeComparison`이 없으면 비교 미저장 안내를 표시합니다. `report --lang ko`는 새 diff 수집, 파일 변경, 모델 호출 없이 저장된 JSON을 렌더링합니다.
 
 ## 실패와 복구 분기
+
+![거절하면 후보 수정을 복원한 뒤 재조사하며 안전 정지 시 worktree를 보존하고 리포트를 작성합니다.](../docs/assets/workflow/outcomes.ko.png)
+
+[HTML 원본](../docs/assets/workflow/outcomes.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
 
 ### 근거 부족과 알 수 없는 위험도
 

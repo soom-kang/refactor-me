@@ -2,7 +2,11 @@
 
 # refactor-me
 
+[![Beta](https://img.shields.io/badge/release-v0.8.8--beta.1-orange)](https://github.com/soom-kang/refactor-me/releases/tag/v0.8.8-beta.1) [![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
+
 Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행합니다. 결과로 남긴 로컬 브랜치와 검증 리포트를 확인한 뒤 병합하세요.
+
+**공개 Beta:** `v0.8.8-beta.1`은 refactor-me CLI의 릴리즈입니다. 안정판 전까지 인터페이스와 동작이 바뀔 수 있습니다. [sharpen-me](https://github.com/soom-kang/sharpen-me)는 별도로 릴리즈된 필수 Skill 의존성이며, CLI 실행 전에 8개 Skill을 모두 설치해야 합니다.
 
 [English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [상세 문서](../tool/README.ko.md) · [Workflow](../tool/WORKFLOW.ko.md) · [변경 이력](../tool/CHANGELOG.md)
 
@@ -14,9 +18,11 @@ refactor-me는 저장소를 조사해 후보 하나를 고르고, 근거를 확�
 
 macOS, Node.js 24 이상, Git과 인증된 `codex` 또는 `claude` CLI가 필요합니다. 실행 전에 대상 프로젝트의 의존성을 설치하고 빌드 도구 캐시를 준비하세요. 프로바이더 호출에는 네트워크가 필요합니다.
 
-이 저장소의 루트에서 리팩터링할 저장소에 도구를 설치합니다.
+Beta 태그를 clone한 뒤 리팩터링할 저장소에 도구를 설치합니다.
 
 ```bash
+git clone --branch v0.8.8-beta.1 --depth 1 https://github.com/soom-kang/refactor-me.git
+cd refactor-me
 node tool/install.mjs /path/to/target-repo
 ```
 
@@ -96,3 +102,7 @@ node tool/bin/refactor-me.mjs version --json
 ```
 
 테스트는 로컬 라우팅, 변경 검사, 리포트, 설치와 CLI 동작을 확인합니다. 실제 프로바이더 판단의 품질을 보장하지는 않습니다. 검증 범위는 [상세 문서](../tool/README.ko.md), 결과 확인 절차는 [실행 가이드](../tool/TUTORIAL.ko.md)를 참고하세요.
+
+## 라이선스
+
+CLI와 문서는 [MIT License](../LICENSE)를 적용하며 저작권자는 2026 soom-kang입니다. 설치된 CLI에도 `.refactor/lib/LICENSE`를 포함합니다. 필수 의존성인 sharpen-me Skill은 각자의 MIT 라이선스 파일을 유지합니다. Codex와 Claude Code는 외부 선행 도구로 각 공급자의 약관을 따릅니다.

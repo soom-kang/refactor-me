@@ -58,6 +58,9 @@ if (flags.includes('--uninstall')) {
   process.exit(0);
 }
 
+// Read before replacing runtime files so an incomplete distribution fails early.
+const license = fs.readFileSync(path.join(here, '..', 'LICENSE'), 'utf8');
+
 fs.mkdirSync(path.join(dest, 'lib'), { recursive: true });
 fs.mkdirSync(path.join(dest, 'bin'), { recursive: true });
 fs.writeFileSync(path.join(dest, '.gitignore'), '*\n');
@@ -66,6 +69,7 @@ fs.rmSync(path.join(dest, 'lib', 'src'), { recursive: true, force: true });
 fs.rmSync(path.join(dest, 'lib', 'bin'), { recursive: true, force: true });
 fs.cpSync(path.join(here, 'src'), path.join(dest, 'lib', 'src'), { recursive: true });
 fs.cpSync(path.join(here, 'bin'), path.join(dest, 'lib', 'bin'), { recursive: true });
+fs.writeFileSync(path.join(dest, 'lib', 'LICENSE'), license);
 
 // The comment line is provenance, not configuration: nothing reads it back.
 // `head -2 .refactor/bin/refactor-me` answers "which build is this and where

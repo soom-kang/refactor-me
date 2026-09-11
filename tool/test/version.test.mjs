@@ -7,10 +7,13 @@ import { newState, newProviderRing } from '../src/state.mjs';
 
 const root = path.join(import.meta.dirname, '..');
 
-test('the version is a plain semver triple', () => {
-  // Catches 'v0.1.0' and '0.1', both of which would sort and compare wrong in
-  // a tag name and in a bug report.
-  assert.match(VERSION, /^\d+\.\d+\.\d+$/);
+test('the version is a semver triple with an optional numbered prerelease', () => {
+  const pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?$/;
+  assert.match(VERSION, pattern);
+  for (const value of ['0.1.0', '0.8.8-beta.1', '1.0.0-rc.2']) assert.match(value, pattern);
+  for (const value of ['v0.8.8-beta.1', '0.8', '0.8.8-beta', '0.8.8-beta.01', '00.8.8']) {
+    assert.doesNotMatch(value, pattern);
+  }
 });
 
 test('the changelog has a section for the current version', () => {

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { VERSION } from '../src/version.mjs';
 
 const cli = path.resolve(import.meta.dirname, '../bin/refactor-me.mjs');
 const installer = path.resolve(import.meta.dirname, '../install.mjs');
@@ -98,6 +99,8 @@ test('install and reinstall provide the new command and preserve data and custom
   assert.equal(first.status, 0, first.stderr);
   const dest = path.join(dir, '.refactor');
   const shim = path.join(dest, 'bin', 'refactor-me');
+  const license = fs.readFileSync(path.resolve(import.meta.dirname, '../../LICENSE'), 'utf8');
+  assert.equal(fs.readFileSync(path.join(dest, 'lib', 'LICENSE'), 'utf8'), license);
   assert.equal(spawnSync(shim, ['version'], { encoding: 'utf8' }).status, 0);
   const cfg = '{"workspace":{"branch_prefix":"custom/"}}\n';
   fs.writeFileSync(path.join(dest, 'config.json'), cfg);
@@ -119,6 +122,24 @@ test('install and reinstall provide the new command and preserve data and custom
   const version = spawnSync(shim, ['version', '--json'], { encoding: 'utf8' });
   assert.equal(version.status, 0, version.stderr);
   assert.equal(JSON.parse(version.stdout).name, 'refactor-me');
+  assert.equal(JSON.parse(version.stdout).version, VERSION);
+  assert.equal(fs.readFileSync(path.join(dest, 'lib', 'LICENSE'), 'utf8'), license);
+});
+
+test('an incomplete distribution fails before replacing an existing installation', (t) => {
+  const dir = scratch(t);
+  const distribution = path.join(dir, 'distribution');
+  const target = path.join(dir, 'target');
+  initRepo(target);
+  fs.cpSync(path.resolve(import.meta.dirname, '..'), path.join(distribution, 'tool'), { recursive: true });
+  const lib = path.join(target, '.refactor', 'lib');
+  fs.mkdirSync(lib, { recursive: true });
+  fs.writeFileSync(path.join(lib, 'preserved.txt'), 'existing runtime');
+  const result = run(path.join(distribution, 'tool', 'install.mjs'), [target], target);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /LICENSE/);
+  assert.deepEqual(fs.readdirSync(lib), ['preserved.txt']);
+  assert.equal(fs.readFileSync(path.join(lib, 'preserved.txt'), 'utf8'), 'existing runtime');
 });
 
 test('installer refuses an unrecognized old command before replacing files', (t) => {

@@ -16,6 +16,6 @@
 // the install contract makes to the target repo, not a stylistic preference.
 //
 // Bumping it: edit this line, add the matching section to CHANGELOG.md, then
-// tag `tool-v<version>`. test/version.test.mjs fails if the first two drift.
+// tag `v<version>`. test/version.test.mjs fails if the first two drift.
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.8.8-beta.1';

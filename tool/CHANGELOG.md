@@ -1,8 +1,13 @@
 # Changelog
 
-The runtime version is defined in `src/version.mjs`. This file describes the current tool and unreleased changes. It does not publish a release.
+The runtime version is defined in `src/version.mjs`. Release tags use `v<version>`.
 
-## Unreleased
+## 0.8.8-beta.1 — 2026-09-11
+
+Public Beta of the refactor-me CLI. The version is the repository's selected release identifier, not a count of prior CLI releases. The incorrect `v0.8.10-beta.1` Skill-package release is replaced by this CLI release; sharpen-me remains a separate required dependency.
+
+- Apply the MIT license to the CLI and documentation and include it in installed runtime copies.
+- Publish tagged installation instructions, Beta status, and a local verification workflow for Codex and Claude Code integration contracts.
 
 - Add a committed-code comparison to reports with file statistics, a bounded diff preview and `changes.patch`. Preserve report viewing for older JSON.
 - Add English and Korean Workflow documents with schema-checked response examples and failure branches. Clarify candidate validation scope and provider switching.
@@ -16,7 +21,7 @@ The runtime version is defined in `src/version.mjs`. This file describes the cur
 
 ## 0.1.0
 
-Current version identifier in the source. The tool audits candidates, validates one change at a time in a detached worktree, requests an independent review, and publishes accepted commits to a local branch.
+Previous internal version identifier; no GitHub CLI release was published under this version. The tool audits candidates, validates one change at a time in a detached worktree, requests an independent review, and publishes accepted commits to a local branch.
 
 Reports record the tool version, validation results, provider usage, skipped candidates, and worktree location. Validation discovery covers JavaScript, Go, Python, Rust, JVM builds, and Makefile targets where supported commands can be identified.
 

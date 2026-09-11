@@ -2,7 +2,11 @@
 
 # refactor-me
 
+[![Beta](https://img.shields.io/badge/release-v0.8.8--beta.1-orange)](https://github.com/soom-kang/refactor-me/releases/tag/v0.8.8-beta.1) [![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Run behavior-preserving refactors with Codex and Claude Code. Review the resulting local branch and validation report before merging.
+
+**Public Beta:** `v0.8.8-beta.1` releases the refactor-me CLI. Interfaces and behavior may change before a stable release. [sharpen-me](https://github.com/soom-kang/sharpen-me) is a separately released, required Skill dependency; install all eight Skills before running the CLI.
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
@@ -14,9 +18,11 @@ The loop uses the eight skills from [sharpen-me](https://github.com/soom-kang/sh
 
 Use macOS, Node.js 24 or later, Git, and at least one authenticated provider CLI: `codex` or `claude`. Install the target project's dependencies and populate its build-tool caches before running. Provider calls require network access.
 
-From this repository checkout, install the tool into the repository you want to refactor:
+Clone the Beta tag, then install the tool into the repository you want to refactor:
 
 ```bash
+git clone --branch v0.8.8-beta.1 --depth 1 https://github.com/soom-kang/refactor-me.git
+cd refactor-me
 node tool/install.mjs /path/to/target-repo
 ```
 
@@ -96,3 +102,7 @@ node tool/bin/refactor-me.mjs version --json
 ```
 
 The tests cover local routing, gates, reporting, installation, and CLI behavior. They do not establish the quality of live provider decisions. See the [reference](tool/README.md) for validation boundaries and the [guide](tool/TUTORIAL.md) for reviewing a result.
+
+## License
+
+The CLI and documentation are distributed under the [MIT License](LICENSE), copyright 2026 soom-kang. Installed CLI copies include `.refactor/lib/LICENSE`. The required sharpen-me Skills retain their own MIT license files. Codex and Claude Code are external prerequisites governed by their providers' terms.

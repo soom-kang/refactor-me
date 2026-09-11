@@ -4,21 +4,22 @@
 
 [![Beta](https://img.shields.io/badge/release-v0.8.8--beta.1-orange)](https://github.com/soom-kang/refactor-me/releases/tag/v0.8.8-beta.1) [![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Run behavior-preserving refactors with Codex and Claude Code. Review the resulting local branch and validation report before merging.
+Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and validates in a separate worktree and saves results on a local `refactor/auto-*` branch. Review the diff and report before merging.
 
-**Public Beta:** `v0.8.8-beta.1` releases the refactor-me CLI. Interfaces and behavior may change before a stable release. [sharpen-me](https://github.com/soom-kang/sharpen-me) is a separately released, required Skill dependency; install all eight Skills before running the CLI.
+**Public Beta `v0.8.8-beta.1`**: interfaces and behavior may change before a stable release.
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
-refactor-me audits a repository, selects one candidate, checks its evidence, implements the change in a detached worktree, validates it, and requests an independent review. It commits accepted changes to a local `refactor/auto-*` branch and repeats within the configured limits.
-
-The loop uses the eight skills from [sharpen-me](https://github.com/soom-kang/sharpen-me). This repository contains the CLI that coordinates them. The installed skill files and `skills-lock.json` record the catalog used by this checkout.
-
 ## Install
 
-Use macOS, Node.js 24 or later, Git, and at least one authenticated provider CLI: `codex` or `claude`. Install the target project's dependencies and populate its build-tool caches before running. Provider calls require network access.
+Prepare these prerequisites:
 
-Clone the Beta tag, then install the tool into the repository you want to refactor:
+- macOS, Node.js 24 or later, and Git
+- An authenticated `codex` or `claude` CLI and network access
+- All eight Skills from [sharpen-me](https://github.com/soom-kang/sharpen-me), a separately released required dependency
+- The target project's dependencies and build-tool caches
+
+1. Clone the Beta and install the tool. Replace the example path with your target repository.
 
 ```bash
 git clone --branch v0.8.8-beta.1 --depth 1 https://github.com/soom-kang/refactor-me.git
@@ -26,20 +27,20 @@ cd refactor-me
 node tool/install.mjs /path/to/target-repo
 ```
 
-Install the skills in the **target repository**, using Project scope:
+2. Install the Skills in the **target repository** and choose Project scope.
 
 ```bash
 cd /path/to/target-repo
 npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 ```
 
-Review and commit the installed skill files, agent links, and lockfile before starting a run. Each phase uses a checkout of the base commit, so uncommitted project skills are unavailable there. Claude loads project skills under this tool's isolation settings; a global Claude installation does not satisfy that requirement.
+3. Review and commit the Skill files, agent links, and `skills-lock.json`. Run worktrees read the base commit, so they cannot use uncommitted Skills. A global Claude installation does not satisfy this requirement.
 
-The installer copies the tool into `.refactor/`. It preserves existing configuration and run records. No npm package installation or build is required for the tool itself.
+The installer copies the tool into `.refactor/` and preserves existing configuration and run records. The tool needs no npm package installation or build.
 
 ## Run
 
-From the target repository:
+Set limits using the [guide](tool/TUTORIAL.md#set-limits-and-run) before your first run. From the target repository:
 
 ```bash
 ./.refactor/bin/refactor-me version
@@ -47,9 +48,10 @@ From the target repository:
 ./.refactor/bin/refactor-me --provider codex --fallback none
 ```
 
-`doctor` checks prerequisites and writes diagnostic records. Its default provider probes make model calls. Use `doctor --no-live-probe` to skip those calls; that check does not verify session visibility.
+`doctor` writes diagnostics and calls models, consuming account usage. `doctor --no-live-probe` skips model calls and does not verify session Skill loading.
 
-To use both providers or narrow candidate discovery:
+<details>
+<summary>Provider switching and discovery scope options</summary>
 
 ```bash
 ./.refactor/bin/refactor-me --provider codex --fallback claude
@@ -57,39 +59,29 @@ To use both providers or narrow candidate discovery:
 ./.refactor/bin/refactor-me --target app/web --target app/api
 ```
 
-`--target` limits where the audit looks for candidates. A candidate can require changes to callers and tests outside that directory. Reachability searches cover the repository. Baseline validation runs the discovered commands; candidate validation selects changed areas and the root area when present.
+`--target` limits candidate discovery. Caller changes and validation can extend beyond that directory. See [scope and validation rules](tool/README.md#candidate-selection).
 
-A run can create local commits and a result branch. It does not merge, push, or deploy. Keep the source checkout clean during execution.
+</details>
 
-## Skills in the loop
-
-| Skill | Used when | Result |
-| --- | --- | --- |
-| `sharpen-clarify` | Audit and characterization need a defined scope | Scope and contracts to check |
-| `sharpen-review` | Audit or deep check examines a candidate | Findings backed by repository evidence |
-| `sharpen-challenge` | Audit, deep check, characterization, or preflight tests an assumption | Supported objections and checks |
-| `sharpen-assess` | Audit assigns change risk | Risk classification; unknown risk excludes a candidate |
-| `sharpen-refine` | Execution applies an approved task packet | A bounded change or a justified no-op |
-| `sharpen-cold-review` | A separate session reviews the implementation | Review verdict and findings |
-| `sharpen-brief` | Provider quota or authentication failure causes a handoff | A snapshot of the transition |
-| `sharpen-dedupe` | A duplication candidate reaches deep check or execution | Duplicate analysis and scoped consolidation |
-
-The loop defines each phase's allowed skills, output schema, and permissions. Model and effort settings come from the loop's configuration; skill recommendations do not change them.
+Keep the source checkout clean during execution. The CLI creates local commits and a result branch; it does not merge, push, or deploy.
 
 ## Reports
 
-English is the default. Choose Korean for a run or for viewing a saved report:
+Read the result after a run. English is the default language.
 
 ```bash
-./.refactor/bin/refactor-me --lang ko
 ./.refactor/bin/refactor-me report
 ./.refactor/bin/refactor-me report --lang ko
 ./.refactor/bin/refactor-me report --json
 ```
 
-Each run writes one `report.md` in the selected language and a language-neutral `report.json`. Reading a report with another language renders the saved JSON without overwriting either file or calling a model. Translated labels cover headings, statuses, and known reasons. Commit subjects, model explanations, commands, and error text retain their original wording.
+Viewing reports does not overwrite files or call a model. To select Korean for a **new run**:
 
-The code comparison uses the run's recorded start and final published commits. It includes file statistics, a bounded diff preview and a link to `changes.patch`, the full text patch. It includes published characterization tests and excludes rejected edits. See the [Workflow](tool/WORKFLOW.md) for response examples and failure branches.
+```bash
+./.refactor/bin/refactor-me --lang ko
+```
+
+Reports include file statistics, a diff preview, and `changes.patch`, the full text patch. Review the status and changes before merging. See the reference for [report formats and limits](tool/README.md#reports-and-language) and [Skill roles](tool/README.md#skill-availability).
 
 ## Verify
 
@@ -101,7 +93,7 @@ node tool/bin/refactor-me.mjs help
 node tool/bin/refactor-me.mjs version --json
 ```
 
-The tests cover local routing, gates, reporting, installation, and CLI behavior. They do not establish the quality of live provider decisions. See the [reference](tool/README.md) for validation boundaries and the [guide](tool/TUTORIAL.md) for reviewing a result.
+Local tests check installation and CLI behavior. Live model decision quality requires separate provider runs. See [validation boundaries](tool/README.md#local-development-checks).
 
 ## License
 

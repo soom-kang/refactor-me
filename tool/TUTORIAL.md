@@ -2,9 +2,11 @@
 
 [Project](../README.md) · [한국어](TUTORIAL.ko.md) · [Reference](README.md) · [Workflow](WORKFLOW.md)
 
-This walkthrough installs the tool, runs it on a target repository, and reviews the resulting branch. Run commands from the directories shown and substitute your own paths.
+Prepare the target repository, then follow these five steps. Check each command’s working directory and replace the example paths.
 
-## Prepare the target
+<a id="prepare-the-target"></a>
+
+## 1. Prepare the target
 
 Use macOS and Node.js 24 or later. From the repository you want to refactor:
 
@@ -15,7 +17,9 @@ git rev-parse --show-toplevel
 git status --short
 ```
 
-Complete or set aside your existing changes before running. The source checkout must be clean, including untracked files. Install the project's dependencies and run its normal build and tests once to prepare caches and understand baseline failures.
+Finish or set aside existing changes. The source checkout must be clean, including untracked files.
+
+Install project dependencies and run its build and tests once to prepare caches and identify baseline failures.
 
 Check the provider you intend to use:
 
@@ -27,22 +31,24 @@ claude auth status
 
 Provider calls require network access and consume the provider account's available usage.
 
-## Install the tool and skills
+<a id="install-the-tool-and-skills"></a>
 
-In your refactor-me checkout:
+## 2. Install the tool and skills
+
+Clone using the [Beta installation instructions](../README.md#install), then run from that checkout:
 
 ```bash
 node tool/install.mjs /path/to/target-repo
 ```
 
-Then install the catalog in the target repository:
+Install the eight required sharpen-me Skills in the target repository:
 
 ```bash
 cd /path/to/target-repo
 npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 ```
 
-Use Project scope. Review the installed files and commit the eight Skill directories, the corresponding agent links, and `skills-lock.json` through your normal Git workflow. These files must reach the base commit used by the worktree. Avoid staging unrelated files.
+Choose Project scope. Review and commit the eight Skill directories, agent links, and `skills-lock.json`. Worktrees read files from the base commit. Keep unrelated files out of the commit.
 
 Check the installed tool:
 
@@ -52,13 +58,19 @@ Check the installed tool:
 ./.refactor/bin/refactor-me doctor
 ```
 
-Doctor writes diagnostics under `.refactor/runs/` and probes the providers. Resolve blocking failures before running. A disk-only check is available as `doctor --no-live-probe`, but it does not confirm that a model session can load the skills.
+Doctor writes diagnostics under `.refactor/runs/` and calls models. Resolve blocking failures. `doctor --no-live-probe` checks disk installation without verifying session Skill loading.
 
-## Set limits and run
+<a id="set-limits-and-run"></a>
 
-Review `.refactor/config.json`. For a first run, set `policy.max_commits` to `1` and choose a suitable elapsed-time limit. Characterization commits are recorded separately from the refactor-commit counter.
+## 3. Set limits
 
-With Codex only:
+In `.refactor/config.json`, set `policy.max_commits` to `1` for a first run and choose an elapsed-time limit. Characterization test commits are counted apart from this refactor-commit limit.
+
+**The loop does not enforce a total monetary budget.** Claude’s budget option is not a total run limit either. See [configuration and defaults](README.md#configuration).
+
+## 4. Run
+
+From the target repository, use Codex only:
 
 ```bash
 ./.refactor/bin/refactor-me --provider codex --fallback none
@@ -76,11 +88,15 @@ To find candidates in one directory:
 ./.refactor/bin/refactor-me --target app/web
 ```
 
-The target is relative to your current directory. Caller changes and validation can extend beyond it. Do not edit the source checkout while the run is active.
+`--target` is relative to your current directory. Caller changes and validation can extend beyond it. Keep the source checkout unchanged during a run.
 
-The controller may create local commits and publish them to a `refactor/auto-*` branch. Stop conditions include no remaining eligible candidates, configured limits, repeated failures, unavailable providers, and safety violations. Exit code `0` can mean partial completion; read the reported status.
+Accepted changes remain on a local `refactor/auto-*` branch. The loop stops for no eligible candidates, run limits, repeated failures, unavailable providers, or safety violations.
 
-## Read the result
+**Exit code `0` can mean partial completion.** Check the status in the next step.
+
+<a id="read-the-result"></a>
+
+## 5. Read the result
 
 ```bash
 ./.refactor/bin/refactor-me report
@@ -94,11 +110,11 @@ To write the report and final summary in Korean when running:
 ./.refactor/bin/refactor-me --provider codex --fallback none --lang ko
 ```
 
-Each run saves one `report.md`. Viewing another language renders `report.json` without replacing the saved Markdown. Fixed labels and known reasons are translated; model explanations and errors stay in their original language. `--lang` applies only to `run` and `report`. Doctor and progress logs remain in English.
+Viewing another language preserves the saved `report.md`. `--lang` applies to `run` and `report`; doctor and progress logs remain in English. See [reports and language](README.md#reports-and-language) for translated fields and JSON compatibility.
 
-The report lists committed changes, skipped candidates, validation evidence, provider usage, and the worktree path. Missing cost is not zero cost. A partial cost total is a lower bound.
+Check committed changes, skipped candidates, validation, usage, and the worktree path. Missing cost is not zero; a partial total is a lower bound.
 
-Start with the report's file statistics and diff preview. Open `.refactor/runs/<id>/changes.patch` for the full text comparison. The report records immutable start and final published commit OIDs, so later branch movement does not change this evidence. A comparison failure is separate from the run result; inspect its recorded reason.
+Read the file statistics and diff preview, then open `.refactor/runs/<id>/changes.patch` for the full comparison. It uses fixed start and final published commit OIDs. A comparison failure is separate from the run result; inspect its reason.
 
 Use the full start and final published OIDs from `codeComparison` for another Git view:
 
@@ -107,7 +123,9 @@ git log --oneline <base-commit>..<published-commit>
 git diff <base-commit> <published-commit>
 ```
 
-Check the diff and run any omitted service, browser, or integration checks before deciding whether to merge. Baseline failures that remained unchanged are not passing tests. Candidate validation selects changed areas and the root area when present. A run does not establish that all areas passed. The [Workflow](WORKFLOW.md) explains these checks and shows model responses. `handoff.md` is an intermediate snapshot; use the final report for the outcome.
+Before merging, review the diff and run omitted service, browser, or integration checks. Candidate validation selects changed areas and the root area when present; it does not establish that all areas passed. Unchanged baseline failures are still failures.
+
+See [Workflow](WORKFLOW.md) for phase checks. `handoff.md` is an intermediate record; use the final report for the outcome.
 
 ## Handle a stopped run
 
@@ -132,7 +150,7 @@ From an updated refactor-me checkout, reinstall with the same command:
 node tool/install.mjs /path/to/target-repo
 ```
 
-The installer replaces its runtime files and preserves `.refactor/config.json`, run records, and `last-run.json`. It removes a recognized previous generated command when replacing it with the current command. If an old command file has been customized, installation stops before replacing the runtime; inspect that file first. No compatibility alias is installed.
+Reinstalling replaces runtime files and preserves `.refactor/config.json`, run records, and `last-run.json`. It removes recognized old generated commands without adding compatibility aliases. A customized old command stops installation before replacement; inspect it first.
 
 Review local Skill edits before updating the catalog in the target repository. Use the [sharpen-me documentation](https://github.com/soom-kang/sharpen-me) for catalog maintenance, then commit the reviewed update.
 

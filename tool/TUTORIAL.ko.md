@@ -2,9 +2,11 @@
 
 [프로젝트](../docs/README.ko.md) · [English](TUTORIAL.md) · [상세 문서](README.ko.md) · [Workflow](WORKFLOW.ko.md)
 
-도구를 설치하고 대상 저장소에서 실행한 뒤 결과 브랜치를 검토하는 절차입니다. 명시한 디렉터리에서 실행하고 예시 경로를 실제 경로로 바꾸세요.
+대상 저장소를 준비한 뒤 아래 5단계를 진행하세요. 각 명령의 실행 위치를 확인하고 예시 경로를 실제 경로로 바꾸세요.
 
-## 대상 저장소 준비
+<a id="대상-저장소-준비"></a>
+
+## 1. 대상 저장소 준비
 
 macOS와 Node.js 24 이상을 사용합니다. 리팩터링할 저장소에서 확인하세요.
 
@@ -15,7 +17,9 @@ git rev-parse --show-toplevel
 git status --short
 ```
 
-기존 작업을 마치거나 별도로 보관한 뒤 실행하세요. 추적하지 않는 파일을 포함해 원본 checkout이 깨끗해야 합니다. 프로젝트 의존성을 설치하고 평소 사용하는 빌드와 테스트를 한 번 실행해 캐시와 기존 실패 상태를 확인하세요.
+기존 작업을 마치거나 별도로 보관하세요. 미추적 파일을 포함해 원본 checkout이 깨끗해야 합니다.
+
+프로젝트 의존성을 설치하고 빌드와 테스트를 한 번 실행하세요. 필요한 캐시를 준비하고 기존 실패를 확인하는 단계입니다.
 
 사용할 프로바이더의 인증 상태를 확인합니다.
 
@@ -27,22 +31,24 @@ claude auth status
 
 프로바이더 호출에는 네트워크가 필요하며 해당 계정의 사용량을 소비합니다.
 
-## 도구와 Skill 설치
+<a id="도구와-skill-설치"></a>
 
-refactor-me checkout에서 실행합니다.
+## 2. 도구와 Skill 설치
+
+[Beta 설치 안내](../docs/README.ko.md#설치)에 따라 clone한 refactor-me checkout에서 실행하세요.
 
 ```bash
 node tool/install.mjs /path/to/target-repo
 ```
 
-대상 저장소에서 카탈로그를 설치합니다.
+대상 저장소에 필수 의존성인 sharpen-me Skill 8개를 설치하세요.
 
 ```bash
 cd /path/to/target-repo
 npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 ```
 
-Project 범위를 사용하세요. 설치한 Skill 디렉터리 8개, 에이전트 링크와 `skills-lock.json`을 검토하고 평소 Git 절차에 따라 커밋합니다. Worktree에서 사용하는 기준 커밋에 이 파일들이 있어야 합니다. 관련 없는 파일은 함께 stage하지 마세요.
+Project 범위를 선택하세요. Skill 디렉터리 8개, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋하세요. Worktree는 기준 커밋의 파일을 읽습니다. 관련 없는 파일은 함께 stage하지 마세요.
 
 설치된 도구를 확인합니다.
 
@@ -52,35 +58,45 @@ Project 범위를 사용하세요. 설치한 Skill 디렉터리 8개, 에이전�
 ./.refactor/bin/refactor-me doctor
 ```
 
-Doctor는 `.refactor/runs/`에 진단 기록을 쓰고 프로바이더를 검사합니다. 실행을 막는 실패를 해결한 뒤 진행하세요. `doctor --no-live-probe`로 디스크 검사만 할 수 있지만 모델 세션이 Skill을 읽는지는 확인하지 않습니다.
+Doctor는 `.refactor/runs/`에 진단 기록을 쓰고 모델을 호출합니다. 실행을 막는 실패를 해결하세요. `doctor --no-live-probe`는 디스크만 검사하며 세션의 Skill 로딩은 확인하지 않습니다.
 
-## 한도 설정과 실행
+<a id="한도-설정과-실행"></a>
 
-`.refactor/config.json`을 검토하세요. 첫 실행에서는 `policy.max_commits`를 `1`로 설정하고 적절한 경과 시간 한도를 정하세요. Characterization 커밋은 리팩터링 커밋 수와 별도로 기록합니다.
+## 3. 실행 한도 설정
 
-Codex만 사용하려면 다음과 같이 실행합니다.
+`.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`로 설정하고 경과 시간 한도를 정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
+
+**전체 금액 예산은 강제하지 않습니다.** Claude 예산 옵션도 실행 전체의 한도가 아닙니다. [설정과 기본값](README.ko.md#설정)을 확인하세요.
+
+## 4. 실행
+
+Codex만 사용하려면 대상 저장소에서 실행하세요.
 
 ```bash
 ./.refactor/bin/refactor-me --provider codex --fallback none
 ```
 
-Claude를 대체 프로바이더로 사용하려면 다음과 같이 실행합니다.
+Claude를 대체 프로바이더로 사용하려면:
 
 ```bash
 ./.refactor/bin/refactor-me --provider codex --fallback claude
 ```
 
-특정 폴더에서 후보를 찾으려면 다음과 같이 실행합니다.
+특정 폴더에서 후보를 찾으려면:
 
 ```bash
 ./.refactor/bin/refactor-me --target app/web
 ```
 
-대상은 현재 디렉터리를 기준으로 해석합니다. 호출부 수정과 검증은 대상 밖에서도 수행할 수 있습니다. 실행 중에는 원본 checkout을 수정하지 마세요.
+`--target`은 현재 디렉터리 기준입니다. 호출부 수정과 검증은 대상 밖까지 이어질 수 있습니다. 실행 중에는 원본 checkout을 수정하지 마세요.
 
-컨트롤러가 로컬 커밋을 만들고 `refactor/auto-*` 브랜치에 반영할 수 있습니다. 실행할 후보가 없거나 설정한 한도에 도달한 경우, 실패가 반복되거나 프로바이더를 사용할 수 없는 경우, 안전 규칙을 위반한 경우에 중단합니다. 종료 코드 `0`도 부분 완료일 수 있으므로 상태를 확인하세요.
+통과한 변경은 `refactor/auto-*` 로컬 브랜치에 반영합니다. 후보 소진, 실행 한도, 반복 실패, 프로바이더 사용 불가, 안전 규칙 위반이 종료 조건입니다.
 
-## 결과 확인
+**종료 코드 `0`도 부분 완료일 수 있습니다.** 다음 단계에서 상태를 확인하세요.
+
+<a id="결과-확인"></a>
+
+## 5. 결과 확인
 
 ```bash
 ./.refactor/bin/refactor-me report
@@ -88,17 +104,17 @@ Claude를 대체 프로바이더로 사용하려면 다음과 같이 실행합�
 ./.refactor/bin/refactor-me report --json
 ```
 
-실행할 때부터 리포트와 종료 요약을 한국어로 만들려면 다음과 같이 지정합니다.
+실행할 때부터 리포트와 종료 요약을 한국어로 저장하려면:
 
 ```bash
 ./.refactor/bin/refactor-me --provider codex --fallback none --lang ko
 ```
 
-실행마다 `report.md` 하나를 저장합니다. 다른 언어로 조회하면 `report.json`을 렌더링하고 기존 Markdown은 바꾸지 않습니다. 고정 문구와 알려진 사유를 번역하며 모델 설명과 오류는 원문을 유지합니다. `--lang`은 `run`과 `report`에만 적용합니다. Doctor와 진행 로그는 영어입니다.
+언어를 바꿔 조회해도 저장된 `report.md`는 유지합니다. `--lang`은 `run`과 `report`에 적용하며 doctor와 진행 로그는 영어입니다. 번역 대상과 JSON 호환성은 [리포트와 언어](README.ko.md#리포트와-언어)를 확인하세요.
 
-리포트에는 커밋한 변경, 제외한 후보, 검증 근거, 프로바이더 사용량과 worktree 경로가 있습니다. 미보고 비용을 0으로 해석하지 마세요. 일부 비용만 집계한 금액은 최소 금액입니다.
+리포트에서 커밋한 변경, 제외한 후보, 검증 결과, 사용량과 worktree 경로를 확인하세요. 미보고 비용은 0이 아니며 일부만 집계한 금액은 최소 금액입니다.
 
-리포트의 파일 통계와 diff 미리보기를 먼저 확인하세요. 전체 텍스트 비교는 `.refactor/runs/<id>/changes.patch`에서 볼 수 있습니다. 시작 커밋과 최종 반영 커밋의 고정 OID를 기록하므로 이후 브랜치가 움직여도 비교 결과는 바뀌지 않습니다. 비교 실패는 실행 결과와 별개이므로 기록된 사유를 확인하세요.
+파일 통계와 diff 미리보기를 읽고 `.refactor/runs/<id>/changes.patch`에서 전체 변경을 확인하세요. 비교는 시작·최종 반영 커밋의 고정 OID를 사용합니다. 비교 실패는 실행 결과와 별개이므로 사유를 확인하세요.
 
 Git에서 다시 확인하려면 `codeComparison`의 시작·최종 반영 커밋 전체 OID를 사용합니다.
 
@@ -107,7 +123,9 @@ git log --oneline <base-commit>..<published-commit>
 git diff <base-commit> <published-commit>
 ```
 
-Diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행한 뒤 병합 여부를 결정하세요. 기준선과 같게 실패한 검사는 통과가 아닙니다. 후보 검증은 변경된 영역을 선택하고 루트 영역이 있으면 함께 실행합니다. 실행 결과가 모든 영역의 검증 통과를 뜻하지는 않습니다. 검사 과정과 모델 응답 예시는 [Workflow](WORKFLOW.ko.md)에서 확인하세요. `handoff.md`는 중간 상태이므로 최종 결과는 리포트에서 확인하세요.
+병합 전에는 diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행하세요. 후보 검증은 변경 영역을 선택하고 루트 영역이 있으면 함께 검사합니다. 모든 영역의 통과를 보장하지는 않습니다. 기준선과 같은 실패도 통과로 세지 않습니다.
+
+단계별 검사는 [Workflow](WORKFLOW.ko.md)를 참고하세요. `handoff.md`는 중간 기록이며 최종 결과는 리포트에서 확인합니다.
 
 ## 중단된 실행 확인
 
@@ -132,7 +150,7 @@ Diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행�
 node tool/install.mjs /path/to/target-repo
 ```
 
-설치기는 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. 이전 설치기가 생성한 것으로 확인되는 명령은 현재 명령으로 교체하면서 제거합니다. 이전 명령 파일에 사용자 수정이 있으면 실행 파일을 교체하기 전에 중단하므로 해당 파일을 먼저 확인하세요. 호환 별칭은 설치하지 않습니다.
+재설치는 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. 이전 설치기가 생성한 명령은 제거하며 호환 별칭은 만들지 않습니다. 이전 명령에 사용자 수정이 있으면 교체 전에 중단하므로 먼저 확인하세요.
 
 대상 저장소의 카탈로그를 업데이트하기 전에 로컬 Skill 수정 사항을 검토하세요. 카탈로그 관리는 [sharpen-me 문서](https://github.com/soom-kang/sharpen-me)를 참고하고 검토한 변경을 커밋하세요.
 

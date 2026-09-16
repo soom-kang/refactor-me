@@ -50,6 +50,12 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 
 Project 범위를 선택하세요. Skill 디렉터리 8개, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋하세요. Worktree는 기준 커밋의 파일을 읽습니다. 관련 없는 파일은 함께 stage하지 마세요.
 
+```bash
+git add .agents .claude skills-lock.json && git commit
+```
+
+두 디렉터리를 모두 커밋해야 합니다. 실체 파일은 `.agents/skills/<name>/`에 놓이고 `.claude/skills/<name>`은 그곳을 가리키는 심볼릭 링크입니다. 한쪽만 커밋하면 worktree에서 링크가 아무것도 가리키지 못합니다.
+
 설치된 도구를 확인합니다.
 
 ```bash
@@ -132,7 +138,7 @@ git diff <base-commit> <published-commit>
 | 증상 | 다음 조치 |
 | --- | --- |
 | Skill 누락 | 해당 Skill을 Project 범위로 설치하고 에이전트 링크 확인 |
-| `skill-worktree` 실패 | 프로젝트 Skill 파일을 검토하고 커밋한 뒤 재실행 |
+| `skill-worktree` 실패 | 기준 커밋 checkout에 필요한 Skill이 없음. `.agents`와 `.claude`를 함께 커밋. `.claude` 항목은 `.agents`로 가는 심볼릭 링크이므로 한쪽만으로는 부족 |
 | 원본 checkout에 변경 있음 | 작업을 마치거나 별도 보관 후 doctor 재실행 |
 | 사용할 기준선 없음 | 명령 실패, 의존성과 빌드 캐시 확인, 탐색이 부족하면 검증 명령 직접 지정 |
 | 실행할 후보 없음 | 제외 사유 확인, 변경 없이 끝날 수 있음 |

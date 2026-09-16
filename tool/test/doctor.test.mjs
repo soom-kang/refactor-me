@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderDoctor, skillVisibility, probeSkillsInWorktree, SKILL_ROOTS } from '../src/doctor.mjs';
+import { renderDoctor, skillVisibility, probeSkillsInWorktree, runDoctor, SKILL_ROOTS } from '../src/doctor.mjs';
+import * as G from '../src/git.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -104,17 +105,42 @@ test('claude probes no home directory, codex still does', () => {
     'codex genuinely loads a user-scope catalog, so doctor must look there');
 });
 
+// `realpathSync` matters on macOS, where mkdtemp hands back /var/... and the
+// production repoRoot is realpath'd in git.mjs — `path.relative` needs both
+// sides in the same namespace.
+function newRepo(prefix) {
+  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const run = (...a) => assert.equal(
+    spawnSync('git', a, { cwd: repo, encoding: 'utf8' }).status, 0, `git ${a.join(' ')}`);
+  run('init', '-q');
+  run('config', 'user.email', 't@t');
+  run('config', 'user.name', 't');
+  return { repo, run };
+}
+
+// The check reads a checkout now instead of guessing from the index, so every
+// test supplies a real one.
+function withWorktree(repo, fn) {
+  const wt = path.join(os.tmpdir(), `rl-test-wt-${process.pid}-${Date.now()}`);
+  G.worktreeAdd(repo, wt, 'HEAD');
+  try { return fn(wt); } finally {
+    G.worktreeRemove(repo, wt);
+    fs.rmSync(wt, { recursive: true, force: true });
+  }
+}
+
+const skillFile = (dir) => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), '---\nname: x\n---\n');
+};
+
 // doctor probes the source repository; phases run in a worktree checkout of the
 // base commit. A project-scoped install that is gitignored resolves in the first
 // and is absent from the second, so the run would lose every skill while doctor
 // reported a complete catalog.
 test('a repo-local skill that is not committed is reported, a committed one is not', () => {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-skills-'));
-  const run = (...a) => assert.equal(spawnSync('git', a, { cwd: repo, encoding: 'utf8' }).status, 0);
+  const { repo, run } = newRepo('rl-skills-');
   try {
-    run('init', '-q');
-    run('config', 'user.email', 't@t');
-    run('config', 'user.name', 't');
     const root = path.join(repo, '.agents', 'skills');
     for (const name of ['sharpen-clarify', 'sharpen-review']) {
       fs.mkdirSync(path.join(root, name), { recursive: true });
@@ -124,7 +150,8 @@ test('a repo-local skill that is not committed is reported, a committed one is n
     run('commit', '-qm', 'only one of them');
 
     const resolved = { at: new Map([['sharpen-clarify', root], ['sharpen-review', root]]) };
-    const out = probeSkillsInWorktree(repo, resolved);
+    withWorktree(repo, (wt) => {
+    const out = probeSkillsInWorktree(repo, wt, [['codex', resolved]]);
     assert.equal(out.length, 1);
     assert.equal(out[0].status, 'FAIL');
     assert.equal(out[0].blocking, true,
@@ -139,8 +166,102 @@ test('a repo-local skill that is not committed is reported, a committed one is n
     // A root outside the repository is not this check's business: it has no
     // worktree gap, and for codex it is a supported install location.
     const global = { at: new Map([['sharpen-review', path.join(os.homedir(), '.agents', 'skills')]]) };
-    assert.deepEqual(probeSkillsInWorktree(repo, global), []);
+    assert.deepEqual(probeSkillsInWorktree(repo, wt, [['codex', global]]), []);
+    });
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
+});
+
+// THE regression this check was rewritten for. `npx skills add … --agent codex
+// claude-code` puts the real files under .agents and a symlink at
+// .claude/skills/<name>. git stores that link as ONE 120000 blob, so the old
+// membership test for `.claude/skills/<name>/SKILL.md` could not match a path
+// git will never emit — and blocked every `--provider claude` run against a
+// fully committed catalog, including this repository's own.
+test('a catalog reached through a committed .claude symlink is present in the checkout', () => {
+  const { repo, run } = newRepo('rl-symlink-');
+  try {
+    const agents = path.join(repo, '.agents', 'skills');
+    const claude = path.join(repo, '.claude', 'skills');
+    fs.mkdirSync(claude, { recursive: true });
+    for (const n of ['sharpen-clarify', 'sharpen-review']) {
+      skillFile(path.join(agents, n));
+      fs.symlinkSync(path.join('..', '..', '.agents', 'skills', n), path.join(claude, n));
+    }
+    run('add', '.agents', '.claude');
+    run('commit', '-qm', 'catalog');
+
+    // The premise, stated rather than assumed: the index cannot answer this.
+    const ls = spawnSync('git', ['ls-files', '-s'], { cwd: repo, encoding: 'utf8' }).stdout;
+    assert.match(ls, /^120000 .+\.claude\/skills\/sharpen-review$/m, 'the link is one blob');
+    assert.ok(!ls.includes('.claude/skills/sharpen-review/SKILL.md'),
+      'git never tracks a path through a symlink, so no index test can ever match it');
+
+    withWorktree(repo, (wt) => {
+      assert.deepEqual(probeSkillsInWorktree(repo, wt, [
+        ['codex', { at: new Map([['sharpen-clarify', agents], ['sharpen-review', agents]]) }],
+        ['claude', { at: new Map([['sharpen-clarify', claude], ['sharpen-review', claude]]) }],
+      ]), [], 'link and target are both committed, so the checkout resolves the file');
+    });
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+// The sub-case that makes "not committed" the wrong words: the link IS
+// committed, and still resolves to nothing in the checkout.
+test('a committed .claude symlink whose target is not committed is reported once', () => {
+  const { repo, run } = newRepo('rl-dangling-');
+  try {
+    const agents = path.join(repo, '.agents', 'skills');
+    const claude = path.join(repo, '.claude', 'skills');
+    fs.mkdirSync(claude, { recursive: true });
+    fs.writeFileSync(path.join(repo, '.gitignore'), '.agents/\n');
+    skillFile(path.join(agents, 'sharpen-review'));
+    fs.symlinkSync(path.join('..', '..', '.agents', 'skills', 'sharpen-review'),
+      path.join(claude, 'sharpen-review'));
+    run('add', '.gitignore', '.claude');
+    run('commit', '-qm', 'links only');
+
+    withWorktree(repo, (wt) => {
+      const out = probeSkillsInWorktree(repo, wt, [
+        ['codex', { at: new Map([['sharpen-review', agents]]) }],
+        ['claude', { at: new Map([['sharpen-review', claude]]) }],
+      ]);
+      assert.equal(out.length, 1);
+      assert.equal(out[0].status, 'FAIL');
+      assert.equal(out[0].blocking, true);
+      assert.equal(out[0].detail.match(/sharpen-review/g).length, 1,
+        'one skill is one problem, however many providers cannot see it');
+      assert.match(out[0].detail, /codex/);
+      assert.match(out[0].detail, /claude/, 'the provider list is what makes the half-missing case diagnosable');
+      assert.match(out[0].fix, /git add/);
+    });
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+test('with no probe worktree the check reports that it did not measure', () => {
+  const out = probeSkillsInWorktree('/r', null,
+    [['claude', { at: new Map([['sharpen-review', '/r/.claude/skills']]) }]]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].status, 'WARN');
+  assert.equal(out[0].blocking, false,
+    'git-worktree already blocks the run; a second blocker only buries the cause');
+  assert.match(out[0].detail, /not measured/);
+});
+
+// The probe worktree now outlives its own check, so its removal is a thing that
+// can be forgotten. The early return on "no provider CLI" is the path where a
+// `finally` is easiest to get wrong.
+test('doctor removes its probe worktree even when no provider CLI is installed', async () => {
+  const { repo, run } = newRepo('rl-doctor-');
+  try {
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'x\n');
+    run('add', 'a.txt');
+    run('commit', '-qm', 'base');
+
+    const report = await runDoctor({ repoRoot: repo, cfg: {}, runDir: null, providers: [], live: false, targets: [] });
+    assert.equal(report.ok, false, 'no provider CLI is a blocking failure');
+    const list = spawnSync('git', ['worktree', 'list'], { cwd: repo, encoding: 'utf8' }).stdout;
+    assert.ok(!/rl-probe-/.test(list), `the probe worktree is still registered:\n${list}`);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
 });

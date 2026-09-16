@@ -84,12 +84,14 @@ Quota or authentication failure can switch providers within the same phase. The 
 
 Install all eight Skills from `soom-kang/sharpen-me`, a separately released required dependency, in the target repository. Review and commit their files, agent links, and `skills-lock.json`.
 
-Doctor checks required Skill paths on disk and in the base checkout.
+Doctor checks required Skill paths on disk, then checks the base commit by creating a temporary worktree and looking for each `SKILL.md` inside it. It judges the checkout by what it resolves to, not by index paths, so a symlinked catalog is measured correctly. This runs for every available provider, because the paths below differ per provider.
 
 | Provider | Skill paths |
 | --- | --- |
 | Claude Code | `.claude/skills` with `--setting-sources project`; a global install alone is insufficient |
 | Codex | `.agents/skills` and its supported home path |
+
+`.claude/skills/<name>` is a symlink into `.agents/skills/<name>`, so the base commit needs both directories. Git stores the link as a single entry and never tracks a path through it; committing one directory without the other leaves a link that resolves to nothing in the run worktree.
 
 Doctor calls models and writes diagnostics by default. A session reporting no visible Skills fails. A partial self-report does not override a complete disk installation. `--no-live-probe` skips this session check.
 

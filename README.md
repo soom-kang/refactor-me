@@ -36,6 +36,12 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 
 3. Review and commit the Skill files, agent links, and `skills-lock.json`. Run worktrees read the base commit, so they cannot use uncommitted Skills. A global Claude installation does not satisfy this requirement.
 
+```bash
+git add .agents .claude skills-lock.json && git commit
+```
+
+The installer writes the real files to `.agents/skills/<name>/` and makes `.claude/skills/<name>` a symlink into them. Commit both directories: committing one without the other leaves a link that resolves to nothing in the run worktree.
+
 The installer copies the tool into `.refactor/` and preserves existing configuration and run records. The tool needs no npm package installation or build.
 
 ## Run

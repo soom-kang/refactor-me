@@ -63,14 +63,37 @@ function version(bin) {
   return r.status === 0 ? (r.stdout || r.stderr).trim().split('\n')[0] : null;
 }
 
-function probeWorktree(repoRoot) {
-  const tmp = path.join(os.tmpdir(), `rl-probe-${process.pid}-${Date.now()}`);
-  const add = G.gitTry(repoRoot, ['worktree', 'add', '--detach', tmp, 'HEAD']);
-  if (!add.ok) return fail('git-worktree', `git worktree add failed: ${add.stderr.split('\n')[0]}`, true);
-  G.gitTry(repoRoot, ['worktree', 'remove', '--force', tmp]);
+/**
+ * One checkout, two questions. `git worktree add` IS the measurement for both
+ * the mechanism (does it work here at all) and the content (what the base
+ * commit actually puts on disk), so the probe worktree is opened once and kept
+ * until `probeSkillsInWorktree` has read it. Checking out the repository twice
+ * to answer two questions about the same checkout would be the wasteful way to
+ * be less accurate.
+ *
+ * `prune` first: a run killed between add and remove leaves a registration in
+ * .git/worktrees pointing at a tmp path the OS has since reaped.
+ *
+ * The PASS says "add works", not "add/remove works", because removal has not
+ * happened yet when this row is recorded. A PASS that asserts an operation
+ * nobody performed is the kind of claim this file exists to refuse.
+ */
+function openProbeWorktree(repoRoot) {
   G.gitTry(repoRoot, ['worktree', 'prune']);
-  fs.rmSync(tmp, { recursive: true, force: true });
-  return ok('git-worktree', 'worktree add/remove works', true);
+  const at = path.join(os.tmpdir(), `rl-probe-${process.pid}-${Date.now()}`);
+  const add = G.gitTry(repoRoot, ['worktree', 'add', '--detach', at, 'HEAD']);
+  if (!add.ok) {
+    return { at: null, check: fail('git-worktree', `git worktree add failed: ${add.stderr.split('\n')[0]}`, true) };
+  }
+  return { at, check: ok('git-worktree', 'worktree add works (checkout reused for the skill check)', true) };
+}
+
+/** @returns {string|null} the path, if it survived removal. */
+function closeProbeWorktree(repoRoot, at) {
+  if (!at) return null;
+  G.worktreeRemove(repoRoot, at);
+  fs.rmSync(at, { recursive: true, force: true });
+  return fs.existsSync(at) ? at : null;
 }
 
 /**
@@ -158,34 +181,70 @@ function resolveSkills(provider, repoRoot) {
 }
 
 /**
- * doctor probes the SOURCE repository; phases run in a detached worktree of the
- * base commit. A skill installed project-scoped and never committed — merely
- * untracked is enough, gitignored is the common way — resolves here and is
- * absent there, so the run loses that skill in every phase while every phase
- * still reports success. A committed skill is in the checkout by definition, so
- * the reportable case is exactly "repo-local but not tracked".
+ * Phases run in a detached worktree checkout of the base commit, so the only
+ * question that matters is whether each SKILL.md is IN that checkout. This
+ * measures it in a real one rather than inferring it from the index, because
+ * the index cannot answer it.
  *
- * BLOCKING, unlike most of this file. The failure is invisible from the outside:
- * routing degrades to nothing, no phase errors, and the report reads like a
- * clean run that simply found little. A warning in front of an unattended run
- * that then spends an hour is not a control.
+ * The reason is structural: git never tracks a path THROUGH a symlink. The
+ * standard `npx skills add … --agent codex claude-code` layout puts the real
+ * files at `.agents/skills/<name>/` and a 120000 symlink at
+ * `.claude/skills/<name>` pointing into them, so `git ls-files` lists the link
+ * as ONE blob and `.claude/skills/<name>/SKILL.md` is a path it will never
+ * emit. The old membership test for exactly that string could not match, and
+ * blocked every `--provider claude` run — including in this repository's own
+ * checkout, whose catalog is fully committed. `fs.existsSync` inside the
+ * checkout follows the link instead, and is immune for the same reason to
+ * core.symlinks, sparse-checkout and .gitattributes: it asks the checkout, not
+ * the index.
  *
- * The remedy is to commit them. A user-scope install is NOT an alternative here:
- * per SKILL_ROOTS above, claude cannot load one at all.
+ * BLOCKING, unlike most of this file. The failure is invisible from the
+ * outside: routing degrades to nothing, no phase errors, and the report reads
+ * like a clean run that simply found little. A warning in front of an
+ * unattended run that then spends an hour is not a control.
+ *
+ * The remedy is to commit them — link and target alike. A user-scope install is
+ * NOT an alternative here: per SKILL_ROOTS above, claude cannot load one at all.
  */
-export function probeSkillsInWorktree(repoRoot, resolved) {
-  const local = [...resolved.at.entries()].filter(([, root]) => root.startsWith(repoRoot));
-  if (!local.length) return [];
-  const tracked = new Set(G.gitTry(repoRoot, ['ls-files']).stdout.split('\n').filter(Boolean));
-  const absent = local
-    .map(([name, root]) => [name, path.relative(repoRoot, path.join(root, name, 'SKILL.md'))])
-    .filter(([, rel]) => !tracked.has(rel))
-    .map(([name]) => name);
-  return absent.length
-    ? [fail('skill-worktree',
-      `${absent.join(', ')} resolve in this repository but are not committed; every phase runs in a worktree checkout of the base commit, so an uncommitted skill is absent from all of them while each phase still reports success`,
-      true, 'commit the catalog: git add .agents .claude && git commit — a plain `git stash` will not do, these are untracked')]
-    : [];
+export function probeSkillsInWorktree(repoRoot, wtPath, resolvedByProvider) {
+  // Already blocked by `git-worktree`; a second blocking row adds no control and
+  // buries the cause. But returning [] when we could not look is exactly the
+  // clean-looking empty report this file exists to prevent, so say so instead.
+  if (!wtPath) {
+    return [warn('skill-worktree', 'not measured: the probe worktree could not be created (see git-worktree above)')];
+  }
+
+  const affected = new Map(); // skill name -> Set(provider)
+  for (const [provider, resolved] of resolvedByProvider) {
+    // A provider whose catalog does not resolve in the source at all contributes
+    // nothing here: that gap is `<provider>-skills`' report, and naming it twice
+    // would read as two problems.
+    for (const [name, root] of resolved.at) {
+      const rel = path.relative(repoRoot, root);
+      // Outside the repository — codex's ~/.agents/skills. No worktree gap, and
+      // a supported install location for codex. Not this check's business.
+      if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (fs.existsSync(path.join(wtPath, rel, name, 'SKILL.md'))) continue;
+      if (!affected.has(name)) affected.set(name, new Set());
+      affected.get(name).add(provider);
+    }
+  }
+  if (affected.size === 0) return [];
+
+  // Keyed by skill name, so a skill absent for both providers is named once; the
+  // provider set is reported separately because "claude only" is both the common
+  // case and the one that tells an operator which half of the catalog is missing.
+  const names = [...affected.keys()];
+  const blind = [...new Set([...affected.values()].flatMap((s) => [...s]))];
+  return [fail('skill-worktree',
+    `${names.join(', ')} resolve in this repository but are absent from a detached worktree checkout of the base commit `
+    + `— measured in a real checkout, not read from the index — which is where every phase runs; `
+    + `${blind.join(', ')} would lose them in every phase while each phase still reports success`,
+    true,
+    'commit the catalog, link and target alike: git add .agents .claude && git commit. '
+    + '`.claude/skills/<name>` is a symlink into `.agents/skills/<name>`, so committing one without the other '
+    + 'leaves a dangling link in the checkout, and a plain `git stash` will not do for untracked files. '
+    + 'A user-scope install is not an alternative here — claude cannot load one at all')];
 }
 
 /**
@@ -315,31 +374,51 @@ export async function runDoctor({ repoRoot, cfg, runDir, providers, log, live = 
     : warn('platform', `${process.platform} is untested; refactor-me targets macOS`);
   checks.push(plat);
 
-  checks.push(probeWorktree(repoRoot));
-  checks.push(...probeTargets(repoRoot, targets));
+  const probe = openProbeWorktree(repoRoot);
+  checks.push(probe.check);
 
-  const dirty = G.statusPorcelain(repoRoot).trim();
-  checks.push(dirty === ''
-    ? ok('source-clean', 'working tree and index are clean', true)
-    : fail('source-clean', `the working tree is dirty:\n${dirty.split('\n').slice(0, 10).join('\n')}`, true,
-      'commit or stash your work first — refactor-me refuses to run alongside uncommitted changes'));
-
+  // Everything that can throw between opening the probe worktree and reading it
+  // belongs inside this try, or a broken repository leaks a checkout into /tmp.
   const available = [];
-  for (const p of providers) {
-    const bin = cfg.agents?.[p]?.bin || p;
-    const where = which(bin);
-    if (!where) { checks.push(warn(`${p}-cli`, `${bin} is not on PATH`)); continue; }
-    available.push(p);
-    checks.push(ok(`${p}-cli`, `${where} — ${version(bin) ?? 'version unknown'}`));
-  }
-  if (available.length === 0) {
-    checks.push(fail('providers', 'neither claude nor codex is installed', true, 'install at least one provider CLI'));
-    return finish(checks, runDir, [], []);
+  try {
+    checks.push(...probeTargets(repoRoot, targets));
+
+    const dirty = G.statusPorcelain(repoRoot).trim();
+    checks.push(dirty === ''
+      ? ok('source-clean', 'working tree and index are clean', true)
+      : fail('source-clean', `the working tree is dirty:\n${dirty.split('\n').slice(0, 10).join('\n')}`, true,
+        'commit or stash your work first — refactor-me refuses to run alongside uncommitted changes'));
+
+    for (const p of providers) {
+      const bin = cfg.agents?.[p]?.bin || p;
+      const where = which(bin);
+      if (!where) { checks.push(warn(`${p}-cli`, `${bin} is not on PATH`)); continue; }
+      available.push(p);
+      checks.push(ok(`${p}-cli`, `${where} — ${version(bin) ?? 'version unknown'}`));
+    }
+
+    if (available.length === 0) {
+      checks.push(fail('providers', 'neither claude nor codex is installed', true, 'install at least one provider CLI'));
+    } else {
+      checks.push(...probeSkills(repoRoot));
+      // Per provider, not once: SKILL_ROOTS differ — codex reads .agents/skills
+      // (and a home path), claude reads only .claude/skills — so which provider
+      // is asked changes the answer entirely. Asking one of them let a broken
+      // .claude catalog through, and every claude phase then ran with no skills.
+      checks.push(...probeSkillsInWorktree(repoRoot, probe.at,
+        available.map((p) => [p, resolveSkills(p, repoRoot)])));
+    }
+  } finally {
+    // Released BEFORE the live probes: those are minutes of model calls, and
+    // holding a full checkout of the user's repository in /tmp across them buys
+    // nothing. A separate id, so one row never reads PASS and WARN at once.
+    const stale = closeProbeWorktree(repoRoot, probe.at);
+    if (stale) checks.push(warn('git-worktree-cleanup', `the probe worktree survived removal: ${stale}`));
   }
 
-  checks.push(...probeSkills(repoRoot));
-  // Any provider's resolution answers this; the gap is about git, not the CLI.
-  checks.push(...probeSkillsInWorktree(repoRoot, resolveSkills(available[0], repoRoot)));
+  // Outside the try on purpose: `finish` is evaluated before `finally` runs, so
+  // returning from inside it would drop whatever the cleanup pushed.
+  if (available.length === 0) return finish(checks, runDir, [], []);
 
   const healthy = [];
   const usageSink = [];

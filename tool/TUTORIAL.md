@@ -50,6 +50,12 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 
 Choose Project scope. Review and commit the eight Skill directories, agent links, and `skills-lock.json`. Worktrees read files from the base commit. Keep unrelated files out of the commit.
 
+```bash
+git add .agents .claude skills-lock.json && git commit
+```
+
+Both directories: the real files land in `.agents/skills/<name>/`, and `.claude/skills/<name>` is a symlink into them. Committing one without the other leaves a link that resolves to nothing in the worktree.
+
 Check the installed tool:
 
 ```bash
@@ -132,7 +138,7 @@ See [Workflow](WORKFLOW.md) for phase checks. `handoff.md` is an intermediate re
 | Symptom | Next action |
 | --- | --- |
 | Missing skill | Install the named Skill in Project scope and check the agent link |
-| `skill-worktree` failure | Review and commit the project Skill files before starting again |
+| `skill-worktree` failure | A required Skill is missing from the base-commit checkout. Commit both `.agents` and `.claude`; the `.claude` entries are symlinks into `.agents`, so one without the other is not enough |
 | Dirty source checkout | Finish or set aside your work, then rerun doctor |
 | No usable baseline | Inspect command failures, dependencies, and build caches; define commands if discovery is insufficient |
 | No eligible candidates | Read the exclusion reasons; a run can finish without changes |

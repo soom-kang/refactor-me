@@ -36,6 +36,12 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 
 3. 설치한 Skill 파일, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋하세요. 실행용 worktree는 기준 커밋을 읽으므로 미커밋 Skill을 사용할 수 없습니다. Claude 전역 설치만으로는 부족합니다.
 
+```bash
+git add .agents .claude skills-lock.json && git commit
+```
+
+설치기는 실체 파일을 `.agents/skills/<name>/`에 두고 `.claude/skills/<name>`은 그곳을 가리키는 심볼릭 링크로 만듭니다. 두 디렉터리를 함께 커밋하세요. 한쪽만 커밋하면 실행용 worktree에서 링크가 아무것도 가리키지 못합니다.
+
 설치기는 `.refactor/`에 도구를 복사하고 기존 설정과 실행 기록을 보존합니다. 도구 자체의 npm 패키지 설치나 빌드는 필요하지 않습니다.
 
 ## 실행

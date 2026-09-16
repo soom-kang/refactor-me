@@ -17,6 +17,8 @@ Public Beta of the refactor-me CLI. The version is the repository's selected rel
 - Keep `.refactor` configuration and run records, stored worktree paths, and the `refactor/auto-` branch prefix.
 - Generate English reports by default. Support `--lang ko` for runs and saved-report viewing without translation calls or changes to JSON fields.
 - Check project skill availability in the base commit. Uncommitted project skills block execution. Claude uses project skill paths; Codex also checks its supported home path.
+- Measure base-commit skill availability in a real worktree checkout instead of reading the git index. The index cannot report a path through a symlink, so the standard `.claude/skills/<name>` link into `.agents/skills/<name>` was reported as uncommitted and blocked every Claude run against a fully committed catalog.
+- Run that check for every available provider rather than one. Skill paths differ per provider, so a catalog committed for Codex but not for Claude now blocks instead of silently running Claude phases without skills.
 - Provide English documentation and Korean translations with current installation and validation instructions.
 
 ## 0.1.0

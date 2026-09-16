@@ -84,12 +84,14 @@ CLI는 로컬 커밋과 결과 브랜치를 만듭니다. merge, push, 배포와
 
 별도로 릴리즈된 필수 의존성 `soom-kang/sharpen-me`의 Skill 8개를 대상 저장소에 설치하세요. 파일, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋해야 합니다.
 
-Doctor는 디스크의 필수 Skill 경로와 기준 checkout을 확인합니다.
+Doctor는 디스크의 필수 Skill 경로를 확인한 뒤, 임시 worktree를 만들어 그 안에서 각 `SKILL.md`를 찾는 방식으로 기준 커밋을 확인합니다. 인덱스의 경로가 아니라 checkout이 실제로 해석하는 결과로 판정하므로 심볼릭 링크로 연결한 카탈로그도 올바르게 측정합니다. 아래 표처럼 경로가 프로바이더마다 다르므로 이 확인은 가용한 모든 프로바이더에 대해 실행됩니다.
 
 | 프로바이더 | Skill 경로 |
 | --- | --- |
 | Claude Code | `--setting-sources project`로 `.claude/skills` 사용. 전역 설치만으로는 부족 |
 | Codex | `.agents/skills`와 지원하는 홈 경로 |
+
+`.claude/skills/<name>`은 `.agents/skills/<name>`으로 가는 심볼릭 링크이므로 기준 커밋에 두 디렉터리가 모두 필요합니다. Git은 링크를 항목 하나로 저장하고 링크를 통과하는 경로는 추적하지 않습니다. 한쪽만 커밋하면 실행용 worktree에서 링크가 아무것도 가리키지 못합니다.
 
 Doctor는 기본적으로 모델을 호출하고 진단 기록을 씁니다. 세션이 Skill을 하나도 볼 수 없다고 보고하면 실패합니다. 디스크에 전부 설치되어 있다면 일부만 보고했다는 이유로 실패시키지는 않습니다. `--no-live-probe`는 세션 확인을 생략합니다.
 

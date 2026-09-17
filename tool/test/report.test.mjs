@@ -187,10 +187,29 @@ test('Korean terminal reasons translate known limits while preserving raw detail
     ['stopped on 3 consecutive failures', '후보가 3회 연속 실패'],
     ['stopped on all providers exhausted', '사용 가능한 프로바이더가 없습니다'],
     ['REGRESSION: src/a.ts:42 E123', '검증 회귀 (REGRESSION): src/a.ts:42 E123'],
+    ['every proposed candidate was filtered by policy', '감사가 제안한 후보를 정책 필터가 모두 제외했습니다'],
+    ['the audit proposed no candidates', '감사가 후보를 제안하지 않았습니다'],
     ['unknown error 그대로', 'unknown error 그대로'],
   ]) {
     const report = { ...mdBase, reason };
     assert.ok(renderMarkdown(report, 'ko').includes(expected));
     assert.ok(renderMarkdown(report).includes(reason));
   }
+});
+
+// "no eligible candidates remain" read as "your code is clean" when the truth
+// was that every proposal had been filtered. The report must say which.
+test('the report says which kind of empty audit ended the run', () => {
+  const filtered = renderMarkdown({ ...mdBase,
+    counters: { ...mdBase.counters, auditsNoProposals: 0, auditsAllFiltered: 2 } });
+  assert.match(filtered, /2 had every proposal filtered by policy/);
+  assert.match(renderMarkdown({ ...mdBase,
+    counters: { ...mdBase.counters, auditsNoProposals: 2, auditsAllFiltered: 0 } }, 'ko'),
+  /2회는 제안 없음/);
+});
+
+test('a report written before those counters existed renders neither the line nor undefined', () => {
+  const out = renderMarkdown(mdBase);
+  assert.doesNotMatch(out, /Audits with no eligible candidate/);
+  assert.doesNotMatch(out, /undefined/);
 });

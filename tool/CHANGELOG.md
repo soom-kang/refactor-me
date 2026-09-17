@@ -2,6 +2,16 @@
 
 The runtime version is defined in `src/version.mjs`. Release tags use `v<version>`.
 
+## 0.9.0-beta.1 — 2026-09-17
+
+- Add `policy.unknown_risk`. The default `set_aside` keeps the existing behavior: a candidate whose risk level is UNKNOWN is recorded for a human and never executed. Set it to `deep_check` to send the one resolvable shape — UNKNOWN risk together with `NEEDS_EVIDENCE` readiness — to the deep-check phase, whose job is closing exactly that evidence gap. Every other UNKNOWN is still set aside, and `allowed_risks` still cannot enable UNKNOWN. An unrecognized value stops the run before it starts.
+- Check the task packet's own `risk_level` after deep check, for every candidate. A deep check that returns UNKNOWN, or raises the risk above `allowed_risks`, now stops the candidate instead of proceeding on the audit's earlier estimate.
+- Stop treating a candidate filtered during ranking as a path a previous attempt violated. Those paths were reported to the next audit as forbidden ground, which could leave a re-audit believing it had nothing it was allowed to propose.
+- Report why an audit produced no work: whether the audit proposed nothing, or every proposal was filtered by policy. The distinction appears in the run log with a per-reason count, in `report.json` counters, in `report.md`, and in the stop reason, in both languages.
+- Write each cycle's audit prompt and transcript under `audits/<cycle>/`. Re-audits previously overwrote the first cycle's artifacts. `audits/<cycle>.json` is unchanged.
+- Stop telling a re-audit that earlier cycles landed commits when none did.
+- Record the audit's own stated objection on an UNKNOWN-risk candidate instead of a fixed sentence naming a skill.
+
 ## 0.8.8-beta.1 — 2026-09-11
 
 Public Beta of the refactor-me CLI. The version is the repository's selected release identifier, not a count of prior CLI releases. The incorrect `v0.8.10-beta.1` Skill-package release is replaced by this CLI release; sharpen-me remains a separate required dependency.

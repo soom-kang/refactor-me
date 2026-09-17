@@ -18,4 +18,4 @@
 // Bumping it: edit this line, add the matching section to CHANGELOG.md, then
 // tag `v<version>`. test/version.test.mjs fails if the first two drift.
 
-export const VERSION = '0.8.8-beta.1';
+export const VERSION = '0.9.0-beta.1';

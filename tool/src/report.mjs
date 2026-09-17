@@ -46,9 +46,23 @@ const REASON_EN = {
 const reasonLabel = (reason, t) => t(REASON_EN[reason] ?? reason, REASON_KO[reason] ?? reason);
 
 // Only known controller messages are localized. Provider and error text stays intact.
+/**
+ * Which kind of empty audit ended the run. Guarded on the counters existing, so
+ * a report.json written before they did renders nothing rather than `undefined`.
+ */
+function auditOutcomeLine(j, t) {
+  const none = j.counters?.auditsNoProposals ?? 0;
+  const filtered = j.counters?.auditsAllFiltered ?? 0;
+  if (none + filtered === 0) return [];
+  return [t(`- Audits with no eligible candidate: ${none} proposed nothing, ${filtered} had every proposal filtered by policy`,
+    `- 후보를 얻지 못한 audit: ${none}회는 제안 없음, ${filtered}회는 제안이 정책 필터에서 모두 제외됨`)];
+}
+
 function terminalReason(reason, t) {
   const known = {
     'no eligible candidates remain': '실행할 수 있는 후보가 남아 있지 않습니다',
+    'every proposed candidate was filtered by policy': '감사가 제안한 후보를 정책 필터가 모두 제외했습니다',
+    'the audit proposed no candidates': '감사가 후보를 제안하지 않았습니다',
     'doctor found a blocking problem': 'doctor가 실행을 막는 문제를 발견했습니다',
     'no deterministic validation command could be discovered': '반복 실행할 검증 명령을 찾지 못했습니다',
   };
@@ -189,7 +203,8 @@ export function renderMarkdown(j, language = 'en') {
       ? t(`- Result branch: \`${j.branch}\` (${j.commits.length} commits: ${j.counters.commits} refactors, ${j.commits.length - j.counters.commits} characterization)`,
           `- 결과 브랜치: \`${j.branch}\` (커밋 ${j.commits.length}개: 리팩터링 ${j.counters.commits}개, characterization ${j.commits.length - j.counters.commits}개)`)
       : t('- Result branch: None (no committed changes)', '- 결과 브랜치: 없음 (커밋된 변경 없음)'),
-    `${t('- Stop reason', '- 종료 사유')}: ${terminalReason(j.reason, t)}`, '',
+    `${t('- Stop reason', '- 종료 사유')}: ${terminalReason(j.reason, t)}`,
+    ...auditOutcomeLine(j, t), '',
     t('## Committed changes', '## 커밋된 변경'), ''];
   if (!j.commits.length) lines.push(t('None.', '없음.'));
   for (const commit of j.commits) {

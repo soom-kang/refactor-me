@@ -36,10 +36,32 @@ function phase(ctx, name) {
 }
 
 const RISK_ORDER = { L0_LOW: 0, L1_MODERATE: 1, L2_HIGH: 2, L3_CRITICAL: 3, UNKNOWN: 4 };
+/**
+ * Fail closed on a policy the loop cannot honor. A typo like "deep-check" would
+ * otherwise resolve silently to the conservative branch and produce exactly the
+ * quiet, plausible-looking run this flag exists to prevent.
+ */
+export function assertPolicy(policy) {
+  if (!UNKNOWN_RISK_MODES.includes(policy.unknown_risk)) {
+    throw new Error(`policy.unknown_risk must be one of ${UNKNOWN_RISK_MODES.join(', ')}; got ${JSON.stringify(policy.unknown_risk)}`);
+  }
+  return policy;
+}
+
 const TRANSIENT_BACKOFF_MS = [5_000, 20_000];
+
+export const UNKNOWN_RISK_MODES = ['set_aside', 'deep_check'];
 
 export const DEFAULT_POLICY = {
   allowed_risks: ['L0_LOW', 'L1_MODERATE', 'L2_HIGH'],
+  // What to do with a candidate whose risk_level is UNKNOWN.
+  //   'set_aside'  — record RISK_UNKNOWN and leave it for a human (the default)
+  //   'deep_check' — when readiness is NEEDS_EVIDENCE, send it to DEEP_CHECK,
+  //                  the phase whose job is closing exactly that evidence gap
+  // UNKNOWN is deliberately NOT expressible through allowed_risks: it is the
+  // absence of a judgement, not a level, and widening a list of levels must
+  // never be able to enable it. See rank().
+  unknown_risk: 'set_aside',
   auto_characterization: true,
   cross_provider_review: true,
   max_cycles: 25,
@@ -64,7 +86,7 @@ export async function runLoop(opts) {
   try {
     await baseline(ctx);
     await cycles(ctx);
-    finish(ctx, ctx.state.counters.commits > 0 ? 'DONE' : 'NO_CHANGES', 'no eligible candidates remain');
+    finish(ctx, ctx.state.counters.commits > 0 ? 'DONE' : 'NO_CHANGES', noCandidatesReason(ctx.emptyAuditKinds));
   } catch (e) {
     if (e instanceof Halt) finish(ctx, e.status, e.reason);
     else { ctx.log.fail(`unexpected error: ${e.message}`); finish(ctx, 'ABORTED', `internal error: ${e.message}`); throw e; }
@@ -78,7 +100,11 @@ export async function runLoop(opts) {
 
 async function init({ repoRoot, cfg, log, providers, live = true, forceQuotaAt = null, targets = [], language = 'en' }) {
   log.setState('INIT');
-  const policy = { ...DEFAULT_POLICY, ...(cfg.policy ?? {}) };
+  // Before the lock and before any provider spend: a config the loop cannot
+  // honor should cost nothing. init() runs outside runLoop's try, so a plain
+  // Error reaches main().catch and exits 2 — Halt is for states that leave a
+  // terminal record, and there is no state yet.
+  const policy = assertPolicy({ ...DEFAULT_POLICY, ...(cfg.policy ?? {}) });
   const id = S.runId();
   const runDir = S.runDirFor(repoRoot, id);
   log.attach(runDir);
@@ -227,15 +253,29 @@ async function cycles(ctx) {
     log.setCycle(state.cycle);
     ctx.store.save();
 
-    const candidates = await audit(ctx);
-    if (candidates.length === 0) {
+    const { proposed, eligible } = await audit(ctx);
+    if (eligible.length === 0) {
+      // Two very different situations used to share one counter and one
+      // sentence. "The model surveyed the repository and found nothing" is a
+      // statement about the code; "the model proposed five things and the
+      // controller rejected all five" is a statement about this tool's policy,
+      // and reporting the second as the first tells the operator their code is
+      // clean when the truth is that the filters are too tight.
+      const kind = proposed === 0 ? 'NO_PROPOSALS' : 'ALL_FILTERED';
+      (ctx.emptyAuditKinds ??= []).push(kind);
       state.counters.emptyAudits += 1;
-      log.info(`no eligible candidate (empty audit ${state.counters.emptyAudits}/${policy.empty_audits_to_stop})`);
+      state.counters[kind === 'NO_PROPOSALS' ? 'auditsNoProposals' : 'auditsAllFiltered'] += 1;
+      const tail = `(empty audit ${state.counters.emptyAudits}/${policy.empty_audits_to_stop})`;
+      log.info(kind === 'NO_PROPOSALS'
+        ? `the audit proposed no candidates ${tail}`
+        : `all ${proposed} proposed candidate(s) were filtered by policy ${tail}`,
+      { kind: 'empty_audit', how: kind, proposed, emptyAudits: state.counters.emptyAudits });
       if (state.counters.emptyAudits >= policy.empty_audits_to_stop) return;
       continue;
     }
     state.counters.emptyAudits = 0;
-    await runCandidate(ctx, candidates[0]);
+    ctx.emptyAuditKinds = [];
+    await runCandidate(ctx, eligible[0]);
   }
 }
 
@@ -408,9 +448,16 @@ async function audit(ctx) {
   log.start(`${incremental ? 'incremental re-audit' : 'full audit'} · ${state.counters.commits} committed, ${state.seen.skipped.length} abandoned`);
   const { res, provider, reason } = await callPhase(ctx, {
     phase: 'audit', schema: SCHEMAS.audit,
+    // Audit is the only phase that runs outside a candidate, so it had no cycle
+    // directory and every re-audit overwrote the previous cycle's prompt and
+    // transcript. `audits/NN.json` is unchanged.
+    cycleDir: S.auditDirFor(ctx.runDir, state.cycle),
     build: (p) => Prompts.auditPrompt({
       provider: p, nonce, incremental, repoFacts, cycle: state.cycle, targets: ctx.targets,
       seen: state.seen, violated: violatedPaths(state),
+      // What the TREE contains, not counters.commits — a characterization
+      // commit is in the tree and is deliberately absent from that counter.
+      committed: state.commits.length,
     }),
   });
   if (!res) {
@@ -425,11 +472,43 @@ async function audit(ctx) {
   for (const c of all) byCat[c.category] = (byCat[c.category] ?? 0) + 1;
   log.pass(`${all.length} candidate(s): ${Object.entries(byCat).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`);
 
-  return rank(ctx, all);
+  // Both numbers escape: how many the model proposed, and how many survived.
+  // One of them used to, and "five proposed, five filtered" was indistinguishable
+  // from "nothing found".
+  return { proposed: all.length, eligible: rank(ctx, all) };
 }
 
-function violatedPaths(state) {
-  return [...new Set(state.seen.skipped.flatMap((s) => s.detail?.paths ?? []))];
+/**
+ * Paths a previous attempt actually tried to modify and was stopped for — NOT
+ * every skipped candidate. `rank` sets candidates aside before anything is
+ * attempted, and feeding those paths to the next audit as forbidden ground told
+ * the model that files nobody had touched were off limits: one filtered cycle
+ * became a re-audit that believed it had nothing left it was allowed to
+ * propose. Only a record that a violating call site marked survives this.
+ *
+ * A record written before `violated` existed has it undefined and is treated as
+ * "not a violation" — under-warning rather than over-warning, which is the safe
+ * direction for a list whose whole effect is to remove ground from the audit.
+ * Exported for tests: the defect was invisible from outside.
+ */
+/**
+ * Why the loop ran out of work. `cycles()` only ever returns through the
+ * empty-audit branch, so this is always about audits — but "nothing to find"
+ * and "everything refused" are opposite messages to an operator and used to
+ * share one sentence. A mixed or unknown run keeps the original wording, which
+ * is still the honest summary of a run that was both.
+ */
+export function noCandidatesReason(kinds) {
+  const k = kinds ?? [];
+  if (k.length && k.every((x) => x === 'ALL_FILTERED')) return 'every proposed candidate was filtered by policy';
+  if (k.length && k.every((x) => x === 'NO_PROPOSALS')) return 'the audit proposed no candidates';
+  return 'no eligible candidates remain';
+}
+
+export function violatedPaths(state) {
+  return [...new Set(state.seen.skipped
+    .filter((s) => s.detail?.violated === true)
+    .flatMap((s) => s.detail?.paths ?? []))];
 }
 
 /**
@@ -441,6 +520,13 @@ function violatedPaths(state) {
 export function rank(ctx, candidates) {
   const { state, policy, log } = ctx;
   const eligible = [];
+  // Why each candidate died. Without this the one cycle that matters most — the
+  // one where nothing survived — printed nothing at all, and the run ended with
+  // a sentence that reads as "your code is clean".
+  const tally = new Map();
+  const bump = (reason) => tally.set(reason, (tally.get(reason) ?? 0) + 1);
+  const drop = (c, reason, detail) => { bump(reason); note(ctx, c, reason, detail); };
+
   for (const c of candidates) {
     c.fp = S.fingerprint({ kind: c.category, paths: c.related_files, symbol: c.primary_symbol });
     // Scope first, because "outside the folder you asked about" is the more
@@ -449,27 +535,45 @@ export function rank(ctx, candidates) {
     // inside a target: the callers and tests it must also edit are legitimately
     // outside, and rejecting those would leave the repository uncompilable.
     if (!Scope.touchesTarget(c.related_files, ctx.targets)) {
-      note(ctx, c, 'OUT_OF_TARGET', `no related file under ${(ctx.targets ?? []).join(', ')}`); continue;
+      drop(c, 'OUT_OF_TARGET', `no related file under ${(ctx.targets ?? []).join(', ')}`); continue;
     }
     // UNKNOWN is not "outside the allowed range"; it is the absence of a
     // judgement. Reported separately so the operator reads it as evidence still
     // owed rather than as a candidate that was too dangerous.
+    //
+    // A model that needs one more check cannot also state a risk level, so
+    // UNKNOWN and NEEDS_EVIDENCE almost always arrive together — and testing
+    // UNKNOWN first killed the candidate before the NEEDS_EVIDENCE path could
+    // run, even though the sort below deliberately ranks such candidates and
+    // DEEP_CHECK is the phase whose whole job is closing that gap. Under
+    // `unknown_risk: 'deep_check'` that one shape is passed through. Every
+    // other UNKNOWN is still set aside: a model that claims READY while unable
+    // to size the danger is not short of one check, it is inconsistent.
     if (c.risk_level === 'UNKNOWN') {
-      note(ctx, c, 'RISK_UNKNOWN', 'sharpen-assess could not support a risk level from the available evidence'); continue;
+      if (!(policy.unknown_risk === 'deep_check' && c.readiness === 'NEEDS_EVIDENCE')) {
+        drop(c, 'RISK_UNKNOWN', riskUnknownDetail(c)); continue;
+      }
+      // Deliberately does NOT fall into the allowed_risks test below: UNKNOWN is
+      // not a member of that list and never will be, so testing it there would
+      // re-reject this candidate one line later as RISK_EXCLUDED.
+    } else if (!policy.allowed_risks.includes(c.risk_level)) {
+      drop(c, 'RISK_EXCLUDED', `${c.risk_level} is outside allowed_risks`); continue;
     }
-    if (!policy.allowed_risks.includes(c.risk_level)) {
-      note(ctx, c, 'RISK_EXCLUDED', `${c.risk_level} is outside allowed_risks`); continue;
-    }
-    if (c.readiness === 'REJECT') { note(ctx, c, 'MODEL_REJECTED', c.problem); continue; }
-    if (S.isSeen(state, c.fp)) continue;
+    if (c.readiness === 'REJECT') { drop(c, 'MODEL_REJECTED', c.problem); continue; }
+    // Counted but not re-recorded: markSkipped already holds this fingerprint,
+    // and a loop spinning on re-proposals should say so rather than go quiet.
+    if (S.isSeen(state, c.fp)) { bump('ALREADY_SEEN'); continue; }
     if (S.attemptsOf(state, c.fp) >= policy.max_attempts_per_fingerprint) {
-      note(ctx, c, 'ATTEMPTS_EXHAUSTED', `${policy.max_attempts_per_fingerprint} attempts`); continue;
+      drop(c, 'ATTEMPTS_EXHAUSTED', `${policy.max_attempts_per_fingerprint} attempts`); continue;
     }
     if ((c.estimated_file_count ?? 1) > policy.max_files_per_candidate) {
-      note(ctx, c, 'TOO_LARGE', `${c.estimated_file_count} files`); continue;
+      drop(c, 'TOO_LARGE', `${c.estimated_file_count} files`); continue;
     }
     eligible.push(c);
   }
+  // RISK_ORDER.UNKNOWN is 4, above L3_CRITICAL, so a passed-through UNKNOWN
+  // sorts behind every candidate whose danger is stated — a risk known to be
+  // high is still better understood than one nobody could size.
   eligible.sort((a, b) =>
     (RISK_ORDER[a.risk_level] - RISK_ORDER[b.risk_level]) ||
     ((a.readiness === 'READY' ? 0 : 1) - (b.readiness === 'READY' ? 0 : 1)) ||
@@ -478,9 +582,53 @@ export function rank(ctx, candidates) {
   if (eligible.length) {
     const w = eligible[0];
     log.info(`${candidates.length - eligible.length} filtered · picked ${w.candidate_id} fp=${w.fp}`);
+  } else if (candidates.length) {
+    log.info(`all ${candidates.length} candidate(s) filtered: ${[...tally].map(([r, n]) => `${r} ${n}`).join(', ')}`);
   }
   ctx.store.save();
   return eligible;
+}
+
+/**
+ * What an UNKNOWN risk level actually cost. The controller used to assert that
+ * a particular skill had failed — regardless of what ran — and threw away the
+ * candidate's own `problem`, which is the one place the audit is asked to name
+ * the missing check.
+ */
+function riskUnknownDetail(c) {
+  const problem = String(c.problem ?? '').trim();
+  return problem
+    ? `risk level UNKNOWN; the audit's own objection: ${problem.slice(0, 200)}`
+    : 'risk level UNKNOWN and the audit named no missing check';
+}
+
+/**
+ * The only place a task packet's OWN risk_level is enforced. `rank` gates the
+ * audit's claim; nothing gated the packet's, so a deep check was free to return
+ * L3_CRITICAL — or UNKNOWN — on a candidate that entered as L0_LOW and it would
+ * have been executed. Applied to every packet, not only to the ones
+ * `unknown_risk` lets through: closing the pass-through without closing the
+ * hole underneath it would be the wrong half.
+ *
+ * `policy.unknown_risk` is deliberately not consulted. The flag says "let
+ * DEEP_CHECK try to close the gap", not "accept a gap it could not close".
+ * Returns null when the packet may proceed.
+ */
+export function packetRiskVerdict(packet, policy) {
+  if (packet.risk_level === 'UNKNOWN') {
+    return {
+      reason: 'RISK_UNKNOWN',
+      detail: 'deep check returned a task packet it could not assign a risk level to: '
+        + String(packet.readiness_reason ?? packet.notes ?? 'no reason given').slice(0, 160),
+    };
+  }
+  if (!policy.allowed_risks.includes(packet.risk_level)) {
+    return {
+      reason: 'RISK_EXCLUDED',
+      detail: `deep check raised the risk to ${packet.risk_level}, outside allowed_risks`,
+    };
+  }
+  return null;
 }
 
 function note(ctx, c, reason, detail) {
@@ -555,6 +703,23 @@ async function select(ctx, cand, cycleDir) {
     ctx.store.save();
     return null;                                   // not a failure: the gate did its job
   }
+  // After readiness, not before: a packet that is both non-READY and UNKNOWN is
+  // better reported through the branch above, which carries the model's own
+  // words for the missing check. This gate can only say "UNKNOWN".
+  //
+  // markSkipped rather than fail(): a packet correctly set aside because its
+  // risk is unstated or too high is the gate WORKING, exactly like NOT_READY
+  // and PREFLIGHT_BLOCKED. fail() would increment consecutiveFailures, and
+  // three legitimate set-asides would halt the whole run — which under
+  // unknown_risk: 'deep_check' is the common case, turning this fix into a new
+  // termination bug.
+  const risk = packetRiskVerdict(packet, ctx.policy);
+  if (risk) {
+    S.markSkipped(state, cand.fp, risk.reason, { detail: risk.detail, paths: packet.allowlist ?? cand.related_files });
+    log.info(`deep-check ${risk.reason}: ${risk.detail}`);
+    ctx.store.save();
+    return null;                                   // also not a failure
+  }
   if (!packet.allowlist?.length) return fail(ctx, cand.fp, 'EMPTY_ALLOWLIST', 'READY packet with no allowlist');
 
   log.pass(`packet frozen · ${packet.allowlist.length} path(s)${packet.characterization_needed ? ' · characterization first' : ''}`);
@@ -598,7 +763,10 @@ async function characterize(ctx, packet, cycleDir, preOid) {
       : (verdict.reasons.join('; ') || res.data.notes || 'the implementer reported FAIL without a reason');
     log.fail(`characterization rejected: ${why}`);
     rollback(ctx, preOid);
-    return fail(ctx, packet.fp, 'CHARACTERIZATION_REJECTED', why);
+    // A self-reported FAIL with nothing outside the allowlist is a refusal, not
+    // a scope violation, so it must not remove those paths from the next audit.
+    return fail(ctx, packet.fp, 'CHARACTERIZATION_REJECTED', why,
+      outside.length ? outside : undefined, outside.length > 0);
   }
   if (changed.length === 0) { log.info('characterization produced no new tests; continuing'); return true; }
 
@@ -703,10 +871,15 @@ async function execute(ctx, packet, cycleDir, preOid) {
   // primitive, so the orchestrator applies them here under the allowlist it
   // already froze. Idempotent, because a provider whose sandbox CAN delete may
   // have done it already.
-  const removed = applyDeclaredDeletions(ctx, packet, res.data.deleted_files ?? []);
+  const declared = res.data.deleted_files ?? [];
+  const removed = applyDeclaredDeletions(ctx, packet, declared);
   if (removed === null) {
+    // Recomputed rather than threaded out of applyDeclaredDeletions: the same
+    // two inputs, and the exported function's contract stays a list-or-null.
+    const outside = declared.filter((f) => !new Set(packet.allowlist ?? []).has(f));
     rollback(ctx, preOid);
-    return fail(ctx, packet.fp, 'OUT_OF_SCOPE', 'declared a deletion outside the allowlist');
+    return fail(ctx, packet.fp, 'OUT_OF_SCOPE',
+      `declared a deletion outside the allowlist: ${outside.join(', ')}`, outside, true);
   }
 
   const parts = [`${res.data.changed_files.length} edited`];
@@ -772,7 +945,7 @@ async function gate(ctx, packet, cycleDir, preOid) {
     savePatch(ctx, cycleDir);
     rollback(ctx, preOid);
     state.counters.violations += 1;
-    return fail(ctx, packet.fp, r.violation.code, r.violation.detail, r.violation.paths);
+    return fail(ctx, packet.fp, r.violation.code, r.violation.detail, r.violation.paths, true);
   }
 
   log.info(`ladder scoped to ${V.areasForPaths(ctx.areas, facts.changed).join(', ')}`);
@@ -992,8 +1165,11 @@ function outOfProvider(ctx, reason) {
   return true;
 }
 
-function fail(ctx, fp, reason, detail, paths) {
-  S.markSkipped(ctx.state, fp, reason, { detail, paths });
+// `violated` distinguishes "we stopped this candidate" from "this candidate
+// touched ground it must not touch". Only the latter removes paths from the
+// next audit's field of view; see violatedPaths.
+function fail(ctx, fp, reason, detail, paths, violated = false) {
+  S.markSkipped(ctx.state, fp, reason, { detail, paths, violated });
   ctx.state.counters.consecutiveFailures += 1;
   ctx.state.activePacket = null;
   ctx.store.save();

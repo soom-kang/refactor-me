@@ -55,3 +55,23 @@ test('a user who sets effort still overrides the table', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// A new policy key must not change what an existing installation does. The
+// merge is a flat spread over DEFAULT_POLICY, so a config.json written before
+// the key existed has to resolve to the conservative branch on its own.
+test('an installation that predates unknown_risk still sets UNKNOWN aside', () => {
+  const shipped = JSON.parse(fs.readFileSync(
+    new URL('../config.default.json', import.meta.url), 'utf8'));
+  assert.equal(shipped.policy.unknown_risk, 'set_aside',
+    'the file users edit must show the conservative default, not omit it');
+
+  const dir = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'rl-cfg-old-'));
+  try {
+    fs.mkdirSync(path.join(dir, '.refactor'));
+    fs.writeFileSync(path.join(dir, '.refactor', 'config.json'),
+      JSON.stringify({ policy: { max_commits: 3 } }));
+    const cfg = loadConfig(dir);
+    assert.equal(cfg.policy.unknown_risk, 'set_aside');
+    assert.equal(cfg.policy.max_commits, 3, 'the keys the user did set still win');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

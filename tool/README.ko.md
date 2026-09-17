@@ -24,6 +24,7 @@
 | `agents.<name>.effort` | 미지정 | 기본 추론 수준 표 대체, 단계별 값이 있으면 그 값 우선 |
 | `agents.claude.max_budget_usd` | `0` | 양수이면 Claude의 호출별 예산 옵션으로 전달 |
 | `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | 허용 위험도, `UNKNOWN`과 `L3_CRITICAL`은 계속 제외 |
+| `policy.unknown_risk` | `set_aside` | `UNKNOWN` 위험도 처리 방식. `deep_check`는 준비 상태가 `NEEDS_EVIDENCE`인 `UNKNOWN` 후보를 제외하지 않고 deep check로 보냅니다. 그 밖의 `UNKNOWN`은 계속 제외합니다 |
 | `policy.max_cycles` / `policy.max_commits` | `25` / `20` | 사이클과 리팩터링 커밋 한도 |
 | `policy.max_wall_clock_min` | `180` | 작업 단위 사이에 확인하는 경과 시간 한도 |
 | `policy.max_consecutive_failures` | `3` | 연속 후보 실패 한도 |

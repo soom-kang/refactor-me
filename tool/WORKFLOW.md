@@ -282,7 +282,9 @@ Older JSON without `codeComparison` shows a missing-comparison notice. `report -
 
 ### Insufficient evidence and unknown risk
 
-Audit `risk_level: "UNKNOWN"` is excluded as `RISK_UNKNOWN` even with `READY`. `NEEDS_EVIDENCE` can reach deep check. Deep check responses other than `READY` record `NOT_READY` and stop the candidate before edits.
+Audit `risk_level: "UNKNOWN"` is excluded as `RISK_UNKNOWN` under the default `policy.unknown_risk: set_aside`, even with `READY`. Because a model that needs one more check cannot also state a risk level, this used to exclude every `NEEDS_EVIDENCE` candidate before it could reach deep check. Setting `policy.unknown_risk` to `deep_check` passes exactly one shape through — `UNKNOWN` risk with `NEEDS_EVIDENCE` readiness — and leaves every other `UNKNOWN` set aside. Widening `allowed_risks` never enables `UNKNOWN`.
+
+Deep check responses other than `READY` record `NOT_READY` and stop the candidate before edits. A `READY` packet is then checked against `allowed_risks` on its own `risk_level`: a packet that returns `UNKNOWN` records `RISK_UNKNOWN`, and one above the allowed range records `RISK_EXCLUDED`. This check runs for every candidate and is not relaxed by `policy.unknown_risk`.
 
 <details>
 <summary>Full JSON response</summary>
@@ -497,6 +499,7 @@ Switching starts a new session with the phase’s inputs; it does not resume the
 | File | Meaning |
 | --- | --- |
 | `audits/*.json` | Candidate lists returned by audit |
+| `audits/<cycle>/provider/` | That cycle's audit prompt and raw transcript |
 | `cycles/*/packet.json` | Task packet plus controller metadata |
 | `cycles/*/preflight.json` | Failure hypothesis and falsification result |
 | `cycles/*/execution.json` | Implementation response and provider |

@@ -84,6 +84,20 @@ export function cycleDirFor(runDir, cycle, category, fp) {
   return dir;
 }
 
+/**
+ * Where one cycle's AUDIT artifacts go. Audit is the only phase that runs
+ * outside a candidate, so it had no cycle directory of its own and every
+ * re-audit overwrote the previous cycle's prompt and transcript — destroying
+ * the evidence for the one substantive call a zero-change run makes.
+ * The candidate list itself stays at `audits/NN.json`, which is documented and
+ * which the `audits/*.json` glob still matches.
+ */
+export function auditDirFor(runDir, cycle) {
+  const dir = path.join(runDir, 'audits', String(cycle).padStart(2, '0'));
+  fs.mkdirSync(path.join(dir, 'provider'), { recursive: true });
+  return dir;
+}
+
 // ---------------------------------------------------------------- run state
 
 export function newState({ id, repoRoot, worktree, baseOid, baseBranch, branchName, providers, providerOrder, targets = [] }) {
@@ -111,7 +125,11 @@ export function newState({ id, repoRoot, worktree, baseOid, baseBranch, branchNa
     providers,                        // { claude: {...}, codex: {...} }
     providerOrder: providerOrder ?? Object.keys(providers),   // the operator's --provider/--fallback order
     activeProvider: null,
-    counters: { cycles: 0, commits: 0, consecutiveFailures: 0, emptyAudits: 0, skipped: 0, violations: 0 },
+    // `emptyAudits` is consecutive and resets; these two are cumulative. The
+    // split is the answer to "was there nothing to find, or did we refuse
+    // everything we found" — one sentence used to cover both.
+    counters: { cycles: 0, commits: 0, consecutiveFailures: 0, emptyAudits: 0,
+      auditsNoProposals: 0, auditsAllFiltered: 0, skipped: 0, violations: 0 },
     // What the run spent. `calls` in the provider ring counts callWithRepair
     // invocations and predates this; `usage.byPhase` counts CLI processes,
     // which differ whenever a schema repair fires. Both are kept because the

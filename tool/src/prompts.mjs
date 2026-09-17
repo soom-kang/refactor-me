@@ -298,7 +298,7 @@ export function collectAreaSkills(wt, scopePaths) {
 const SKILLS_LINE = (phase, provider, extra = []) =>
   [...ROUTING[phase], ...extra].map((s) => SIGIL[provider] + s).join(' ');
 
-export function auditPrompt({ provider, nonce, incremental, repoFacts, seen, violated, cycle, targets = [] }) {
+export function auditPrompt({ provider, nonce, incremental, repoFacts, seen, violated, cycle, committed = 0, targets = [] }) {
   const s = SIGIL[provider];
   // Present only when the run was scoped. An unscoped run must read exactly as
   // it did before this flag existed.
@@ -324,9 +324,13 @@ This run is scoped to: ${targets.join(', ')}
   for work, not where you look for the truth.
 ` : '';
   const history = incremental ? `
-This is re-audit ${cycle}. Earlier cycles of this run already landed commits, and
-the working tree you are looking at ALREADY CONTAINS them. Do not restart from
-zero and do not re-propose finished work.
+This is re-audit ${cycle}. ${committed > 0
+  ? `Earlier cycles of this run landed ${committed} commit(s), and the working tree
+you are looking at ALREADY CONTAINS them. Do not restart from zero and do not
+re-propose finished work.`
+  : `No earlier cycle of this run landed a commit: the working tree is byte-for-byte
+where it started. The entries below were considered and set aside, so re-proposing
+one is wasted effort — but nothing in the code has changed since you last saw it.`}
 
 ${fence('PRIOR_WORK', nonce, [
   `completed (do not propose again): ${seen.done.length ? seen.done.join(', ') : 'none'}`,

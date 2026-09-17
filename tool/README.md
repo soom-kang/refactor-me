@@ -24,6 +24,7 @@ The installer creates `.refactor/config.json` if absent and preserves it on rein
 | `agents.<name>.effort` | Unset | Override the default effort table; a per-phase value takes precedence |
 | `agents.claude.max_budget_usd` | `0` | Pass a positive value to Claude's per-call budget option |
 | `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | Eligible risk levels; `UNKNOWN` and `L3_CRITICAL` remain excluded |
+| `policy.unknown_risk` | `set_aside` | How an `UNKNOWN` risk level is handled. `deep_check` sends an `UNKNOWN` candidate whose readiness is `NEEDS_EVIDENCE` to deep check instead of setting it aside; every other `UNKNOWN` is still set aside |
 | `policy.max_cycles` / `policy.max_commits` | `25` / `20` | Cycle and refactor-commit limits |
 | `policy.max_wall_clock_min` | `180` | Elapsed-time limit checked between units of work |
 | `policy.max_consecutive_failures` | `3` | Stop after repeated candidate failures |

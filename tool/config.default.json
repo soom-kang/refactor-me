@@ -30,6 +30,7 @@
       "L1_MODERATE",
       "L2_HIGH"
     ],
+    "unknown_risk": "set_aside",
     "auto_characterization": true,
     "cross_provider_review": true,
     "max_cycles": 25,

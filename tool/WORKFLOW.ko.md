@@ -282,7 +282,9 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 
 ### 근거 부족과 알 수 없는 위험도
 
-Audit의 `risk_level: "UNKNOWN"`은 `READY`여도 `RISK_UNKNOWN`으로 제외합니다. `NEEDS_EVIDENCE`는 deep check로 진행할 수 있습니다. Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수정 전에 후보를 멈춥니다.
+Audit의 `risk_level: "UNKNOWN"`은 기본값 `policy.unknown_risk: set_aside`에서 `READY`여도 `RISK_UNKNOWN`으로 제외합니다. 확인이 하나 더 필요한 모델은 위험도도 매길 수 없으므로, 이 검사는 `NEEDS_EVIDENCE` 후보가 deep check에 닿기 전에 모두 제외해 왔습니다. `policy.unknown_risk`를 `deep_check`로 두면 `UNKNOWN` 위험도와 `NEEDS_EVIDENCE` 준비 상태가 함께인 경우만 통과하고, 그 밖의 `UNKNOWN`은 계속 제외합니다. `allowed_risks`를 넓혀도 `UNKNOWN`은 켜지지 않습니다.
+
+Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수정 전에 후보를 멈춥니다. `READY` 명세는 그 자신의 `risk_level`을 `allowed_risks`에 대조합니다. `UNKNOWN`을 반환하면 `RISK_UNKNOWN`, 허용 범위를 넘으면 `RISK_EXCLUDED`를 기록합니다. 이 검사는 모든 후보에 적용되며 `policy.unknown_risk`로 완화되지 않습니다.
 
 <details>
 <summary>전체 JSON 응답</summary>
@@ -497,6 +499,7 @@ Audit의 `risk_level: "UNKNOWN"`은 `READY`여도 `RISK_UNKNOWN`으로 제외합
 | 파일 | 의미 |
 | --- | --- |
 | `audits/*.json` | Audit이 반환한 후보 목록 |
+| `audits/<cycle>/provider/` | 해당 사이클 audit의 프롬프트와 원본 기록 |
 | `cycles/*/packet.json` | 작업 명세와 컨트롤러 메타데이터 |
 | `cycles/*/preflight.json` | 실패 가설과 반증 결과 |
 | `cycles/*/execution.json` | 구현 응답과 프로바이더 |

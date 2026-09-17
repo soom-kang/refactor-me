@@ -249,13 +249,17 @@ export function runChecks(facts, packet, policy, state, targets = []) {
     const forb = [...FORBIDDEN_GLOBS, ...(policy?.extra_forbidden_globs ?? [])].map(globToRegex);
     const hits = facts.changed.filter((p) => matchesAny(p, forb));
     const binHits = facts.binary ?? [];
+    // `paths` the same way OUT_OF_SCOPE carries them below: these are the one
+    // thing that genuinely means "must not touch", and the audit is told about
+    // them by path. Without this the forbidden-path line the loop builds would
+    // be permanently empty.
     if (hits.length > 0) {
       const c = bad('FORBIDDEN_PATH', 'FORBIDDEN_PATH', `forbidden: ${hits.join(', ')}`);
-      checks.push(c); return stop(c);
+      c.paths = hits; checks.push(c); return stop(c);
     }
     if (binHits.length > 0) {
       const c = bad('FORBIDDEN_PATH', 'FORBIDDEN_BINARY', `binary content changed: ${binHits.join(', ')}`);
-      checks.push(c); return stop(c);
+      c.paths = binHits; checks.push(c); return stop(c);
     }
     emit(ok('FORBIDDEN_PATH', `0 hits across ${facts.changed.length} changed path(s)`));
   }

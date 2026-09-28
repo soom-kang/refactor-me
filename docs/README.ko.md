@@ -2,11 +2,11 @@
 
 # refactor-me
 
-[![Beta](https://img.shields.io/badge/release-v0.8.8--beta.1-orange)](https://github.com/soom-kang/refactor-me/releases/tag/v0.8.8-beta.1) [![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
+[![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
 
 Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행하는 CLI입니다. 별도 worktree에서 수정과 검증을 진행하고 결과를 `refactor/auto-*` 로컬 브랜치에 남깁니다. 병합 전에는 diff와 리포트를 확인하세요.
 
-**공개 Beta `v0.8.8-beta.1`**: 안정판 전까지 인터페이스와 동작이 바뀔 수 있습니다.
+**Go 개발 빌드:** `dev`. 다음 공개 릴리스는 `0.9.20-beta.1`부터 시작하며 이번 변경에서는 배포하지 않습니다.
 
 [English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [상세 문서](../tool/README.ko.md) · [Workflow](../tool/WORKFLOW.ko.md) · [변경 이력](../tool/CHANGELOG.md)
 
@@ -14,17 +14,19 @@ Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행하는 CLI�
 
 먼저 다음 조건을 준비하세요.
 
-- macOS, Node.js 24 이상, Git
+- macOS Apple Silicon, Git, 소스 빌드용 Go 1.27
 - 인증된 `codex` 또는 `claude` CLI와 네트워크 연결
 - 별도로 릴리즈된 필수 의존성 [sharpen-me](https://github.com/soom-kang/sharpen-me)의 Skill 8개
 - 의존성을 설치하고 빌드 캐시를 준비한 대상 프로젝트
 
-1. Beta를 clone하고 도구를 설치하세요. 예시 경로는 대상 저장소의 경로로 바꾸세요.
+1. 이 checkout에서 Go CLI를 빌드하고 대상 저장소에 설치하세요. 예시 경로를 바꾸세요.
 
 ```bash
-git clone --branch v0.8.8-beta.1 --depth 1 https://github.com/soom-kang/refactor-me.git
+git clone https://github.com/soom-kang/refactor-me.git
 cd refactor-me
-node tool/install.mjs /path/to/target-repo
+cd tool/go
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 2. **대상 저장소**에서 Skill을 설치하고 Project 범위를 선택하세요.
@@ -42,7 +44,7 @@ git add .agents .claude skills-lock.json && git commit
 
 설치기는 실체 파일을 `.agents/skills/<name>/`에 두고 `.claude/skills/<name>`은 그곳을 가리키는 심볼릭 링크로 만듭니다. 두 디렉터리를 함께 커밋하세요. 한쪽만 커밋하면 실행용 worktree에서 링크가 아무것도 가리키지 못합니다.
 
-설치기는 `.refactor/`에 도구를 복사하고 기존 설정과 실행 기록을 보존합니다. 도구 자체의 npm 패키지 설치나 빌드는 필요하지 않습니다.
+설치기는 Go 바이너리를 `.refactor/bin/refactor-me`에 복사하고 기존 설정과 실행 기록을 보존합니다. 대상 저장소에서 이 바이너리를 실행할 때 Go는 필요하지 않습니다. `npx skills add`에는 Node.js가 필요합니다.
 
 ## 실행
 
@@ -91,16 +93,18 @@ git add .agents .claude skills-lock.json && git commit
 
 ## 검증
 
-이 저장소 루트에서 실행하세요.
+이 저장소 루트에서 `tool/go`로 이동해 실행하세요.
 
 ```bash
-node --test tool/test/*.test.mjs
-node tool/bin/refactor-me.mjs help
-node tool/bin/refactor-me.mjs version --json
+cd tool/go
+go test -race ./...
+go vet ./...
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me version --json
 ```
 
 로컬 테스트는 설치와 CLI 동작을 확인합니다. 실제 모델의 판단 품질은 별도 실행으로 확인해야 합니다. [검증 범위](../tool/README.ko.md#로컬-개발-검사)를 참고하세요.
 
 ## 라이선스
 
-CLI와 문서는 [MIT License](../LICENSE)를 적용하며 저작권자는 2026 soom-kang입니다. 설치된 CLI에도 `.refactor/lib/LICENSE`를 포함합니다. 필수 의존성인 sharpen-me Skill은 각자의 MIT 라이선스 파일을 유지합니다. Codex와 Claude Code는 외부 선행 도구로 각 공급자의 약관을 따릅니다.
+CLI와 문서는 [MIT License](../LICENSE)를 적용하며 저작권자는 2026 soom-kang입니다. 설치된 Go 바이너리에도 저장소의 라이선스가 적용됩니다. 필수 의존성인 sharpen-me Skill은 각자의 MIT 라이선스 파일을 유지합니다. Codex와 Claude Code는 외부 선행 도구로 각 공급자의 약관을 따릅니다.

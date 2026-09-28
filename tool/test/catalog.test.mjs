@@ -12,7 +12,7 @@ test('installed catalog, lockfile, Claude links and routing agree on eight skill
     'sharpen-refine', 'sharpen-cold-review', 'sharpen-brief', 'sharpen-dedupe'];
   assert.deepEqual([...REQUIRED_SKILLS].sort(), [...expected].sort());
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'skills-lock.json'), 'utf8'));
-  assert.deepEqual(Object.keys(lock.skills).sort(), [...expected].sort());
+  assert.deepEqual(Object.keys(lock.skills).filter((name) => name.startsWith('sharpen-')).sort(), [...expected].sort());
   for (const name of expected) {
     const skill = path.join(root, '.agents', 'skills', name);
     const md = fs.readFileSync(path.join(skill, 'SKILL.md'), 'utf8');

@@ -8,7 +8,7 @@ Follow the [guide](TUTORIAL.md) for installation.
 
 ## Configuration
 
-The installer creates `.refactor/config.json` if absent and preserves it on reinstall. Runtime defaults are in `src/config.mjs` and `src/loop.mjs`; the installation template is [config.default.json](config.default.json).
+The installer creates `.refactor/config.json` if absent and preserves it on reinstall. Runtime defaults are in `go/internal/surface/config.go` and `go/internal/controller`; the installation template is [config.default.json](config.default.json).
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -218,7 +218,11 @@ From the repository root:
 ```bash
 node --test tool/test/*.test.mjs
 node --check tool/bin/refactor-me.mjs
-node tool/bin/refactor-me.mjs version --json
+cd tool/go
+go test -race ./...
+go vet ./...
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me version --json
 ```
 
-There is no separate lint, typecheck, or build command. Tests use Node.js built-ins and temporary repositories. **Live model decision quality and CLI Skill loading require separate provider runs.**
+Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The legacy Node suite remains a comparison baseline. **Live model decision quality and CLI Skill loading require separate provider runs.**

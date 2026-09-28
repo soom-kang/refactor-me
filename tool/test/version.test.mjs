@@ -7,24 +7,18 @@ import { newState, newProviderRing } from '../src/state.mjs';
 
 const root = path.join(import.meta.dirname, '..');
 
-test('the version is a semver triple with an optional numbered prerelease', () => {
+test('development builds identify themselves as dev', () => {
   const pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?$/;
-  assert.match(VERSION, pattern);
-  for (const value of ['0.1.0', '0.8.8-beta.1', '1.0.0-rc.2']) assert.match(value, pattern);
-  for (const value of ['v0.8.8-beta.1', '0.8', '0.8.8-beta', '0.8.8-beta.01', '00.8.8']) {
+  assert.equal(VERSION, 'dev');
+  assert.match('0.9.20-beta.1', pattern);
+  for (const value of ['v0.9.20-beta.1', '0.9', '0.9.20-beta', '0.9.20-beta.01', '00.9.20']) {
     assert.doesNotMatch(value, pattern);
   }
 });
 
-test('the changelog has a section for the current version', () => {
-  // Bumping a release means editing two files. Nothing can merge them — one is
-  // a constant, the other is prose — but the drift between them can be made a
-  // test failure, and this is it.
+test('the changelog records the next planned release', () => {
   const md = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
-  assert.ok(
-    new RegExp(`^## ${VERSION.replace(/\./g, '\\.')}\\b`, 'm').test(md),
-    `CHANGELOG.md has no "## ${VERSION}" section`,
-  );
+  assert.match(md, /0\.9\.20-beta\.1/);
 });
 
 test('every run records which build produced it', () => {

@@ -18,7 +18,7 @@ Required: the proposed approach and intended outcome. Optional: constraints, con
 2. Inspect evidence for and against those assumptions. Relevant traps include an unverified premise, a plan's own explanation mistaken for evidence, an analogy that does not preserve the mechanism, reliance on a future result, and an implementation that contradicts its stated principle.
 3. For empirical plans, additionally check whether validation has independent evidence and whether sampling or multiple comparisons support the claimed conclusion. Do not invent probabilities or required sample sizes.
 4. Combine objections only when fixing their shared cause removes them all. Preserve other independently blocking issues. Do not manufacture an objection because the skill was invoked.
-5. If a decisive contract or existing evidence settles the issue, explain it without a ceremonial experiment. Otherwise, or when the caller requests a test, specify input, controlled action, observation, and the result that supports or rejects the assumption.
+5. If a decisive contract or existing evidence settles the issue, explain it without a ceremonial experiment. Otherwise, or when the caller requests a test, specify input, controlled action, observation, and the result that supports or rejects the assumption. Check that each proposed verdict follows from its stated observation, and that the test can distinguish the competing explanations.
 6. Execute only a useful check within existing authorization. Prefer a deterministic local counterexample or contract-consistent test double. Require external infrastructure only when local evidence cannot answer the question.
 
 ## Judgment rules

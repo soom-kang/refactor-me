@@ -109,7 +109,7 @@ test('install and reinstall provide the new command and preserve data and custom
   fs.writeFileSync(path.join(dest, 'last-run.json'), '{"runId":"old"}');
   fs.writeFileSync(path.join(dest, 'bin', 'custom-command'), 'owned by user');
   const oldShim = path.join(dest, 'bin', 'refactorloop');
-  fs.writeFileSync(oldShim, '#!/bin/sh\n# refactorloop 0.1.0 — installed 2026-09-06 from /old/tool\nexec node "$(dirname "$0")/../lib/bin/refactorloop.mjs" "$@"\n');
+  fs.writeFileSync(oldShim, '#!/bin/sh\n# refactorloop 9.9.9 — installed 2026-09-06 from /old/tool\nexec node "$(dirname "$0")/../lib/bin/refactorloop.mjs" "$@"\n');
   fs.writeFileSync(path.join(dest, 'lib', 'bin', 'refactorloop.mjs'), '// old entrypoint');
   const updated = run(installer, [dir], dir);
   assert.equal(updated.status, 0, updated.stderr);

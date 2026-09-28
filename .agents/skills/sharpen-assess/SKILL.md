@@ -39,10 +39,11 @@ Estimate what a wrong change could affect and what reasoning the work requires. 
 - **Risk beats size.** One destructive statement can be `critical` risk. A mechanical rename with reliable references and complete checks can stay `fast` with `glance`, regardless of file count. Execute exhaustive mechanical checks when needed; their volume alone is not a reason to increase deliberation.
 - **Establish the platform before claiming its semantics.** Familiar syntax does not identify the runtime, its version, or its defaults. Without that evidence, state the verification objective and the missing input instead of prescribing a platform-specific command.
 - **An alternative meets the same evidence standard as the change it replaces.** An inverse command does not establish operational reversibility; qualify disruption, recovery, cost, and consumer compatibility until their prerequisites are verified, and do not infer a legal obligation from the presence of user data.
+- **Destructive execution needs its own gate.** State the required authorization and verified recovery path separately from the risk level, model choice, and proposed checks. Do not treat a suggested rollback command as recovery evidence.
 
 ## Output and stopping
 
-Honor the caller's schema, including its enums. Without one, return:
+Honor the caller's schema, including its enums. Without one, give a concise decision first, then include only the material details below:
 
 - `change_risk`: level, concrete exposure, reversibility, and important unknowns.
 - `execution_advice`: recommended capability tier and reasoning intent, rationale, explicit user constraints, and any provider mapping limitation.

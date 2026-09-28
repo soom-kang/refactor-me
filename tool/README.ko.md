@@ -8,7 +8,7 @@
 
 ## 설정
 
-`.refactor/config.json`이 없으면 설치기가 생성하고 재설치 시에는 보존합니다. 실행 기본값은 `src/config.mjs`와 `src/loop.mjs`, 설치 템플릿은 [config.default.json](config.default.json)에 있습니다.
+`.refactor/config.json`이 없으면 설치기가 생성하고 재설치 시에는 보존합니다. 실행 기본값은 `go/internal/surface/config.go`와 `go/internal/controller`, 설치 템플릿은 [config.default.json](config.default.json)에 있습니다.
 
 | 설정 | 기본값 | 동작 |
 | --- | --- | --- |
@@ -218,7 +218,11 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 ```bash
 node --test tool/test/*.test.mjs
 node --check tool/bin/refactor-me.mjs
-node tool/bin/refactor-me.mjs version --json
+cd tool/go
+go test -race ./...
+go vet ./...
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me version --json
 ```
 
-별도 lint, typecheck, build 명령은 없습니다. 테스트는 Node.js 기본 모듈과 임시 저장소를 사용합니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**
+Go는 `gofmt`, `go vet`, `go test -race`, `go build`로 검증합니다. 기존 Node 테스트는 비교 기준선으로 유지합니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**

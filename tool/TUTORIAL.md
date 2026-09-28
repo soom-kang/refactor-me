@@ -8,11 +8,10 @@ Prepare the target repository, then follow these five steps. Check each commandâ
 
 ## 1. Prepare the target
 
-Use macOS and Node.js 24 or later. From the repository you want to refactor:
+Use macOS Apple Silicon and Go 1.27 for building. From the repository you want to refactor:
 
 ```bash
 cd /path/to/target-repo
-node --version
 git rev-parse --show-toplevel
 git status --short
 ```
@@ -35,10 +34,10 @@ Provider calls require network access and consume the provider account's availab
 
 ## 2. Install the tool and skills
 
-Clone using the [Beta installation instructions](../README.md#install), then run from that checkout:
+Clone and build using the [Go installation instructions](../README.md#install), then run the built binary:
 
 ```bash
-node tool/install.mjs /path/to/target-repo
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 Install the eight required sharpen-me Skills in the target repository:
@@ -70,7 +69,7 @@ Doctor writes diagnostics under `.refactor/runs/` and calls models. Resolve bloc
 
 ## 3. Set limits
 
-In `.refactor/config.json`, set `policy.max_commits` to `1` for a first run and choose an elapsed-time limit. Characterization test commits are counted apart from this refactor-commit limit.
+In `.refactor/config.json`, set `policy.max_commits` to `1` and `policy.max_wall_clock_min` to a suitable limit (for example `30`) for a first run. Characterization test commits are counted apart from this refactor-commit limit.
 
 **The loop does not enforce a total monetary budget.** Claudeâ€™s budget option is not a total run limit either. See [configuration and defaults](README.md#configuration).
 
@@ -153,7 +152,9 @@ For explicit validation commands, see [Validation commands](README.md#validation
 From an updated refactor-me checkout, reinstall with the same command:
 
 ```bash
-node tool/install.mjs /path/to/target-repo
+cd tool/go
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 Reinstalling replaces runtime files and preserves `.refactor/config.json`, run records, and `last-run.json`. It removes recognized old generated commands without adding compatibility aliases. A customized old command stops installation before replacement; inspect it first.
@@ -169,7 +170,7 @@ To remove finished worktrees, run from the target repository:
 The command retains partial, unfinished, and safety-halted worktrees. To uninstall the tool, run from its source checkout:
 
 ```bash
-node tool/install.mjs /path/to/target-repo --uninstall
+/private/tmp/refactor-me uninstall /path/to/target-repo
 ```
 
-Uninstall removes `.refactor/lib` and `.refactor/bin`. It keeps configuration and run records, and does not remove the Skill catalog, result branches, or worktrees. Keep custom commands outside the tool's installation directories.
+Uninstall removes the owned Go binary and its ownership marker. It keeps configuration, run records, custom files, Skill catalog, result branches, and worktrees.

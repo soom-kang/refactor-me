@@ -23,7 +23,7 @@ Required: project or run scope and accessible evidence. Optional: last-known rev
 
 ## Output and stopping
 
-Follow the caller's format. Otherwise give a short, source-linked briefing: decisions or current status, meaningful changes since the baseline, still-open blockers, and material verification limits. Explain new terminology only where needed. Attach observation dates to status that may go stale. Do not force JSON fields, a glossary, or per-section expansion offers.
+Follow the caller's format through the end of the response. If it requires a final JSON object or another machine-readable value, add no prose after it. Otherwise give a short, source-linked briefing: decisions or current status, meaningful changes since the baseline, still-open blockers, and material verification limits. Explain new terminology only where needed. Attach observation dates to status that may go stale. Do not force JSON fields, a glossary, or per-section expansion offers.
 
 Stop once the requested scope is understandable or unavailable evidence prevents a reliable account. State missing sources instead of broadening indefinitely. Do not edit, choose product policy, send messages, or create monitoring jobs.
 

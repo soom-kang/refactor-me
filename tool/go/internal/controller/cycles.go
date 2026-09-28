@@ -1,0 +1,380 @@
+package controller
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
+	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
+)
+
+func (r *runner) cycles() error {
+	for {
+		if err := r.budgetCheck(); err != nil {
+			return err
+		}
+		r.state.Cycle++
+		r.state.Counters.Cycles++
+		if err := r.save(); err != nil {
+			return err
+		}
+		proposed, eligible, err := r.audit()
+		if err != nil {
+			return err
+		}
+		if len(eligible) == 0 {
+			kind := "ALL_FILTERED"
+			if proposed == 0 {
+				kind = "NO_PROPOSALS"
+			}
+			r.emptyKinds = append(r.emptyKinds, kind)
+			r.state.Counters.EmptyAudits++
+			if kind == "NO_PROPOSALS" {
+				r.state.Counters.AuditsNoProposals++
+			} else {
+				r.state.Counters.AuditsAllFiltered++
+			}
+			if err := r.save(); err != nil {
+				return err
+			}
+			if r.state.Counters.EmptyAudits >= r.policy.EmptyAuditsToStop {
+				return nil
+			}
+			continue
+		}
+		r.state.Counters.EmptyAudits = 0
+		r.emptyKinds = nil
+		if err := r.runCandidate(eligible[0]); err != nil {
+			return err
+		}
+	}
+}
+
+func (r *runner) budgetCheck() error {
+	c := r.state.Counters
+	p := r.policy
+	switch {
+	case c.Cycles >= p.MaxCycles:
+		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on cycle budget (%d)", p.MaxCycles)}
+	case c.Commits >= p.MaxCommits:
+		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on commit budget (%d)", p.MaxCommits)}
+	case c.ConsecutiveFailures >= p.MaxConsecutiveFailures:
+		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on %d consecutive failures", p.MaxConsecutiveFailures)}
+	case time.Since(r.started) >= time.Duration(p.MaxWallClockMin)*time.Minute:
+		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on wall clock (%dm)", p.MaxWallClockMin)}
+	case len(r.readyProviders()) == 0:
+		return halt{"DONE_PARTIAL", "stopped on all providers exhausted"}
+	}
+	return nil
+}
+
+func (r *runner) readyProviders() []string {
+	var out []string
+	for _, name := range r.state.ProviderOrder {
+		p := r.state.Providers[name]
+		if p == nil || p.Status == "DISABLED" || p.Status == "DEAD" {
+			continue
+		}
+		if p.Status == "COOLDOWN" {
+			until, _ := time.Parse(time.RFC3339Nano, p.CooldownUntil)
+			if time.Now().Before(until) {
+				continue
+			}
+			p.Status = "READY"
+			p.CooldownUntil = ""
+		}
+		out = append(out, name)
+	}
+	return out
+}
+
+type phaseResult struct {
+	Result   engine.Result
+	Provider string
+	Reason   string
+	OK       bool
+}
+
+func (r *runner) noteUsage(provider, phase string, result engine.Result) {
+	missing := result.Usage.CostMissing
+	if result.Usage.CostUSD == nil && missing == 0 {
+		missing = result.Processes
+	}
+	failed := 0
+	if !result.OK {
+		failed = 1
+	}
+	one := engine.UsageSummary{Processes: result.Processes, MS: result.DurationMS, InputTokens: result.Usage.InputTokens,
+		OutputTokens: result.Usage.OutputTokens, CostUSD: result.Usage.CostUSD, CostMissing: missing, FailedCalls: failed, Calls: 1}
+	add := func(old engine.UsageSummary) engine.UsageSummary {
+		old.Processes += one.Processes
+		old.MS += one.MS
+		old.InputTokens += one.InputTokens
+		old.OutputTokens += one.OutputTokens
+		old.CostMissing += one.CostMissing
+		old.FailedCalls += one.FailedCalls
+		old.Calls += one.Calls
+		if one.CostUSD != nil {
+			v := *one.CostUSD
+			if old.CostUSD != nil {
+				v += *old.CostUSD
+			}
+			old.CostUSD = &v
+		}
+		return old
+	}
+	status := r.state.Providers[provider]
+	status.Usage = add(status.Usage)
+	if r.state.Usage.ByPhase == nil {
+		r.state.Usage.ByPhase = map[string]engine.UsageSummary{}
+	}
+	r.state.Usage.ByPhase[phase] = add(r.state.Usage.ByPhase[phase])
+}
+
+func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs) (phaseResult, error) {
+	resourceOnly := true
+	available := r.readyProviders()
+	if prefer != "" && slices.Contains(available, prefer) {
+		available = append([]string{prefer}, slices.DeleteFunc(available, func(x string) bool { return x == prefer })...)
+	}
+	for _, name := range available {
+		for attempt := 0; attempt < 3; attempt++ {
+			status := r.state.Providers[name]
+			status.Calls++
+			r.state.ActiveProvider = name
+			if err := r.save(); err != nil {
+				return phaseResult{}, err
+			}
+			var result engine.Result
+			injected := r.surface.Args.ForceQuotaAt == phase && !r.forcedQuota
+			if injected {
+				r.forcedQuota = true
+				result = engine.Result{Failure: "QUOTA", Hard: true, Detail: "injected for rehearsal", Provider: name}
+			} else {
+				args.Provider = name
+				args.Nonce = engine.NewNonce()
+				prompt, err := engine.BuildPrompt(phase, args)
+				if err != nil {
+					return phaseResult{}, err
+				}
+				schemaName := phase
+				if phase == "deep_check" {
+					schemaName = "deepcheck"
+				}
+				request := engine.Request{Phase: phase, Mode: engine.ModeFor(phase), CWD: r.wt,
+					Body: prompt, Schema: engine.Schema(schemaName), RunDir: runDir, Attempt: "primary"}
+				if phase == "audit" && r.state.Cycle > 1 {
+					request.Effort = "medium"
+				}
+				result, err = engine.CallWithRepair(r.ctx, name, request, r.engineConfig, r)
+				if err != nil {
+					result = engine.Result{Failure: "PROCESS", Detail: err.Error(), Provider: name}
+				}
+			}
+			if !injected {
+				r.noteUsage(name, phase, result)
+				if err := r.save(); err != nil {
+					return phaseResult{}, err
+				}
+			}
+			if result.OK {
+				return phaseResult{Result: result, Provider: name, OK: true}, nil
+			}
+			if result.Fatal {
+				return phaseResult{}, halt{"ABORTED", name + ": " + result.Detail}
+			}
+			status.LastError = result.Failure + ": " + result.Detail
+			if result.Failure == "QUOTA" || result.Failure == "AUTH" {
+				if result.Failure == "QUOTA" {
+					status.QuotaHits++
+				}
+				if result.Failure == "AUTH" {
+					status.Status = "DEAD"
+				} else if result.Hard {
+					status.Status = "COOLDOWN"
+					status.CooldownUntil = time.Now().Add(time.Duration(r.policy.CooldownMinutes) * time.Minute).UTC().Format(time.RFC3339Nano)
+				}
+				if err := r.save(); err != nil {
+					return phaseResult{}, err
+				}
+				_ = r.writeHandoff(name, result.Failure)
+				break
+			}
+			resourceOnly = false
+			if result.Failure == "TIMEOUT" || result.Failure == "PROCESS" {
+				if attempt < 2 {
+					delay := 5 * time.Second
+					if attempt == 1 {
+						delay = 20 * time.Second
+					}
+					select {
+					case <-time.After(delay):
+					case <-r.ctx.Done():
+						return phaseResult{}, r.ctx.Err()
+					}
+					continue
+				}
+			}
+			break
+		}
+	}
+	reason := "FAILED"
+	if resourceOnly {
+		reason = "RESOURCE"
+	}
+	return phaseResult{Reason: reason}, nil
+}
+
+func (r *runner) writeHandoff(dead, failure string) error {
+	if r.handoffWritten {
+		return nil
+	}
+	live := ""
+	for _, name := range r.readyProviders() {
+		if name != dead {
+			live = name
+			break
+		}
+	}
+	if live == "" {
+		return nil
+	}
+	r.handoffWritten = true
+	data, _ := json.MarshalIndent(r.state, "", "  ")
+	end := r.state.PublishedOID
+	if end == "" {
+		end = r.state.BaseOID
+	}
+	log, _ := workspace.LogOneline(r.surface.Repo, r.state.BaseOID+".."+end, 20)
+	args := engine.PromptArgs{Provider: live, DeadProvider: dead, LiveProvider: live, FailureClass: failure, StateJSON: string(data), GitLog: log}
+	prompt, err := engine.BuildPrompt("handoff", args)
+	if err != nil {
+		return err
+	}
+	res, err := engine.CallProvider(r.ctx, live, engine.Request{Phase: "handoff", Mode: "read", CWD: r.wt, Body: prompt, RunDir: r.runDir, Effort: "low", Attempt: "primary"}, r.engineConfig, nil)
+	if err != nil {
+		return err
+	}
+	r.noteUsage(live, "handoff", res)
+	if err := r.save(); err != nil {
+		return err
+	}
+	if res.OK && strings.TrimSpace(res.Text) != "" {
+		header := fmt.Sprintf("<!-- generated mid-run at the %s handoff; not the final outcome -->\n> Snapshot at the %s → %s handoff. Read report.md for the final result.\n\n", failure, dead, live)
+		return writeText(filepath.Join(r.runDir, "handoff.md"), header+res.Text)
+	}
+	return nil
+}
+
+func (r *runner) audit() (int, []map[string]any, error) {
+	if err := r.phase("AUDIT"); err != nil {
+		return 0, nil, err
+	}
+	cycleDir, err := workspace.AuditDirFor(r.runDir, r.state.Cycle)
+	if err != nil {
+		return 0, nil, err
+	}
+	facts, err := engine.CollectRepoFacts(r.wt, engine.FactsOptions{Areas: r.discovery.Areas, Commands: r.commandFacts(), Skipped: r.skippedFacts(), Targets: r.surface.Targets, MaxFiles: 400})
+	if err != nil {
+		return 0, nil, err
+	}
+	args := engine.PromptArgs{Incremental: r.state.Cycle > 1, Committed: len(r.state.Commits), Cycle: r.state.Cycle,
+		RepoFacts: facts, Targets: r.surface.Targets, SeenDone: r.state.Seen.Done, Violated: r.violatedPaths()}
+	for _, x := range r.state.Seen.Skipped {
+		args.SeenSkipped = append(args.SeenSkipped, engine.SkippedCandidate{Fingerprint: x.FP, Reason: x.Reason})
+	}
+	call, err := r.callPhase("audit", cycleDir, "", args)
+	if err != nil {
+		return 0, nil, err
+	}
+	if !call.OK {
+		if call.Reason == "RESOURCE" {
+			return 0, nil, halt{"DONE_PARTIAL", "stopped on all providers exhausted during audit"}
+		}
+		r.state.Counters.ConsecutiveFailures++
+		return 0, nil, halt{"DONE_PARTIAL", "audit failed without a usable provider response"}
+	}
+	data := obj(call.Result.Data)
+	all := mapsOf(data["candidates"])
+	if len(all) > r.policy.MaxAuditCandidates {
+		all = all[:r.policy.MaxAuditCandidates]
+	}
+	if err := writeJSONAtomic(filepath.Join(r.runDir, "audits", fmt.Sprintf("%02d.json", r.state.Cycle)), map[string]any{"provider": call.Provider, "candidates": all}); err != nil {
+		return 0, nil, err
+	}
+	seen := map[string]bool{}
+	for _, x := range r.state.Seen.Done {
+		seen[x] = true
+	}
+	for _, x := range r.state.Seen.Skipped {
+		seen[x.FP] = true
+	}
+	eligible, rejected := rank(all, r.surface.Targets, r.policy, seen, r.state.Seen.Attempts)
+	for _, x := range rejected {
+		if x.Reason == "ALREADY_SEEN" {
+			continue
+		}
+		r.state.markSkipped(str(x.Candidate["fp"]), x.Reason, x.Detail, stringsOf(x.Candidate["related_files"]), false)
+	}
+	if err := r.save(); err != nil {
+		return 0, nil, err
+	}
+	return len(all), eligible, nil
+}
+
+func (r *runner) violatedPaths() []string {
+	set := map[string]bool{}
+	for _, x := range r.state.Seen.Skipped {
+		if x.Detail["violated"] == true {
+			for _, p := range stringsOf(x.Detail["paths"]) {
+				set[p] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for p := range set {
+		out = append(out, p)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func (r *runner) fail(fp, reason, detail string, paths []string, violated bool) error {
+	r.state.markSkipped(fp, reason, detail, paths, violated)
+	r.state.Counters.ConsecutiveFailures++
+	r.state.ActivePacket = nil
+	r.Warn(reason + ": " + detail)
+	return r.save()
+}
+
+func (r *runner) rollback(preOID string) error {
+	result, err := workspace.Rollback(r.surface.Repo, r.wt, preOID)
+	if err != nil {
+		return halt{"HALTED_UNSAFE", "rollback failed: " + err.Error()}
+	}
+	if !result.Clean {
+		return halt{"HALTED_UNSAFE", "rollback left worktree dirty: " + result.Residue}
+	}
+	return nil
+}
+
+func (r *runner) publish(oid string) error {
+	ref := "refs/heads/" + r.state.BranchName
+	if err := workspace.PublishCAS(r.surface.Repo, ref, oid, r.state.PublishedOID); err != nil {
+		return halt{"HALTED_UNSAFE", "could not publish " + ref + ": " + err.Error()}
+	}
+	r.state.PublishedOID = oid
+	return r.save()
+}
+
+func (r *runner) savePatch(dir, name string) {
+	patch, err := workspace.Git(r.wt, "diff", "--binary", "HEAD")
+	if err == nil {
+		_ = os.WriteFile(filepath.Join(dir, name), []byte(patch), 0o600)
+	}
+}

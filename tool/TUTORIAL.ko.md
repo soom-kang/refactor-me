@@ -8,11 +8,10 @@
 
 ## 1. 대상 저장소 준비
 
-macOS와 Node.js 24 이상을 사용합니다. 리팩터링할 저장소에서 확인하세요.
+macOS Apple Silicon을 사용합니다. Go 1.27은 소스 빌드에 필요합니다. 리팩터링할 저장소에서 확인하세요.
 
 ```bash
 cd /path/to/target-repo
-node --version
 git rev-parse --show-toplevel
 git status --short
 ```
@@ -35,10 +34,10 @@ claude auth status
 
 ## 2. 도구와 Skill 설치
 
-[Beta 설치 안내](../docs/README.ko.md#설치)에 따라 clone한 refactor-me checkout에서 실행하세요.
+[Go 설치 안내](../docs/README.ko.md#설치)에 따라 clone한 refactor-me checkout에서 실행하세요.
 
 ```bash
-node tool/install.mjs /path/to/target-repo
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 대상 저장소에 필수 의존성인 sharpen-me Skill 8개를 설치하세요.
@@ -70,7 +69,7 @@ Doctor는 `.refactor/runs/`에 진단 기록을 쓰고 모델을 호출합니다
 
 ## 3. 실행 한도 설정
 
-`.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`로 설정하고 경과 시간 한도를 정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
+`.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`, `policy.max_wall_clock_min`을 적절한 값(예: `30`)으로 설정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
 
 **전체 금액 예산은 강제하지 않습니다.** Claude 예산 옵션도 실행 전체의 한도가 아닙니다. [설정과 기본값](README.ko.md#설정)을 확인하세요.
 
@@ -153,7 +152,9 @@ git diff <base-commit> <published-commit>
 갱신한 refactor-me checkout에서 같은 설치 명령을 실행합니다.
 
 ```bash
-node tool/install.mjs /path/to/target-repo
+cd tool/go
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 재설치는 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. 이전 설치기가 생성한 명령은 제거하며 호환 별칭은 만들지 않습니다. 이전 명령에 사용자 수정이 있으면 교체 전에 중단하므로 먼저 확인하세요.
@@ -169,7 +170,7 @@ node tool/install.mjs /path/to/target-repo
 부분 완료, 미완료, 안전 정지 상태의 worktree는 보존합니다. 도구를 제거하려면 소스 checkout에서 실행합니다.
 
 ```bash
-node tool/install.mjs /path/to/target-repo --uninstall
+/private/tmp/refactor-me uninstall /path/to/target-repo
 ```
 
-제거 명령은 `.refactor/lib`와 `.refactor/bin`을 삭제합니다. 설정과 실행 기록을 보존하며 Skill 카탈로그, 결과 브랜치와 worktree는 제거하지 않습니다. 사용자 정의 명령은 도구 설치 디렉터리 밖에 보관하세요.
+제거 명령은 소유가 확인된 Go 바이너리만 삭제합니다. 설정과 실행 기록을 보존하며 Skill 카탈로그, 결과 브랜치와 worktree는 제거하지 않습니다. 사용자 정의 명령은 도구 설치 디렉터리 밖에 보관하세요.

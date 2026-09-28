@@ -108,8 +108,8 @@ test('a report written before usage existed still renders', () => {
 test('the summary leads with the build that produced the run', () => {
   // This block is what a beta tester screenshots; without the version the
   // feedback cannot be attributed to a build.
-  assert.match(renderSummary({ ...mdBase, toolVersion: '0.1.0' }, '/run'), /^refactor-me 0\.1\.0 · Partially completed/);
-  assert.match(renderMarkdown({ ...mdBase, toolVersion: '0.1.0' }), /- Tool version: refactor-me 0\.1\.0/);
+  assert.match(renderSummary({ ...mdBase, toolVersion: 'legacy' }, '/run'), /^refactor-me legacy · Partially completed/);
+  assert.match(renderMarkdown({ ...mdBase, toolVersion: 'legacy' }), /- Tool version: refactor-me legacy/);
 });
 
 test('a run from before versioning still renders, without leaking undefined', () => {

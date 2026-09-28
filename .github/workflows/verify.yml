@@ -29,11 +29,34 @@ jobs:
         run: |
           node tool/bin/refactor-me.mjs help
           node tool/bin/refactor-me.mjs version --json
-      - name: Match release tag to runtime version
-        if: startsWith(github.ref, 'refs/tags/')
+  go:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: tool/go/go.mod
+          cache-dependency-path: tool/go/go.mod
+      - name: Verify Apple Silicon runner
+        run: test "$(uname -m)" = arm64
+      - name: Format, test, vet and build
+        working-directory: tool/go
         run: |
-          node --input-type=module -e '
-            import assert from "node:assert/strict";
-            import { VERSION } from "./tool/src/version.mjs";
-            assert.equal(process.env.GITHUB_REF_NAME, `v${VERSION}`);
-          '
+          test -z "$(gofmt -l .)"
+          go test -race ./...
+          go vet ./...
+          go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me
+          "$RUNNER_TEMP/refactor-me" help
+          "$RUNNER_TEMP/refactor-me" version --json
+      - name: Match release tag to Go binary version
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: tool/go
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]
+          release_version="${RELEASE_TAG#v}"
+          go build -ldflags "-X main.version=$release_version" -o "$RUNNER_TEMP/refactor-me-release" ./cmd/refactor-me
+          actual="$("$RUNNER_TEMP/refactor-me-release" version --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
+          test "$actual" = "$release_version"

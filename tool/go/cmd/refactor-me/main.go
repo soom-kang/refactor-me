@@ -1,0 +1,22 @@
+package main
+
+import (
+	"os"
+
+	"github.com/soom-kang/refactor-me/tool/go/internal/controller"
+	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
+)
+
+// version is set only for an approved release build. A local build reports dev.
+var version = "dev"
+
+func main() {
+	surface.Version = version
+	cwd, err := os.Getwd()
+	if err != nil {
+		os.Exit(surface.ExitAborted)
+	}
+	os.Exit(surface.Execute(os.Args[1:], cwd, os.Stdout, os.Stderr, surface.Callbacks{
+		Run: controller.Run, Doctor: controller.Doctor, Clean: controller.Clean,
+	}))
+}

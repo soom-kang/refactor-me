@@ -1,7 +1,7 @@
 ---
 name: sharpen-clarify
 license: MIT
-description: Resolve consequential ambiguity in a development request using repository evidence before implementation. Use when plausible readings change the target, behavior, compatibility, or authorized scope; clear requests do not need a separate scope check.
+description: Resolve consequential ambiguity in a development request using repository evidence before implementation. Use when competing readings, including in a long bundled request, change the target, behavior, compatibility, or authorized scope; do not ask about choices the repository already settles.
 ---
 
 # Sharpen Clarify
@@ -14,7 +14,7 @@ Use the request and accessible project context. Optional inputs include target p
 
 ## Procedure
 
-1. Internally paraphrase the target, intended outcome, constraints, and completion evidence. Check for requirements the paraphrase drops or adds.
+1. Internally paraphrase the target, intended outcome, constraints, and completion evidence. In a bundled request, check each consequential requirement for readings the paraphrase drops or adds.
 2. Inspect the smallest relevant context: project instructions, current changes, callers, and established decisions. Complexity alone does not establish ambiguity.
 3. Resolve competing readings from that evidence. Do not ask the user to locate information you can inspect or reconfirm existing authorization.
 4. Surface only choices that materially change behavior, scope, compatibility, cost, or irreversible actions. Explain the alternatives and ask the highest-impact unresolved question first; combine related choices when useful.

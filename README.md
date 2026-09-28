@@ -2,11 +2,11 @@
 
 # refactor-me
 
-[![Beta](https://img.shields.io/badge/release-v0.8.8--beta.1-orange)](https://github.com/soom-kang/refactor-me/releases/tag/v0.8.8-beta.1) [![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and validates in a separate worktree and saves results on a local `refactor/auto-*` branch. Review the diff and report before merging.
 
-**Public Beta `v0.8.8-beta.1`**: interfaces and behavior may change before a stable release.
+**Go development build:** `dev`. The next public release starts at `0.9.20-beta.1`; it is not published by this change.
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
@@ -14,17 +14,19 @@ Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and 
 
 Prepare these prerequisites:
 
-- macOS, Node.js 24 or later, and Git
+- macOS Apple Silicon, Git, and Go 1.27 to build from source
 - An authenticated `codex` or `claude` CLI and network access
 - All eight Skills from [sharpen-me](https://github.com/soom-kang/sharpen-me), a separately released required dependency
 - The target project's dependencies and build-tool caches
 
-1. Clone the Beta and install the tool. Replace the example path with your target repository.
+1. Build the Go CLI from this checkout and install it in a target repository. Replace the example path.
 
 ```bash
-git clone --branch v0.8.8-beta.1 --depth 1 https://github.com/soom-kang/refactor-me.git
+git clone https://github.com/soom-kang/refactor-me.git
 cd refactor-me
-node tool/install.mjs /path/to/target-repo
+cd tool/go
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me install /path/to/target-repo
 ```
 
 2. Install the Skills in the **target repository** and choose Project scope.
@@ -42,7 +44,7 @@ git add .agents .claude skills-lock.json && git commit
 
 The installer writes the real files to `.agents/skills/<name>/` and makes `.claude/skills/<name>` a symlink into them. Commit both directories: committing one without the other leaves a link that resolves to nothing in the run worktree.
 
-The installer copies the tool into `.refactor/` and preserves existing configuration and run records. The tool needs no npm package installation or build.
+The installer copies the Go binary to `.refactor/bin/refactor-me` and preserves existing configuration and run records. The target repository needs no Go toolchain for this binary. The `npx skills add` step still needs Node.js.
 
 ## Run
 
@@ -91,16 +93,18 @@ Reports include file statistics, a diff preview, and `changes.patch`, the full t
 
 ## Verify
 
-From this repository root:
+From this repository root, enter `tool/go`:
 
 ```bash
-node --test tool/test/*.test.mjs
-node tool/bin/refactor-me.mjs help
-node tool/bin/refactor-me.mjs version --json
+cd tool/go
+go test -race ./...
+go vet ./...
+go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me version --json
 ```
 
 Local tests check installation and CLI behavior. Live model decision quality requires separate provider runs. See [validation boundaries](tool/README.md#local-development-checks).
 
 ## License
 
-The CLI and documentation are distributed under the [MIT License](LICENSE), copyright 2026 soom-kang. Installed CLI copies include `.refactor/lib/LICENSE`. The required sharpen-me Skills retain their own MIT license files. Codex and Claude Code are external prerequisites governed by their providers' terms.
+The CLI and documentation are distributed under the [MIT License](LICENSE), copyright 2026 soom-kang. The repository license applies to installed Go binaries. The required sharpen-me Skills retain their own MIT license files. Codex and Claude Code are external prerequisites governed by their providers' terms.

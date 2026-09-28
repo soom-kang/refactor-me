@@ -20,7 +20,7 @@ Required: target and requested improvement. Optional: allowed paths, protected r
 4. In documentation, verify changed claims against governing sources. Explicitly requested changes to fenced code, commands, tables, quotations, or user-authored text are allowed. Preserve their unaffected formatting and every separately protected region. Authorship alone does not prohibit an authorized edit.
 5. For prose-only cleanup, leave formatted blocks unchanged unless correcting them is also requested. Preserve deliberate examples and look-alikes. Do not convert an unresolved decision into fact.
 6. Use precise located edits; verify targets exist and report a missed replacement. Use a language-aware tool or a reviewed script for complex moves. Preserve unrelated bytes, Unicode, and line endings; avoid blanket replacements.
-7. Run meaningful existing checks and inspect the final diff, references, and relevant behavior. Do not alter tests to conceal behavior changes. Report unavailable or failed checks accurately.
+7. Run meaningful existing checks and inspect the final diff, references, and relevant behavior. In documentation mode, reread the complete affected document in context to catch stale explanations and broken references outside the edited lines. Do not alter tests to conceal behavior changes. Report unavailable or failed checks accurately.
 
 ## Output and stopping
 

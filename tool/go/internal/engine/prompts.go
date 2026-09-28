@@ -127,6 +127,16 @@ func BuildPrompt(phase string, a PromptArgs) (string, error) {
 	}
 	if a.Provider == "codex" {
 		s = strings.ReplaceAll(s, "/sharpen-", "$sharpen-")
+		// The shared templates describe Claude's Read/Glob/Grep tools. Codex
+		// exposes repository reads through a shell even in read-only sandbox
+		// mode. Without this adaptation, a Codex audit reports no candidates
+		// because it believes repository inspection is impossible.
+		s = strings.ReplaceAll(s,
+			"You have Read, Glob and Grep. You have no shell and no write access; this is",
+			"You have a read-only shell tool for repository inspection. Use only file reads, `rg`, `rg --files`, and read-only `git` queries. Do not edit files, run project scripts, or access the network; this is")
+		s = strings.ReplaceAll(s, "path with your Read tool", "path with read-only shell commands")
+		s = strings.ReplaceAll(s, "with Read, Glob and Grep", "with read-only shell file searches")
+		s = strings.ReplaceAll(s, "Everything else you do with Edit and Write as", "Everything else you do with the available file-editing tool as")
 	}
 	s = strings.NewReplacer(replacements...).Replace(s)
 	if a.Incremental && a.Committed > 0 {

@@ -6,7 +6,7 @@
 
 Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and validates in a separate worktree and saves results on a local `refactor/auto-*` branch. Review the diff and report before merging.
 
-**Go development build:** `dev`. The next public release starts at `0.9.20-beta.1`; it is not published by this change.
+**Go development build:** `dev`. The first Go Beta release is planned as `0.9.20-beta.1` for macOS Apple Silicon. Until its GitHub release is published, use the source-build instructions below.
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
@@ -14,18 +14,43 @@ Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and 
 
 Prepare these prerequisites:
 
-- macOS Apple Silicon, Git, and Go 1.27 to build from source
+- macOS Apple Silicon and Git; Go 1.27 only if building from source
 - An authenticated `codex` or `claude` CLI and network access
 - All eight Skills from [sharpen-me](https://github.com/soom-kang/sharpen-me), a separately released required dependency
 - The target project's dependencies and build-tool caches
 
-1. Build the Go CLI from this checkout and install it in a target repository. Replace the example path.
+1. After `v0.9.20-beta.1` is published, download the macOS Apple Silicon release archive and its checksum file. Verify the archive before extracting or running it. Replace the example repository path.
+
+```bash
+RELEASE_DIR="$(mktemp -d)"
+(
+set -e
+RELEASE_VERSION=0.9.20-beta.1
+RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${RELEASE_VERSION}"
+curl -fL "$RELEASE_URL/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
+curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
+cd "$RELEASE_DIR"
+shasum -a 256 -c SHA256SUMS
+unzip -q "refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
+cat INSTALL.md
+RELEASE_INFO="$(./refactor-me version --json)"
+printf '%s\n' "$RELEASE_INFO"
+printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$RELEASE_VERSION\""
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
+./refactor-me install /path/to/target-repo
+)
+```
+
+The archive contains `refactor-me`, `LICENSE`, `INSTALL.md`, and `BUILD-INFO.txt`. Compare `version --json` with the release version and read `INSTALL.md` before installation. `SHA256SUMS` detects a changed download; by itself it does not authenticate its publisher. This first Beta is **unsigned and not notarized**. macOS may block or warn about the download. If that happens, follow [Apple's instructions for opening an individual app](https://support.apple.com/en-gb/102445); do not disable system-wide protections.
+
+For an unpublished release or development, build from a source checkout with Go 1.27:
 
 ```bash
 git clone https://github.com/soom-kang/refactor-me.git
-cd refactor-me
-cd tool/go
+cd refactor-me/tool/go
 go build -o /private/tmp/refactor-me ./cmd/refactor-me
+/private/tmp/refactor-me version --json  # version is dev
 /private/tmp/refactor-me install /path/to/target-repo
 ```
 
@@ -40,11 +65,14 @@ npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
 
 ```bash
 git add .agents .claude skills-lock.json && git commit
+./.refactor/bin/refactor-me doctor --no-live-probe
 ```
 
 The installer writes the real files to `.agents/skills/<name>/` and makes `.claude/skills/<name>` a symlink into them. Commit both directories: committing one without the other leaves a link that resolves to nothing in the run worktree.
 
-The installer copies the Go binary to `.refactor/bin/refactor-me` and preserves existing configuration and run records. The target repository needs no Go toolchain for this binary. The `npx skills add` step still needs Node.js.
+The installer copies the Go binary to `.refactor/bin/refactor-me` and preserves existing configuration and run records. It only replaces a recognized previous installation; inspect any ownership error rather than overwriting the file. The target repository needs no Go toolchain for the release binary. The `npx skills add` step still needs Node.js.
+
+For reinstall, removal, or a return to the earlier Node CLI, follow the [update and rollback steps](tool/TUTORIAL.md#update-and-remove). The old Node installer replaces `.refactor/lib/src` and `.refactor/lib/bin`; inspect those directories for user files before running it.
 
 ## Run
 

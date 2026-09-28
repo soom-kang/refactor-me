@@ -3,10 +3,12 @@
 | 항목 | 결정 |
 | --- | --- |
 | 문서 기준 | 2026-09-28의 저장소 상태와 공식 문서 |
-| 이번 작업 | 전환 준비와 비용을 판단하는 설계 보고서. Go 코드·릴리스는 만들지 않음 |
+| 문서 성격 | Go 전환 전에 작성한 판단 자료. 아래 구현 현황과 릴리스 결정은 이후 갱신 사항 |
 | 첫 배포 | 공개 Beta, macOS Apple Silicon (`darwin/arm64`) |
 | 설치 | 릴리스 압축파일의 실행 파일을 대상 Git 저장소의 `.refactor`에 설치 |
-| 전환 | 기존 Node 구현과 병행 검증한 후 기본 명령을 교체 |
+| 구현 현황 | Go CLI와 저장소별 설치기가 `tool/go`에 구현됨. 첫 Go Beta 릴리스 검증 중 |
+
+**2026-09-28 릴리스 결정:** 첫 Go Beta `0.9.20-beta.1`은 미서명·미공증으로 준비한다. 릴리스 업로드와 게시는 검증 및 별도 승인 후 진행한다. 아래의 전환 전 분석은 그 당시의 기준선으로 남기되, 배포 조건은 이 결정과 [설치 안내](../README.md#install)를 따른다.
 
 ## 결론부터
 
@@ -34,19 +36,19 @@ Go 전환으로 확실히 얻을 수 있는 것은 **refactor-me 자체를 실�
 
 ### 계약과 테스트 자료
 
-1. **기준선 보관:** 현재 Node 24에서 `node --test tool/test/*.test.mjs`, `help`, `version --json` 결과와 CI 조건을 기록한다. 앞선 조사에서 257개 테스트가 통과했지만, Go 구현의 통과를 뜻하지 않는다. 현재 CI는 macOS에서 Node 24만 실행한다. [CI](../.github/workflows/verify.yml)
+1. **기준선 보관:** Node 24에서 `node --test tool/test/*.test.mjs`, `help`, `version --json` 결과와 CI 조건을 기록한다. 전환 설계 당시 Node 테스트 257개가 기준선이었다. 현재 CI는 Node와 Go 검증을 함께 수행한다. [CI](../.github/workflows/verify.yml)
 2. **비밀 없는 fixture:** 구버전 `config.json`, `commands.json`, `last-run.json`, `report.json`, 정상·손상 상태를 테스트 전용 임시 Git 저장소에 복제한다. 실제 run 디렉터리에는 prompt, provider 출력, 경로 또는 민감 정보가 있을 수 있으므로 그대로 테스트 자산에 넣지 않는다.
 3. **차이 비교 항목:** CLI stdout/stderr와 exit code, 설정 기본값 병합, `report --json`의 바이트 일치, 영문·국문 보고서의 의미, Git 변경 전후의 HEAD·index·작업 파일, timeout·quota·auth·schema 오류 분류를 각각 비교한다.
-4. **실행 환경:** Go toolchain 버전을 저장소와 CI에 고정하고 `go.mod`/`go.sum`을 관리한다. 우선 표준 라이브러리로 설계하되 외부 패키지가 꼭 필요하면 목적·라이선스·업데이트 책임을 검토한 뒤 별도 승인한다. `darwin/arm64`의 실제 실행 테스트를 릴리스 필수 조건으로 둔다. [Go module 문서](https://go.dev/doc/tutorial/create-module)
-5. **공개 배포 준비:** archive 무결성 검증, 빌드 출처, 버전 일치, Apple Developer ID 서명 및 notarization 가능 여부를 릴리스 게이트로 문서화한다. Apple은 notarization 제출물에 유효한 Developer ID 서명, hardened runtime, timestamp 등을 요구한다. 자격 증명과 외부 제출은 이번 작업에서 확인하거나 실행하지 않았다. [Apple 공식 안내](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+4. **실행 환경:** Go 1.27 module을 CI와 맞추고, 표준 라이브러리만 사용한다. 외부 패키지가 꼭 필요하면 목적·라이선스·업데이트 책임을 검토한 뒤 별도 승인한다. `darwin/arm64`의 실제 실행 테스트는 릴리스 조건이다. [Go module 문서](https://go.dev/doc/tutorial/create-module)
+5. **공개 배포 준비:** archive checksum, 빌드 출처, 태그·바이너리 버전 일치, 새 macOS 호스트의 실행 결과를 확인한다. 첫 Beta는 서명·공증을 하지 않는 것으로 결정했다. 이로 인한 macOS 경고·차단 가능성과 개별 앱 열기 안내를 사용자 문서와 릴리스 노트에 명시한다. 이후 서명된 릴리스를 도입한다면 Developer ID와 notarization 절차를 별도 작업으로 검증한다. [Apple 공식 안내](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 
-현재 Go 개발 빌드는 `dev`로 표시하며 다음 공개 릴리스는 `0.9.20-beta.1`부터 시작한다. 공개 업로드는 이 전환 작업에 포함하지 않는다.
+Go 개발 빌드는 `dev`로 표시하며 첫 공개 Go Beta 후보는 `0.9.20-beta.1`이다. 게시 여부는 릴리스 검증 뒤 결정한다.
 
 ## 3. 가장 많이 바뀌는 부분
 
 ### 설치와 업데이트 — 배포 계약 자체가 바뀐다
 
-현재 설치는 Node 소스를 복사하고 셸 shim을 만든다. Go 버전은 압축파일에서 꺼낸 실행 파일이 저장소 루트를 확인한 다음 **자기 자신을** `.refactor/bin/refactor-me`로 설치하는 형태를 권장한다. 사용자의 저장소에는 Go toolchain이 필요하지 않다. 기존 `.refactor/lib`, `config.json`, `runs/`, `last-run.json`, 사용자 정의 명령은 교체 대상이 아니다. 이미 있는 `refactor-me`가 도구가 만든 shim인지 식별할 수 없으면 중단한다. 설치 실패가 기존 실행 명령을 망가뜨리지 않도록 임시 경로에 복사·검증한 뒤 교체하는 절차와 복구 경로를 설계해야 한다. 실제 파일 교체와 이전 버전 보존 방법은 시제품의 설치 테스트로 검증한다. [현 설치·재설치 테스트](../tool/test/cli.test.mjs)
+기존 Node 설치기는 소스를 복사하고 셸 shim을 만들었다. Go 설치기는 압축파일에서 꺼낸 실행 파일을 대상 저장소의 `.refactor/bin/refactor-me`로 복사한다. 대상 저장소에는 Go toolchain이 필요하지 않다. `config.json`, `runs/`, `last-run.json`과 사용자 파일은 보존한다. 이미 있는 `refactor-me`가 식별된 Node shim이나 소유 marker가 일치하는 Go 바이너리가 아니면 교체하지 않는다. 설치 실패 시 기존 명령을 복원할 수 있도록 임시 파일과 백업을 사용한다. 기존 Node 파일의 소유 여부도 파일별로 판정하는 것이 첫 릴리스 조건이다. [Go 설치기](../tool/go/internal/surface/install.go), [Node 설치·재설치 테스트](../tool/test/cli.test.mjs)
 
 ### 하위 프로세스 — `CommandContext`만으로 충분하지 않다
 
@@ -65,36 +67,37 @@ Git은 라이브러리의 단순 치환 대상이 아니다. 현재 `git`의 arg
 | 사용자 설치 | refactor-me 자체의 Node 24 선행 설치 제거; 대상 저장소에 Go 설치 불필요 | 압축파일 선택·검증, 바이너리 교체·복구 절차가 새 운영 책임 | 깨끗한 macOS ARM 환경의 설치→재설치→제거 실습 |
 | 코드 안정성 | Go 타입·명시적 오류 반환으로 내부 경계를 드러내기 쉬움 | JavaScript의 동적 JSON과 provider 응답을 모델링·검증하는 코드 및 테스트 증가 | 구버전 fixture와 malformed 입력을 동일하게 분류 |
 | 실행 속도·자원 | 내부 CLI 시작·파싱 비용을 줄일 가능성 | 실제 run은 모델 응답·Git·대상 프로젝트 검증을 기다릴 수 있어 총시간 이득 미확인 | 외부 대기와 controller 내부 시간을 분리해 동일 작업 비교 |
-| 배포·보안 | 플랫폼별 바이너리와 릴리스 산출물의 버전 추적 가능 | CI 빌드, 서명, notarization, 압축파일 검증, 공급망 관리 추가 | 배포물 검증과 새 macOS 호스트 실행 |
+| 배포·보안 | 플랫폼별 바이너리와 릴리스 산출물의 버전 추적 가능 | 첫 Beta의 미서명 배포 위험, CI 빌드·압축파일 검증·공급망 관리 추가. 서명·공증 도입은 후속 비용 | 배포물 검증과 새 macOS 호스트 실행 |
 | 유지보수 | 단일 Go runtime과 표준 도구로 개발 가능 | Node 테스트·문서·설치 경로를 한동안 병행; 버그 수정이 두 구현에 중복될 수 있음 | 병행 기간과 제거 기준을 정하고 차이 목록 관리 |
 
-비용을 시간이나 금액으로 단정하지 않는다. 아직 Go 시제품과 대표 run 프로파일이 없다. 우선 높은 위험의 프로세스 제어·Git 격리·설치 안전성에 검증 비용을 배정하고, 전체 run 성능은 **모델 호출 시간 / 프로젝트 검증 시간 / controller 내부 시간**으로 나눠 측정해야 한다. 한 번의 wall time만으로 언어의 성능 차이를 주장하지 않는다.
+비용을 시간이나 금액으로 단정하지 않는다. Go 구현은 있지만 대표 run의 성능 프로파일은 아직 없다. 높은 위험의 프로세스 제어·Git 격리·설치 안전성에 검증 비용을 우선 배정하고, 전체 run 성능은 **모델 호출 시간 / 프로젝트 검증 시간 / controller 내부 시간**으로 나눠 측정해야 한다. 한 번의 wall time만으로 언어의 성능 차이를 주장하지 않는다.
 
 ## 5. 사용자가 받게 될 최종 형태
 
-다음은 **권장하는 산출물 설계**이며 현재 존재하는 파일·명령이 아니다. 첫 공개 릴리스는 `darwin/arm64`만 대상으로 한다. Intel, Linux, Windows 실행 파일은 같은 코드로 컴파일될 가능성과 별개로 각각 설치·프로세스·Git 동작을 시험한 뒤 지원 여부를 결정한다. Go 소스는 기존 Node 구현과 병행할 수 있도록 `tool/go/` 안에 별도 module로 두고, `cmd/refactor-me`를 실행 진입점으로 삼는 구성을 권장한다. 새 `internal/` package는 실제 계약 경계가 확인될 때만 나눈다.
+첫 공개 릴리스 후보는 `darwin/arm64`만 대상으로 한다. Intel, Linux, Windows 지원은 각각 설치·프로세스·Git 동작을 시험한 뒤 결정한다. Go 소스는 `tool/go/` module에 구현했고 `cmd/refactor-me`가 실행 진입점이다. 다음은 릴리스 산출물의 **예정 구조**이며, 공개 게시 완료를 뜻하지 않는다.
 
 ```text
-GitHub release vX.Y.Z
-├── refactor-me_vX.Y.Z_darwin_arm64.zip
+GitHub release v0.9.20-beta.1
+├── refactor-me_0.9.20-beta.1_darwin_arm64.zip
 │   ├── refactor-me        # Go 실행 파일; install/uninstall과 CLI 명령 제공
 │   ├── LICENSE
-│   └── INSTALL.md
+│   ├── INSTALL.md
+│   └── BUILD-INFO.txt
 └── SHA256SUMS             # 배포 파일 무결성 확인용
 
 target-repo/.refactor/
 ├── bin/refactor-me        # 설치된 Go 실행 파일
-├── bin/refactor-me-node   # 병행 검증·복구 기간에만 보존할 기존 shim
-├── lib/                   # 기존 Node 설치물; 전환 완료 전 보존
+├── bin/.refactor-me.install.json # 설치 바이너리의 소유 확인용 hash
+├── lib/                   # 식별되지 않은 기존 파일이 있다면 보존
 ├── config.json            # 기존 사용자 설정 유지
 ├── commands.json          # 있으면 유지
 ├── last-run.json          # 기존 최신 run 포인터 유지
 └── runs/                  # 기존 및 새 실행 기록 유지
 ```
 
-예상 사용 흐름도 제안이다. 압축파일의 무결성과 서명 상태를 확인한 후 실행한다. `install`은 지정한 경로가 Git 저장소인지 확인하고, 소유하지 않은 기존 파일을 만나면 교체 전에 멈춰야 한다.
+게시 후 사용자는 `SHA256SUMS`로 압축파일을 검증하고, 압축을 풀어 `version --json`을 확인한 다음 `install`을 실행한다. `install`은 대상이 Git 저장소 루트인지 확인하고, 소유를 알 수 없는 기존 명령은 교체하지 않는다. 알려진 Node shim을 교체할 때도 Node 파일별 소유를 확인하지 못한 파일은 보존하고 경로를 알리는 것이 릴리스 조건이다.
 
-`SHA256SUMS`는 다운로드 손상 확인에 쓰지만, 같은 게시자가 만들었다는 증거를 단독으로 제공하지는 않는다. 공개 배포 전 서명·notarization 결과와 배포 경로를 함께 검증한다. 서명할 수 없는 개발용 시제품과 사용자에게 제공할 릴리스는 명확히 구분한다.
+`SHA256SUMS`는 다운로드한 파일의 변경을 확인하지만, 게시자 신원을 단독으로 증명하지 않는다. 첫 Beta는 미서명·미공증이므로 macOS의 경고나 차단이 발생할 수 있다. 사용자에게는 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 연결하고 시스템 전체 보안 설정을 끄도록 안내하지 않는다.
 
 ```bash
 ./refactor-me install /path/to/target-repo
@@ -106,24 +109,24 @@ cd /path/to/target-repo
 
 `doctor --no-live-probe`는 provider 모델 호출을 건너뛰지만 진단 기록을 쓸 수 있으므로 읽기 전용 명령으로 소개하지 않는다. 실제 `run`은 현재와 같이 별도 worktree에서 일하고 승인된 결과만 로컬 branch에 둔다. 기존 `report --json`은 `last-run.json`이 가리키는 **저장된 `report.json` 원문**을 그대로 내보낸다. Go가 만드는 새 기록은 형식을 버전 관리하되 과거 JSON을 자동 재작성하지 않는다. `version --json`의 Node 전용 `node` 필드는 Go에서 사실처럼 채우지 않는다. 이를 사용하는 소비자가 있는지 조사한 뒤 새 runtime 표시와 호환성 변경을 명시한다.
 
-업데이트는 같은 `install` 절차로 수행하며 설치된 실행 파일을 교체해도 과거 설정과 실행 증거를 보존한다. 제거는 Go 실행 파일 등 **도구 소유가 확인된 파일**에 한정하고, 설정·실행 기록·결과 branch·증거용 worktree는 지우지 않는 방향으로 설계한다. 전환을 되돌릴 때는 보존된 Node 설치물과 shim을 수동으로 복원하는 절차를 문서화한다. 이 복구 경로는 릴리스 전에 실제 임시 저장소에서 시험해야 한다.
+업데이트는 새 릴리스의 checksum과 버전을 확인한 뒤 같은 `install` 절차로 수행한다. `uninstall`은 hash가 일치하는 Go 실행 파일과 소유 marker만 제거하고 설정·실행 기록·결과 branch·증거용 worktree는 유지한다. Node로 되돌릴 때는 `.refactor/lib/src`와 `lib/bin`의 사용자 파일 충돌을 먼저 확인하고, Go `uninstall` 후 검증된 이전 Node 태그의 설치기를 사용한다. 이전 Node 설치기는 해당 디렉터리를 교체하므로 이 충돌 확인을 생략하면 안 된다. 복구 경로는 공개 전에 임시 저장소에서 시험한다.
 
-## 6. 구현 순서와 확대 조건
+## 6. 구현 기록과 남은 릴리스 조건
 
-| 단계 | 산출·검증 | 다음 단계로 갈 조건 |
+| 단계 | 상태 | 공개 전 확인할 것 |
 | --- | --- | --- |
-| A. 계약 고정 | Node CLI·설치·report·실패 경로의 비밀 없는 fixture와 기준선 | 외부 계약과 허용할 변경을 명시 |
-| B. 작은 Go 시제품 | `help`, `version`, 설정 병합, 과거 `report --json`/영·국문 렌더링 | 원문 JSON 보존, 구버전 fixture와 exit code 통과 |
-| C. 설치 시제품 | `darwin/arm64` 빌드와 archive, 저장소별 설치·재설치·복구 | 기존 사용자 파일 보존, 소유 불명 파일에서 중단, 실패 중 기존 명령 유지 |
-| D. 실행 컨트롤러 | provider, schema, Git, worktree, gate, validation, report 이식 | 프로세스 그룹 timeout, 원본 보호, 실패 분류를 fixture로 입증 |
-| E. 병행 검증·전환 | 같은 입력·fixture로 Node/Go 비교, 공개 배포 준비 | 주요 차이가 설명·승인되고 macOS ARM 실기기 및 서명·배포 게이트 통과 |
+| A. 계약 고정 | Node 테스트를 기준선으로 유지 | Go 출력·종료 코드와 과거 기록 호환성 재확인 |
+| B. Go 명령 | `tool/go`에서 주요 명령 구현 | 전체 Go 테스트·race·vet와 구버전 fixture 통과 |
+| C. 설치와 배포물 | Go 설치·제거 구현; 첫 ZIP 제작 준비 | 사용자 파일 보존, 실패 중 복구, checksum·버전·아키텍처 검사 |
+| D. 실행 컨트롤러 | provider, Git, 검증, 보고서의 Go 구현 | 프로세스 그룹 timeout, 원본 보호, hook 및 ref 충돌 시험 |
+| E. 릴리스 검증 | Node와 Go 병행 검증 후 게시 | Codex·Claude 실호출, 새 macOS ARM 호스트 설치, 원격 CI, 별도 게시 승인 |
 
-첫 시제품에서 provider 호출이나 Git write를 곧바로 구현하지 않는다. 차이가 발견되면 기존 Node 출력을 무조건 정답으로 삼지 않고, 문서화된 계약과 안전 정책에 비춰 판정한다. 특히 기존 `git commit` 경로에는 `--no-verify`가 쓰인다. 이를 Go에 그대로 복제할지는 별도 정책 결정이 필요하며, 이 조사에서는 실행하거나 승인하지 않는다. [현 Git 구현](../tool/src/git.mjs)
+전환 시 기존 Node 출력을 무조건 정답으로 삼지 않고 문서화된 계약과 안전 정책에 비춰 차이를 판정했다. Go 커밋 경로는 hook을 실행하며, hook 이후 tree가 검토·검증된 tree와 다르면 ref 발행 없이 안전 정지해야 한다. [Go Git 구현](../tool/go/internal/workspace/git.go)
 
-**전환 중단 조건:** 원본 checkout이 변경되거나, 구버전 보고서가 잘못 읽히거나, subprocess 실패·timeout이 성공으로 처리되거나, 설치 실패가 기존 명령을 손상하면 기본 명령 교체를 중단한다. live provider 확인은 로컬 fixture·테스트와 별도 결과로 보고한다. 공개 릴리스 업로드, 서명 및 notarization 제출, 기존 설치 교체는 모두 이번 보고서의 실행 범위 밖이다.
+**게시 중단 조건:** 원본 checkout 변경, 구버전 보고서 손상, subprocess 실패·timeout의 성공 오분류, 설치 실패 후 기존 명령 손상, 사용자 파일 삭제, 태그·바이너리 버전 불일치가 있으면 공개하지 않는다. live provider 확인은 로컬 fixture·테스트와 별도 결과로 보고한다. 첫 Beta의 서명·공증은 진행하지 않으며, 공개 업로드와 기존 사용자 설치 교체는 별도 승인을 받은 뒤 수행한다.
 
 ## 근거와 검증 범위
 
-- **저장소에서 확인:** 위 링크의 현행 코드·테스트·CI, 기존 [기술 스택 조사](tech-stack-migration-research.ko.md). 현재 `git status`에는 이 문서와 무관한 Skill·lockfile 수정이 있으므로 보존한다.
+- **저장소에서 확인:** 위 링크의 Node 기준선 코드와 현재 Go 코드·테스트·CI, 기존 [기술 스택 조사](tech-stack-migration-research.ko.md).
 - **공식 자료에서 확인:** Go의 [빌드](https://go.dev/doc/tutorial/compile-install), [`os/exec`](https://pkg.go.dev/os/exec), Apple의 [notarization 요건](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
-- **아직 검증하지 않음:** Go 시제품, archive·서명·notarization, macOS 새 호스트 설치, provider live run, 실제 시간·메모리·파일 크기. 이 항목들은 기대 효과나 완료 사실로 쓰지 않았다.
+- **릴리스 검증 필요:** archive checksum·버전·아키텍처, 새 macOS 호스트 설치, provider live run, 원격 CI. 서명·notarization은 첫 Beta 범위에서 제외됐다. 실제 시간·메모리·파일 크기 개선은 측정하지 않았다.

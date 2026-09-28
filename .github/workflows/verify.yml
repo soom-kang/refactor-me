@@ -44,19 +44,33 @@ jobs:
         working-directory: tool/go
         run: |
           test -z "$(gofmt -l .)"
-          go test -race ./...
+          go test -race -count=1 ./...
           go vet ./...
           go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me
           "$RUNNER_TEMP/refactor-me" help
           "$RUNNER_TEMP/refactor-me" version --json
-      - name: Match release tag to Go binary version
+      - name: Check independent release version
+        run: |
+          bash tool/release/build-macos-arm64.sh --check-tag "v$(cat tool/RELEASE_VERSION)"
+          if bash tool/release/build-macos-arm64.sh --check-tag v99.99.99-beta.1; then
+            echo "unrelated release tag was accepted" >&2
+            exit 1
+          fi
+      - name: Build and smoke test release archive
+        run: |
+          bash tool/release/build-macos-arm64.sh "$RUNNER_TEMP/release"
+          cd "$RUNNER_TEMP/release"
+          shasum -a 256 -c SHA256SUMS
+          mkdir unpacked
+          unzip -q refactor-me_$(cat "$GITHUB_WORKSPACE/tool/RELEASE_VERSION")_darwin_arm64.zip -d unpacked
+          unpacked/refactor-me version --json
+          git init -q "$RUNNER_TEMP/install-fixture"
+          git -C "$RUNNER_TEMP/install-fixture" -c user.name=Fixture -c user.email=fixture@example.invalid commit -q --allow-empty -m baseline
+          unpacked/refactor-me install "$RUNNER_TEMP/install-fixture"
+          "$RUNNER_TEMP/install-fixture/.refactor/bin/refactor-me" version --json
+          unpacked/refactor-me uninstall "$RUNNER_TEMP/install-fixture"
+      - name: Match release tag to independent version
         if: startsWith(github.ref, 'refs/tags/')
-        working-directory: tool/go
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]
-          release_version="${RELEASE_TAG#v}"
-          go build -ldflags "-X main.version=$release_version" -o "$RUNNER_TEMP/refactor-me-release" ./cmd/refactor-me
-          actual="$("$RUNNER_TEMP/refactor-me-release" version --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
-          test "$actual" = "$release_version"
+        run: bash tool/release/build-macos-arm64.sh --check-tag "$RELEASE_TAG"

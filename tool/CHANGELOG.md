@@ -1,12 +1,13 @@
 # Changelog
 
-## Go development
+## 0.9.20-beta.1
 
-- The Go CLI is under local validation. Development builds identify themselves as `dev`.
-- The next public release series begins at `0.9.20-beta.1`. No release is created by the conversion work.
-- Existing user run records and Git tags are not rewritten.
+First Go CLI public Beta for macOS Apple Silicon. Source builds without release version injection report `dev`.
 
-Go development builds report `dev`. The next public release series starts at `0.9.20-beta.1`.
+- Implement `run`, `doctor`, `report`, `clean`, `help`, `version`, `install`, and `uninstall` in Go. Keep the Node CLI available for comparison and recovery.
+- Install one Go executable in each target repository while preserving existing configuration and run records. Read older Node reports without rewriting their JSON.
+- Add a `darwin/arm64` release archive with `LICENSE`, `INSTALL.md`, and build information, plus a separate `SHA256SUMS` file. The first Beta is unsigned and not notarized.
+- Use the verified `v0.8.8-beta.1` Node tag for collision-checked rollback. Do not change users' saved runs or existing Git tags.
 
 ## Earlier Beta changes — 2026-09-17
 

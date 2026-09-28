@@ -82,6 +82,17 @@ func TestSchemaAndPrompts(t *testing.T) {
 			t.Fatalf("prompt lacks %q", want)
 		}
 	}
+	if !strings.Contains(b, "read-only shell tool for repository inspection") || strings.Contains(b, "You have no shell") {
+		t.Fatal("Codex audit cannot inspect repository files")
+	}
+	claudeAudit, err := BuildPrompt("audit", PromptArgs{Provider: "claude", Nonce: "0123456789abcdef", Targets: []string{"app/web"}})
+	if err != nil || !strings.Contains(claudeAudit, "You have no shell") {
+		t.Fatal("Claude audit tool boundary changed")
+	}
+	codexExecute, err := BuildPrompt("execute", PromptArgs{Provider: "codex", Packet: map[string]any{"category": "DEAD_CODE"}})
+	if err != nil || strings.Contains(codexExecute, "Everything else you do with Edit and Write") {
+		t.Fatal("Codex execute names unavailable editing tools")
+	}
 	if strings.Contains(b, "__REPO_FACTS__") {
 		t.Fatal("unexpanded marker")
 	}

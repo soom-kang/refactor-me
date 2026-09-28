@@ -2,10 +2,13 @@ package surface
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -166,10 +169,25 @@ func TestInstallPreservesDataAndRejectsUnknownFiles(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(legacyLib, "src"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(legacyLib, "src", "provider.mjs"), []byte("old runtime"), 0644); err != nil {
+	modifiedProvider := filepath.Join(legacyLib, "src", "provider.mjs")
+	if err := os.WriteFile(modifiedProvider, []byte("user modified provider"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(legacyLib, "src", "custom.mjs"), []byte("user file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	knownRuntime := filepath.Join(legacyLib, "bin", "refactor-me.mjs")
+	if err := os.MkdirAll(filepath.Dir(knownRuntime), 0755); err != nil {
+		t.Fatal(err)
+	}
+	knownBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "bin", "refactor-me.mjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(knownBytes)); got != knownNodeFiles["bin/refactor-me.mjs"] {
+		t.Fatal("test fixture no longer matches the released Node file")
+	}
+	if err := os.WriteFile(knownRuntime, knownBytes, 0644); err != nil {
 		t.Fatal(err)
 	}
 	configPath := filepath.Join(repo, ".refactor", "config.json")
@@ -187,11 +205,23 @@ func TestInstallPreservesDataAndRejectsUnknownFiles(t *testing.T) {
 	if err := os.WriteFile(custom, []byte("user"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Install(repo, source); err != nil {
+	retained, err := InstallWithReport(repo, source)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(legacyLib, "src", "provider.mjs")); !os.IsNotExist(err) {
-		t.Fatal("recognized Node runtime file remains")
+	if _, err := os.Stat(knownRuntime); !os.IsNotExist(err) {
+		t.Fatal("verified Node runtime file remains")
+	}
+	if data, err := os.ReadFile(modifiedProvider); err != nil || string(data) != "user modified provider" {
+		t.Fatal("modified Node runtime file changed")
+	}
+	canonicalRepo, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(retained, filepath.Join(canonicalRepo, ".refactor", "lib", "src", "provider.mjs")) ||
+		!slices.Contains(retained, filepath.Join(canonicalRepo, ".refactor", "lib", "src", "custom.mjs")) {
+		t.Fatalf("retained paths not reported: %v", retained)
 	}
 	if data, _ := os.ReadFile(filepath.Join(legacyLib, "src", "custom.mjs")); string(data) != "user file" {
 		t.Fatal("unknown library child changed")
@@ -213,6 +243,39 @@ func TestInstallPreservesDataAndRejectsUnknownFiles(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(runFile); string(data) != "evidence" {
 		t.Fatal("run evidence changed")
+	}
+}
+
+func TestInstallCommandReportsRetainedLegacyFile(t *testing.T) {
+	repo := testRepo(t)
+	bin := filepath.Join(repo, ".refactor", "bin")
+	legacy := filepath.Join(repo, ".refactor", "lib", "src", "provider.mjs")
+	for _, dir := range []string{bin, filepath.Dir(legacy)} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shim := "#!/bin/sh\n# refactor-me dev — installed 2026-09-28 from /old/tool\nexec node \"$(dirname \"$0\")/../lib/bin/refactor-me.mjs\" \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "refactor-me"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte("user modified provider"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := Execute([]string{"install", repo}, repo, &stdout, &stderr, Callbacks{}); code != ExitOK {
+		t.Fatalf("install exited %d: %s", code, stderr.String())
+	}
+	canonicalRepo, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalLegacy := filepath.Join(canonicalRepo, ".refactor", "lib", "src", "provider.mjs")
+	if !strings.Contains(stderr.String(), "retained unverified legacy file: "+canonicalLegacy) {
+		t.Fatalf("missing retained file warning: %s", stderr.String())
+	}
+	if data, err := os.ReadFile(legacy); err != nil || string(data) != "user modified provider" {
+		t.Fatal("legacy file changed")
 	}
 }
 

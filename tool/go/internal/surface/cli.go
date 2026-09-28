@@ -267,10 +267,14 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		}
 		if args.Command == "install" {
 			source, e := os.Executable()
+			var retained []string
 			if e == nil {
-				e = Install(args.Targets[0], source)
+				retained, e = InstallWithReport(args.Targets[0], source)
 			}
 			err = e
+			for _, path := range retained {
+				fmt.Fprintln(stderr, "refactor-me: retained unverified legacy file:", path)
+			}
 		} else {
 			err = Uninstall(args.Targets[0])
 		}

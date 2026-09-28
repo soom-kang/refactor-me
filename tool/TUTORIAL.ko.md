@@ -8,7 +8,7 @@
 
 ## 1. 대상 저장소 준비
 
-macOS Apple Silicon을 사용합니다. Go 1.27은 소스 빌드에 필요합니다. 리팩터링할 저장소에서 확인하세요.
+macOS Apple Silicon을 사용합니다. Go 1.27은 소스에서 빌드할 때만 필요합니다. 리팩터링할 저장소에서 확인하세요.
 
 ```bash
 cd /path/to/target-repo
@@ -34,11 +34,30 @@ claude auth status
 
 ## 2. 도구와 Skill 설치
 
-[Go 설치 안내](../docs/README.ko.md#설치)에 따라 clone한 refactor-me checkout에서 실행하세요.
+`v0.9.20-beta.1`이 게시된 뒤 태그에 연결된 압축파일과 checksum 파일을 받으세요. 게시 전에는 다운로드할 수 없는 릴리스입니다. 터미널에서 실행합니다.
 
 ```bash
-/private/tmp/refactor-me install /path/to/target-repo
+RELEASE_DIR="$(mktemp -d)"
+(
+set -e
+RELEASE_VERSION=0.9.20-beta.1
+RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${RELEASE_VERSION}"
+curl -fL "$RELEASE_URL/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
+curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
+cd "$RELEASE_DIR"
+shasum -a 256 -c SHA256SUMS
+unzip -q "refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
+cat INSTALL.md
+RELEASE_INFO="$(./refactor-me version --json)"
+printf '%s\n' "$RELEASE_INFO"
+printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$RELEASE_VERSION\""
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
+./refactor-me install /path/to/target-repo
+)
 ```
+
+압축파일에는 `refactor-me`, `LICENSE`, `INSTALL.md`, `BUILD-INFO.txt`가 들어갑니다. 설치 전에 `INSTALL.md`를 읽고 출력 버전을 확인하세요. `SHA256SUMS`는 내려받은 파일의 변경을 확인할 뿐 게시자 신원을 증명하지는 않습니다. 첫 Beta는 서명·공증하지 않으므로 macOS에서 차단되거나 경고가 나올 수 있습니다. 필요하면 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 따르세요. 시스템 전체의 보안 설정은 끄지 마세요. 개발용 소스 빌드는 [README 설치 안내](../docs/README.ko.md#설치)를 참고하세요.
 
 대상 저장소에 필수 의존성인 sharpen-me Skill 8개를 설치하세요.
 
@@ -60,6 +79,7 @@ git add .agents .claude skills-lock.json && git commit
 ```bash
 ./.refactor/bin/refactor-me version
 ./.refactor/bin/refactor-me help
+./.refactor/bin/refactor-me doctor --no-live-probe
 ./.refactor/bin/refactor-me doctor
 ```
 
@@ -149,15 +169,29 @@ git diff <base-commit> <published-commit>
 
 ## 업데이트와 제거
 
-갱신한 refactor-me checkout에서 같은 설치 명령을 실행합니다.
+업데이트하려면 `NEW_VERSION`에 **실제로 게시된 새 버전**을 넣고 새 디렉터리에 내려받으세요. 새 터미널에서도 그대로 시작할 수 있으며 hash나 바이너리 버전이 다르면 설치 전에 중단합니다. 업데이트가 확인될 때까지 이전에 검증한 압축파일을 보관하세요.
 
 ```bash
-cd tool/go
-go build -o /private/tmp/refactor-me ./cmd/refactor-me
-/private/tmp/refactor-me install /path/to/target-repo
+NEW_VERSION=0.9.20-beta.1  # 실제 게시된 새 버전으로 변경
+RELEASE_DIR="$(mktemp -d)"
+(
+set -e
+RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${NEW_VERSION}"
+curl -fL "$RELEASE_URL/refactor-me_${NEW_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${NEW_VERSION}_darwin_arm64.zip"
+curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
+cd "$RELEASE_DIR"
+shasum -a 256 -c SHA256SUMS
+unzip -q "refactor-me_${NEW_VERSION}_darwin_arm64.zip"
+cat INSTALL.md
+RELEASE_INFO="$(./refactor-me version --json)"
+printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$NEW_VERSION\""
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
+printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
+./refactor-me install /path/to/target-repo
+)
 ```
 
-재설치는 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. 이전 설치기가 생성한 명령은 제거하며 호환 별칭은 만들지 않습니다. 이전 명령에 사용자 수정이 있으면 교체 전에 중단하므로 먼저 확인하세요.
+재설치는 소유가 확인된 Go 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. Node 전환 시 식별된 shim만 교체하며 사용자 파일이나 식별되지 않은 파일은 보존하고 경로를 알립니다. 소유를 확인할 수 없는 명령이 있으면 교체 전에 중단합니다. 보존된 파일을 삭제하기 전에 직접 확인하세요.
 
 대상 저장소의 카탈로그를 업데이트하기 전에 로컬 Skill 수정 사항을 검토하세요. 카탈로그 관리는 [sharpen-me 문서](https://github.com/soom-kang/sharpen-me)를 참고하고 검토한 변경을 커밋하세요.
 
@@ -167,10 +201,36 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 ./.refactor/bin/refactor-me clean
 ```
 
-부분 완료, 미완료, 안전 정지 상태의 worktree는 보존합니다. 도구를 제거하려면 소스 checkout에서 실행합니다.
+부분 완료, 미완료, 안전 정지 상태의 worktree는 보존합니다. Go 도구를 제거하려면 내려받아 검증한 릴리스 실행 파일을 사용하세요. `RELEASE_DIR`는 압축을 푼 디렉터리의 절대 경로로 바꾸세요.
 
 ```bash
-/private/tmp/refactor-me uninstall /path/to/target-repo
+RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
+test -x "$RELEASE_DIR/refactor-me"
+"$RELEASE_DIR/refactor-me" uninstall /path/to/target-repo
 ```
 
 제거 명령은 소유가 확인된 Go 바이너리만 삭제합니다. 설정과 실행 기록을 보존하며 Skill 카탈로그, 결과 브랜치와 worktree는 제거하지 않습니다. 사용자 정의 명령은 도구 설치 디렉터리 밖에 보관하세요.
+
+이전 Node CLI로 돌아가려면 Node.js 24를 준비하고 검증된 `v0.8.8-beta.1` 소스를 받으세요. 예상 commit은 `fa845c98fba01f87466531ae50c5f1d671f0392f`입니다. 구 Node 설치기는 `.refactor/lib/src`와 `.refactor/lib/bin`을 교체하므로, 전환 후 library 파일이 남아 있으면 아래 명령은 중단합니다. 해당 파일은 별도로 확인하고 해결하세요. 검사를 통과하기 위해 임의로 지우지 마세요. `RELEASE_DIR`는 검증한 Go 릴리스 디렉터리의 절대 경로로 바꾸세요. `.refactor/config.json`과 `.refactor/runs/`는 유지합니다.
+
+```bash
+RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
+test -x "$RELEASE_DIR/refactor-me"
+ROLLBACK_SOURCE="$(mktemp -d)/refactor-me-v0.8.8-beta.1"
+git clone --quiet --depth 1 --branch v0.8.8-beta.1 https://github.com/soom-kang/refactor-me.git "$ROLLBACK_SOURCE"
+(
+set -e
+TARGET=/path/to/target-repo
+test "$(git -C "$ROLLBACK_SOURCE" rev-parse HEAD)" = fa845c98fba01f87466531ae50c5f1d671f0392f
+if [ -d "$TARGET/.refactor/lib" ] && [ -n "$(find "$TARGET/.refactor/lib" -mindepth 1 -print -quit)" ]; then
+  echo 'Stop: inspect retained .refactor/lib files before Node rollback' >&2
+  exit 2
+fi
+"$RELEASE_DIR/refactor-me" uninstall "$TARGET"
+node "$ROLLBACK_SOURCE/tool/install.mjs" "$TARGET"
+"$TARGET/.refactor/bin/refactor-me" version
+"$TARGET/.refactor/bin/refactor-me" doctor --no-live-probe
+)
+```
+
+Go 제거 후 Node 설치기나 `doctor`가 실패하면 검증된 Go 압축파일을 보관한 상태에서 그 실행 파일의 `install` 명령으로 Go CLI를 복구하세요. 이때 소유를 확인할 수 없는 명령이나 파일 오류가 나오면 부분적으로 설치된 Node 파일을 먼저 조사하고, 수동으로 덮어쓰지 마세요. 버전 출력만으로 보존된 설정이 이전 Node CLI에서 작동한다고 판단하지 않습니다.

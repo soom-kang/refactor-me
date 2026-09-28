@@ -1,0 +1,13 @@
+// Plugins are resolved by NAME, not by a static import. A reference search for
+// "plugin-x.mjs" finds nothing; the only link is the string below.
+const PLUGIN_NAMES = ['plugin-x'];
+
+export async function resolvePlugin(name) {
+  if (!PLUGIN_NAMES.includes(name)) return null;
+  const mod = await import(`./${name}.mjs`);
+  return mod;
+}
+
+export function knownPlugins() {
+  return [...PLUGIN_NAMES];
+}

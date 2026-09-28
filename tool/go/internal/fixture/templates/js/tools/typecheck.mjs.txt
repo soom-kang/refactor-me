@@ -1,0 +1,21 @@
+// Zero-dependency stand-in type checker. Any line carrying the token
+// UNTYPED_MARKER is reported as a hard error, with a tsc-shaped message so the
+// orchestrator's signature extraction has something realistic to parse.
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = path.resolve(import.meta.dirname, '..', 'src');
+let bad = 0;
+for (const f of fs.readdirSync(root)) {
+  if (!f.endsWith('.mjs')) continue;
+  const rel = `src/${f}`;
+  const text = fs.readFileSync(path.join(root, f), 'utf8');
+  text.split('\n').forEach((line, i) => {
+    if (line.includes('UNTYPED_MARKER')) {
+      console.error(`${rel}:${i + 1}: error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.`);
+      bad++;
+    }
+  });
+}
+if (bad === 0) console.log('typecheck: clean');
+process.exit(bad === 0 ? 0 : 1);

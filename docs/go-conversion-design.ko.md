@@ -1,5 +1,6 @@
 # refactor-me Go 전환 설계 보고서
 
+> **과거 전환 자료:** 본문은 2026-09-28 조사·설계와 당시 릴리스 준비 판단을 보존한 기록입니다. 현재 개발 절차는 [Go 개발 안내](../tool/README.ko.md#로컬-개발-검사), 테스트 이관 상태는 [계약 이관표](node-test-contracts.ko.md)를 따릅니다. 아래 Node 코드 링크는 삭제 전 고정 commit을 가리키며 현재 checkout의 실행 경로가 아닙니다.
 | 항목 | 결정 |
 | --- | --- |
 | 문서 기준 | 2026-09-28의 저장소 상태와 공식 문서 |
@@ -18,7 +19,7 @@ Go 전환으로 확실히 얻을 수 있는 것은 **refactor-me 자체를 실�
 
 ## 1. 현재 기준선과 유지할 계약
 
-`refactor-me`는 `run`(기본값), `doctor`, `report`, `clean`, `version`, `help`를 제공한다. `--target`, `--provider`, `--fallback`, `--json`, `--lang`, `--no-live-probe`가 주요 옵션이다. `help`와 `version`은 Git 저장소 밖에서도 성공해야 한다. 종료 코드는 `0`(완료 또는 부분 완료), `2`(실행 전 중단·CLI 오류), `4`(안전 불변식 위반)다. 부분 완료의 세부 상태는 종료 코드만으로 구별할 수 없으므로 보고서를 봐야 한다. 근거: [CLI entrypoint](../tool/bin/refactor-me.mjs), [사용·종료 코드 설명](../tool/README.md#usage-and-exit-codes), [CLI 테스트](../tool/test/cli.test.mjs).
+`refactor-me`는 `run`(기본값), `doctor`, `report`, `clean`, `version`, `help`를 제공한다. `--target`, `--provider`, `--fallback`, `--json`, `--lang`, `--no-live-probe`가 주요 옵션이다. `help`와 `version`은 Git 저장소 밖에서도 성공해야 한다. 종료 코드는 `0`(완료 또는 부분 완료), `2`(실행 전 중단·CLI 오류), `4`(안전 불변식 위반)다. 부분 완료의 세부 상태는 종료 코드만으로 구별할 수 없으므로 보고서를 봐야 한다. 근거: [CLI entrypoint](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/bin/refactor-me.mjs), [사용·종료 코드 설명](../tool/README.md#usage-and-exit-codes), [CLI 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/cli.test.mjs).
 
 | 경계 | 현재 동작 | Go 전환 시 보존할 결과 |
 | --- | --- | --- |
@@ -28,15 +29,15 @@ Go 전환으로 확실히 얻을 수 있는 것은 **refactor-me 자체를 실�
 | Git 격리 | 원본 HEAD·index·작업 파일을 보존하고 별도 detached worktree에서 작업; 승인된 결과를 로컬 ref에 compare-and-swap으로 발행 | 원본 보호와 충돌 시 안전 정지, 미완료·안전 정지 worktree 보존 |
 | 실행 제어 | provider·검증 명령을 셸 없이 argv로 실행; timeout 뒤 프로세스 그룹에 SIGTERM, 10초 뒤 SIGKILL | 실패·timeout·실행 불가를 성공과 구분하고 남은 자식 프로세스를 정리 |
 
-근거: [설치기](../tool/install.mjs), [설정](../tool/src/config.mjs), [상태·잠금](../tool/src/state.mjs), [Git 작업](../tool/src/git.mjs), [provider](../tool/src/provider.mjs), [검증 실행기](../tool/src/validate.mjs), [보고서](../tool/src/report.mjs).
+근거: [설치기](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/install.mjs), [설정](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/config.mjs), [상태·잠금](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/state.mjs), [Git 작업](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/git.mjs), [provider](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/provider.mjs), [검증 실행기](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/validate.mjs), [보고서](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/report.mjs).
 
-**호환성의 한계.** 이 설계는 *과거 기록 읽기*와 주요 명령·종료 코드의 의미를 목표로 한다. 모든 내부 phase JSON 필드를 영원히 동일하게 쓰겠다는 약속은 아니다. 새 run 형식이 바뀌면 버전을 명시하고, 과거 기록은 변환하거나 덮어쓰지 않고 읽기 어댑터로 처리한다. 현재 provider 세션은 재개하지 않는 설계이므로, 중단된 Node run을 Go로 이어 실행하는 기능도 범위 밖이다. [provider 설계](../tool/src/provider.mjs)
+**호환성의 한계.** 이 설계는 *과거 기록 읽기*와 주요 명령·종료 코드의 의미를 목표로 한다. 모든 내부 phase JSON 필드를 영원히 동일하게 쓰겠다는 약속은 아니다. 새 run 형식이 바뀌면 버전을 명시하고, 과거 기록은 변환하거나 덮어쓰지 않고 읽기 어댑터로 처리한다. 현재 provider 세션은 재개하지 않는 설계이므로, 중단된 Node run을 Go로 이어 실행하는 기능도 범위 밖이다. [provider 설계](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/provider.mjs)
 
 ## 2. 준비할 것
 
 ### 계약과 테스트 자료
 
-1. **기준선 보관:** Node 24에서 `node --test tool/test/*.test.mjs`, `help`, `version --json` 결과와 CI 조건을 기록한다. 전환 설계 당시 Node 테스트 257개가 기준선이었다. 현재 CI는 Node와 Go 검증을 함께 수행한다. [CI](../.github/workflows/verify.yml)
+1. **기준선 보관:** Node 24에서 `node --test tool/test/*.test.mjs`, `help`, `version --json` 결과와 CI 조건을 기록한다. 전환 설계 당시 Node 테스트 257개가 기준선이었다. 첫 Beta 준비 당시 CI는 Node와 Go 검증을 함께 수행했다. [당시 CI](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/.github/workflows/verify.yml)
 2. **비밀 없는 fixture:** 구버전 `config.json`, `commands.json`, `last-run.json`, `report.json`, 정상·손상 상태를 테스트 전용 임시 Git 저장소에 복제한다. 실제 run 디렉터리에는 prompt, provider 출력, 경로 또는 민감 정보가 있을 수 있으므로 그대로 테스트 자산에 넣지 않는다.
 3. **차이 비교 항목:** CLI stdout/stderr와 exit code, 설정 기본값 병합, `report --json`의 바이트 일치, 영문·국문 보고서의 의미, Git 변경 전후의 HEAD·index·작업 파일, timeout·quota·auth·schema 오류 분류를 각각 비교한다.
 4. **실행 환경:** Go 1.27 module을 CI와 맞추고, 표준 라이브러리만 사용한다. 외부 패키지가 꼭 필요하면 목적·라이선스·업데이트 책임을 검토한 뒤 별도 승인한다. `darwin/arm64`의 실제 실행 테스트는 릴리스 조건이다. [Go module 문서](https://go.dev/doc/tutorial/create-module)
@@ -48,17 +49,17 @@ Go 개발 빌드는 `dev`로 표시하며 첫 공개 Go Beta 후보는 `0.9.20-b
 
 ### 설치와 업데이트 — 배포 계약 자체가 바뀐다
 
-기존 Node 설치기는 소스를 복사하고 셸 shim을 만들었다. Go 설치기는 압축파일에서 꺼낸 실행 파일을 대상 저장소의 `.refactor/bin/refactor-me`로 복사한다. 대상 저장소에는 Go toolchain이 필요하지 않다. `config.json`, `runs/`, `last-run.json`과 사용자 파일은 보존한다. 이미 있는 `refactor-me`가 식별된 Node shim이나 소유 marker가 일치하는 Go 바이너리가 아니면 교체하지 않는다. 설치 실패 시 기존 명령을 복원할 수 있도록 임시 파일과 백업을 사용한다. 기존 Node 파일의 소유 여부도 파일별로 판정하는 것이 첫 릴리스 조건이다. [Go 설치기](../tool/go/internal/surface/install.go), [Node 설치·재설치 테스트](../tool/test/cli.test.mjs)
+기존 Node 설치기는 소스를 복사하고 셸 shim을 만들었다. Go 설치기는 압축파일에서 꺼낸 실행 파일을 대상 저장소의 `.refactor/bin/refactor-me`로 복사한다. 대상 저장소에는 Go toolchain이 필요하지 않다. `config.json`, `runs/`, `last-run.json`과 사용자 파일은 보존한다. 이미 있는 `refactor-me`가 식별된 Node shim이나 소유 marker가 일치하는 Go 바이너리가 아니면 교체하지 않는다. 설치 실패 시 기존 명령을 복원할 수 있도록 임시 파일과 백업을 사용한다. 기존 Node 파일의 소유 여부도 파일별로 판정하는 것이 첫 릴리스 조건이다. [Go 설치기](../tool/go/internal/surface/install.go), [Node 설치·재설치 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/cli.test.mjs)
 
 ### 하위 프로세스 — `CommandContext`만으로 충분하지 않다
 
-Node 구현은 provider와 검증 명령을 별도 프로세스 그룹으로 시작하고 그룹 전체에 SIGTERM을 보낸 뒤 10초 후 SIGKILL을 보낸다. Go의 `os/exec`는 셸을 호출하지 않는다는 점에서 argv 계약과 맞지만, `CommandContext`의 기본 취소는 프로세스 자체의 `Kill`이다. **자식·손자 프로세스까지 정리하는 현재 의미는 별도 프로세스 그룹 처리와 테스트가 필요하다.** 표준 출력 JSONL 파싱, stderr 분리, stdin 전달, timeout과 spawn 실패의 구분, provider 환경 변수 allowlist도 함께 이식해야 한다. 특히 환경 값 자체를 보고서·로그·fixture에 넣으면 안 된다. [Go `os/exec`](https://pkg.go.dev/os/exec), [현 provider 실행](../tool/src/provider.mjs), [현 검증 실행](../tool/src/validate.mjs)
+Node 구현은 provider와 검증 명령을 별도 프로세스 그룹으로 시작하고 그룹 전체에 SIGTERM을 보낸 뒤 10초 후 SIGKILL을 보낸다. Go의 `os/exec`는 셸을 호출하지 않는다는 점에서 argv 계약과 맞지만, `CommandContext`의 기본 취소는 프로세스 자체의 `Kill`이다. **자식·손자 프로세스까지 정리하는 현재 의미는 별도 프로세스 그룹 처리와 테스트가 필요하다.** 표준 출력 JSONL 파싱, stderr 분리, stdin 전달, timeout과 spawn 실패의 구분, provider 환경 변수 allowlist도 함께 이식해야 한다. 특히 환경 값 자체를 보고서·로그·fixture에 넣으면 안 된다. [Go `os/exec`](https://pkg.go.dev/os/exec), [현 provider 실행](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/provider.mjs), [현 검증 실행](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/validate.mjs)
 
 ### Git, 상태와 정책 — 코드량보다 의미의 검증 비용이 크다
 
-Git은 라이브러리의 단순 치환 대상이 아니다. 현재 `git`의 argv·작업 디렉터리·출력·오류를 판정하고, 분리 worktree의 tree가 검토한 tree와 일치할 때만 ref를 compare-and-swap으로 갱신한다. Go 구현은 같은 실패 경계와 rollback 범위를 입증해야 한다. 동시에 `.refactor/lock.json`의 배타적 생성·소유자 확인과 `state.json`의 임시 파일 기록→`fsync`→rename을 보존해야 한다. 기존 상태의 `schema`와 `toolVersion`은 다른 의미이므로 합치지 않는다. [Git 계약](../tool/src/git.mjs), [상태 저장](../tool/src/state.mjs), [worktree 게이트 테스트](../tool/test/worktree-gate.test.mjs)
+Git은 라이브러리의 단순 치환 대상이 아니다. 현재 `git`의 argv·작업 디렉터리·출력·오류를 판정하고, 분리 worktree의 tree가 검토한 tree와 일치할 때만 ref를 compare-and-swap으로 갱신한다. Go 구현은 같은 실패 경계와 rollback 범위를 입증해야 한다. 동시에 `.refactor/lock.json`의 배타적 생성·소유자 확인과 `state.json`의 임시 파일 기록→`fsync`→rename을 보존해야 한다. 기존 상태의 `schema`와 `toolVersion`은 다른 의미이므로 합치지 않는다. [Git 계약](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/git.mjs), [상태 저장](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/state.mjs), [worktree 게이트 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/worktree-gate.test.mjs)
 
-`prompts.mjs`, `schemas.mjs`, `gate.mjs`, `loop.mjs`에는 모델 출력 계약과 단계별 중단 정책이 들어 있다. Go로 옮길 때 정적 타입만으로 외부 JSON 입력을 신뢰해서는 안 된다. 응답 schema 검증, repair 횟수, 쓰기 가능 phase의 fail-closed 판정, provider 전환 조건, 검증 baseline의 `GREEN/RED/TIMEOUT/UNRUNNABLE/OPAQUE` 구분을 fixture로 비교한다. [provider 테스트](../tool/test/provider.test.mjs), [workflow 테스트](../tool/test/workflow.test.mjs), [검증 테스트](../tool/test/validate.test.mjs)
+`prompts.mjs`, `schemas.mjs`, `gate.mjs`, `loop.mjs`에는 모델 출력 계약과 단계별 중단 정책이 들어 있다. Go로 옮길 때 정적 타입만으로 외부 JSON 입력을 신뢰해서는 안 된다. 응답 schema 검증, repair 횟수, 쓰기 가능 phase의 fail-closed 판정, provider 전환 조건, 검증 baseline의 `GREEN/RED/TIMEOUT/UNRUNNABLE/OPAQUE` 구분을 fixture로 비교한다. [provider 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/provider.test.mjs), [workflow 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/workflow.test.mjs), [검증 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/validate.test.mjs)
 
 ## 4. 기대 이득과 지불할 비용
 

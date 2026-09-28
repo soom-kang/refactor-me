@@ -1,0 +1,6 @@
+# rl-fixture
+
+Synthetic repository used to exercise refactor-me end to end.
+
+Validation commands: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+`npm run typecheck` fails by design on `src/broken.mjs`.

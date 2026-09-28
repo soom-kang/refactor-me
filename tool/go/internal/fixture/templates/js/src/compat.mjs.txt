@@ -1,0 +1,9 @@
+// v1 payloads used { user_name }. Since v2 everything emits { userName }.
+// The v1 branch is retained for old records.
+export function readPayload(raw) {
+  const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (data && typeof data.user_name === 'string') {
+    return { userName: data.user_name, version: 1 };
+  }
+  return { userName: data?.userName ?? '', version: 2 };
+}

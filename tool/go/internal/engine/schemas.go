@@ -14,7 +14,7 @@ import (
 var schemaJSON []byte
 
 // Schema returns a fresh copy of the strict provider contract for a phase.
-// The names match tool/src/schemas.mjs, including "deepcheck" without an underscore.
+// Names preserve the legacy response contract, including "deepcheck" without an underscore.
 func Schema(phase string) map[string]any {
 	if phase == "deep_check" {
 		phase = "deepcheck"

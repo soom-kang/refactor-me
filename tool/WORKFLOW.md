@@ -4,9 +4,9 @@
 
 Start with the flow, then expand the JSON examples for the phase you need. You choose the configuration and start the run; the controller checks provider JSON responses and decides whether to proceed. It does not ask you to approve each phase.
 
-The example removes `src/legacy-parser.mjs` from the [local fixture](fixtures/make-fixture.mjs). It exports `parseLegacy` and `legacyVersion` without a reachable caller. The same fixture loads `plugin-x` by name through a registry, so static import searches alone would miss that reference.
+The default fixture uses Go; generate the example below with `--lang js`. The example removes `src/legacy-parser.mjs` from the [optional JavaScript fixture](fixtures/README.md#optional-javascript-example). It exports `parseLegacy` and `legacyVersion` without a reachable caller. The same fixture loads `plugin-x` by name through a registry, so static import searches alone would miss that reference.
 
-**JSON examples are illustrative, not captured responses or proof of a successful run.** Both languages use the same examples and current [response schemas](src/schemas.mjs). Questions summarize the [phase prompts](src/prompts.mjs).
+**JSON examples are illustrative, not captured responses or proof of a successful run.** Both languages use the same examples and current [response schemas](go/internal/engine/schemas.json). Questions summarize the [phase prompts](go/internal/engine/templates/).
 
 ## Flow
 

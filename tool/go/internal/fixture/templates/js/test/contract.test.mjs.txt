@@ -1,0 +1,30 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { render, plugin, ingest } from '../src/index.mjs';
+import { statusLabel } from '../src/status-a.mjs';
+import { knownPlugins } from '../src/registry.mjs';
+
+test('renderPanel keeps its shape', () => {
+  const out = render({ status: 'active', fields: {}, metrics: {} });
+  assert.equal(out.status, 'Active');
+  assert.equal(out.sections.length, 18);
+  assert.equal(out.total, 0);
+});
+
+test('status labels are stable', () => {
+  assert.equal(statusLabel('pending'), 'Pending review');
+  assert.equal(statusLabel('nope'), 'Unknown');
+});
+
+test('plugin resolves through the string registry', async () => {
+  assert.deepEqual(knownPlugins(), ['plugin-x']);
+  const mod = await plugin('plugin-x');
+  assert.equal(mod.id, 'plugin-x');
+  assert.deepEqual(mod.run('ab'), { id: 'plugin-x', value: 'AB' });
+  assert.equal(await plugin('missing'), null);
+});
+
+test('v1 and v2 payloads both read', () => {
+  assert.deepEqual(ingest({ user_name: 'kim' }), { userName: 'kim', version: 1 });
+  assert.deepEqual(ingest({ userName: 'lee' }), { userName: 'lee', version: 2 });
+});

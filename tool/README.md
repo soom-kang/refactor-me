@@ -213,11 +213,9 @@ Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation e
 
 ## Local development checks
 
-From the repository root:
+These checks target macOS Apple Silicon and require Go 1.27 and Git. From the repository root:
 
 ```bash
-node --test tool/test/*.test.mjs
-node --check tool/bin/refactor-me.mjs
 cd tool/go
 go test -race ./...
 go vet ./...
@@ -225,4 +223,10 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The legacy Node suite remains a comparison baseline. **Live model decision quality and CLI Skill loading require separate provider runs.**
+Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The default development and verification flow does not require Node. The [contract migration map](../docs/node-test-contracts.ko.md) records the former Node tests and their Go replacements. Use the [local fixture guide](fixtures/README.md) to generate Go examples or optional JavaScript examples. **Live model decision quality and CLI Skill loading require separate provider runs.**
+
+To verify that project checks do not invoke Node, run this guard from the repository root. It checks project tooling; GitHub Actions may still use its own JavaScript action runtime.
+
+```bash
+bash tool/check-no-node.sh sh -c 'cd tool/go && go test -race -count=1 ./... && go vet ./...'
+```

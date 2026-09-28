@@ -1,0 +1,20 @@
+import { renderPanel } from './big-panel.mjs';
+import { resolvePlugin } from './registry.mjs';
+import { readPayload } from './compat.mjs';
+import { describe } from './broken.mjs';
+
+export function render(state) {
+  return renderPanel(state);
+}
+
+export function plugin(name) {
+  return resolvePlugin(name);
+}
+
+export function ingest(raw) {
+  return readPayload(raw);
+}
+
+export function label(x) {
+  return describe(x);
+}

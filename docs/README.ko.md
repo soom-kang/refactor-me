@@ -70,7 +70,7 @@ git add .agents .claude skills-lock.json && git commit
 
 설치기는 실체 파일을 `.agents/skills/<name>/`에 두고 `.claude/skills/<name>`은 그곳을 가리키는 심볼릭 링크로 만듭니다. 두 디렉터리를 함께 커밋하세요. 한쪽만 커밋하면 실행용 worktree에서 링크가 아무것도 가리키지 못합니다.
 
-설치기는 Go 바이너리를 `.refactor/bin/refactor-me`에 복사하고 기존 설정과 실행 기록을 보존합니다. 식별할 수 있는 이전 설치물만 교체합니다. 소유 확인 오류가 나오면 덮어쓰기 전에 해당 파일을 확인하세요. 릴리스 바이너리를 실행하는 대상 저장소에는 Go가 필요하지 않습니다. `npx skills add`에는 Node.js가 필요합니다.
+설치기는 Go 바이너리를 `.refactor/bin/refactor-me`에 복사하고 기존 설정과 실행 기록을 보존합니다. 식별할 수 있는 이전 설치물만 교체합니다. 소유 확인 오류가 나오면 덮어쓰기 전에 해당 파일을 확인하세요. 릴리스 바이너리를 실행하는 대상 저장소에는 Go가 필요하지 않습니다. `npx skills add`는 외부 Skill 설치 도구이므로 Node.js가 필요합니다. refactor-me 자체의 기본 개발·검증에는 Node가 필요하지 않으며, JavaScript/TypeScript 대상 프로젝트를 검증할 때는 해당 프로젝트의 도구가 필요합니다.
 
 재설치·제거·이전 Node CLI 복귀는 [업데이트와 제거 절차](../tool/TUTORIAL.ko.md#업데이트와-제거)를 따르세요. 구 Node 설치기는 `.refactor/lib/src`와 `.refactor/lib/bin`을 교체하므로 실행 전에 두 디렉터리에 사용자 파일이 있는지 확인해야 합니다.
 
@@ -131,7 +131,7 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-로컬 테스트는 설치와 CLI 동작을 확인합니다. 실제 모델의 판단 품질은 별도 실행으로 확인해야 합니다. [검증 범위](../tool/README.ko.md#로컬-개발-검사)를 참고하세요.
+[로컬 fixture 안내](../tool/fixtures/README.ko.md)는 Go 예제 생성과 선택적 JavaScript 검증을 설명합니다. 로컬 테스트는 설치와 CLI 동작을 확인합니다. 실제 모델의 판단 품질은 별도 실행으로 확인해야 합니다. [검증 범위](../tool/README.ko.md#로컬-개발-검사)를 참고하세요.
 
 ## 라이선스
 

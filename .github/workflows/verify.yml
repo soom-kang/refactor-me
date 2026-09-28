@@ -5,30 +5,52 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      js_fixture:
+        description: Run optional JavaScript target fixture validation
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   verify:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    needs: [go, js-fixture]
+    if: always()
+    steps:
+      - name: Aggregate verification
+        env:
+          GO_RESULT: ${{ needs.go.result }}
+          JS_RESULT: ${{ needs.js-fixture.result }}
+          JS_REQUESTED: ${{ inputs.js_fixture }}
+        run: |
+          test "$GO_RESULT" = success
+          if [ "$JS_REQUESTED" = true ]; then
+            test "$JS_RESULT" = success
+          else
+            test "$JS_RESULT" = skipped
+          fi
+  js-fixture:
+    if: github.event_name == 'workflow_dispatch' && inputs.js_fixture
+    runs-on: macos-15
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: tool/go/go.mod
+          cache-dependency-path: tool/go/go.mod
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Check source syntax
-        run: |
-          for file in tool/*.mjs tool/bin/*.mjs tool/src/*.mjs tool/test/*.mjs tool/fixtures/*.mjs; do
-            node --check "$file" || exit 1
-          done
-      - name: Run local tests
-        run: node --test tool/test/*.test.mjs
-      - name: Check CLI
-        run: |
-          node tool/bin/refactor-me.mjs help
-          node tool/bin/refactor-me.mjs version --json
+      - name: Validate JavaScript target fixture
+        working-directory: tool/go
+        env:
+          REFACTOR_TEST_JS: '1'
+        run: go test -count=1 ./internal/fixture
   go:
     runs-on: macos-15
     timeout-minutes: 20
@@ -41,14 +63,18 @@ jobs:
       - name: Verify Apple Silicon runner
         run: test "$(uname -m)" = arm64
       - name: Format, test, vet and build
-        working-directory: tool/go
         run: |
-          test -z "$(gofmt -l .)"
-          go test -race -count=1 ./...
-          go vet ./...
-          go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me
-          "$RUNNER_TEMP/refactor-me" help
-          "$RUNNER_TEMP/refactor-me" version --json
+          test -z "$(git ls-files '*.mjs')"
+          bash tool/check-no-node.sh bash -e -c '
+            cd tool/go
+            test -z "$(gofmt -l .)"
+            go test -race -count=1 ./...
+            go vet ./...
+            go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me
+            go build -o "$RUNNER_TEMP/make-fixture" ./cmd/make-fixture
+            "$RUNNER_TEMP/refactor-me" help
+            "$RUNNER_TEMP/refactor-me" version --json
+          '
       - name: Check independent release version
         run: |
           bash tool/release/build-macos-arm64.sh --check-tag "v$(cat tool/RELEASE_VERSION)"
@@ -58,7 +84,7 @@ jobs:
           fi
       - name: Build and smoke test release archive
         run: |
-          bash tool/release/build-macos-arm64.sh "$RUNNER_TEMP/release"
+          bash tool/check-no-node.sh bash tool/release/build-macos-arm64.sh "$RUNNER_TEMP/release"
           cd "$RUNNER_TEMP/release"
           shasum -a 256 -c SHA256SUMS
           mkdir unpacked

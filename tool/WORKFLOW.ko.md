@@ -4,9 +4,9 @@
 
 먼저 전체 흐름을 확인하고 필요한 단계의 JSON 예시를 펼쳐 보세요. 사용자가 설정과 실행을 시작하면 컨트롤러가 프로바이더의 JSON 응답을 검사해 진행 여부를 결정합니다. 단계마다 사용자 승인을 받지는 않습니다.
 
-예시는 [로컬 fixture](fixtures/make-fixture.mjs)의 `src/legacy-parser.mjs` 삭제입니다. `parseLegacy`와 `legacyVersion`을 내보내지만 기존 진입점의 호출은 없습니다. 같은 fixture의 `plugin-x`는 레지스트리가 이름으로 불러오므로 정적 import 검색만으로는 참조를 찾을 수 없습니다.
+기본 fixture는 Go이며, 아래 예시는 `--lang js`로 생성합니다. 예시는 [선택적 JavaScript fixture](fixtures/README.ko.md#javascript-예제선택)의 `src/legacy-parser.mjs` 삭제입니다. `parseLegacy`와 `legacyVersion`을 내보내지만 기존 진입점의 호출은 없습니다. 같은 fixture의 `plugin-x`는 레지스트리가 이름으로 불러오므로 정적 import 검색만으로는 참조를 찾을 수 없습니다.
 
-**JSON은 설명용 예시이며 실제 응답이나 실행 성공 기록이 아닙니다.** 한영판의 예시는 같고 현재 [응답 스키마](src/schemas.mjs)를 따릅니다. 질문은 [단계별 프롬프트](src/prompts.mjs)를 요약했습니다.
+**JSON은 설명용 예시이며 실제 응답이나 실행 성공 기록이 아닙니다.** 한영판의 예시는 같고 현재 [응답 스키마](go/internal/engine/schemas.json)를 따릅니다. 질문은 [단계별 프롬프트](go/internal/engine/templates/)를 요약했습니다.
 
 ## 전체 흐름
 

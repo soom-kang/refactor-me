@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Remove the legacy Node CLI, installer, tests, and fixture generator from the current source tree. Keep known-installation migration and older report compatibility in Go.
+- Map legacy test contracts to Go coverage and add a Go fixture generator with safe destination handling, a default Go example, and optional JavaScript examples.
+- Run the default CI and development checks without Node. Keep JavaScript/TypeScript target support and make JavaScript fixture execution an explicit CI option.
+- Restore excluded-provider diagnostics in doctor summaries and Korean translations for time, failure, and provider-exhaustion stop reasons.
+
 ## 0.9.20-beta.1
 
 First Go CLI public Beta for macOS Apple Silicon. Source builds without release version injection report `dev`.

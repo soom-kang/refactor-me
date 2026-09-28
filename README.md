@@ -70,7 +70,7 @@ git add .agents .claude skills-lock.json && git commit
 
 The installer writes the real files to `.agents/skills/<name>/` and makes `.claude/skills/<name>` a symlink into them. Commit both directories: committing one without the other leaves a link that resolves to nothing in the run worktree.
 
-The installer copies the Go binary to `.refactor/bin/refactor-me` and preserves existing configuration and run records. It only replaces a recognized previous installation; inspect any ownership error rather than overwriting the file. The target repository needs no Go toolchain for the release binary. The `npx skills add` step still needs Node.js.
+The installer copies the Go binary to `.refactor/bin/refactor-me` and preserves existing configuration and run records. It only replaces a recognized previous installation; inspect any ownership error rather than overwriting the file. The target repository needs no Go toolchain for the release binary. The external `npx skills add` installer still needs Node.js. refactor-me itself does not need Node for its default development and verification flow; validating a JavaScript/TypeScript target still requires that project's tools.
 
 For reinstall, removal, or a return to the earlier Node CLI, follow the [update and rollback steps](tool/TUTORIAL.md#update-and-remove). The old Node installer replaces `.refactor/lib/src` and `.refactor/lib/bin`; inspect those directories for user files before running it.
 
@@ -131,7 +131,7 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-Local tests check installation and CLI behavior. Live model decision quality requires separate provider runs. See [validation boundaries](tool/README.md#local-development-checks).
+The [local fixture guide](tool/fixtures/README.md) covers Go examples and optional JavaScript validation. Local tests check installation and CLI behavior. Live model decision quality requires separate provider runs. See [validation boundaries](tool/README.md#local-development-checks).
 
 ## License
 

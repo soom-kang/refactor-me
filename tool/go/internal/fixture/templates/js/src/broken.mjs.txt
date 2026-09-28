@@ -1,0 +1,4 @@
+export function describe(value) {
+  // UNTYPED_MARKER: intentional, permanent checker complaint for the fixture.
+  return String(value);
+}

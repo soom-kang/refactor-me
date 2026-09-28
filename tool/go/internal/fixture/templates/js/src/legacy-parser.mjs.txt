@@ -1,0 +1,16 @@
+// Superseded by compat.mjs in v2. Nothing imports this module and no string in
+// the repository names it.
+function tokenize(input) {
+  return String(input).split(/[\s,]+/).filter(Boolean);
+}
+
+export function parseLegacy(input) {
+  const parts = tokenize(input);
+  const out = {};
+  for (let i = 0; i < parts.length; i += 2) out[parts[i]] = parts[i + 1] ?? null;
+  return out;
+}
+
+export function legacyVersion() {
+  return 1;
+}

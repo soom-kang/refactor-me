@@ -1,0 +1,17 @@
+// Zero-dependency lint: flags `var` and trailing whitespace under src/.
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = path.resolve(import.meta.dirname, '..', 'src');
+let bad = 0;
+for (const f of fs.readdirSync(root)) {
+  if (!f.endsWith('.mjs')) continue;
+  const rel = `src/${f}`;
+  const text = fs.readFileSync(path.join(root, f), 'utf8');
+  text.split('\n').forEach((line, i) => {
+    if (/^\s*var\s/.test(line)) { console.error(`${rel}:${i + 1}: error L0001: unexpected \`var\``); bad++; }
+    if (/[ \t]+$/.test(line)) { console.error(`${rel}:${i + 1}: error L0002: trailing whitespace`); bad++; }
+  });
+}
+console.log(bad === 0 ? 'lint: clean' : `lint: ${bad} problem(s)`);
+process.exit(bad === 0 ? 0 : 1);

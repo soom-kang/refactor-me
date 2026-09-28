@@ -180,7 +180,7 @@ func TestInstallPreservesDataAndRejectsUnknownFiles(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(knownRuntime), 0755); err != nil {
 		t.Fatal(err)
 	}
-	knownBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "bin", "refactor-me.mjs"))
+	knownBytes, err := os.ReadFile(filepath.Join("testdata", "legacy-refactor-me.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}

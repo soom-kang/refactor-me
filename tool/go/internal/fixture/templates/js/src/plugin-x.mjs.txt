@@ -1,0 +1,5 @@
+export const id = 'plugin-x';
+
+export function run(input) {
+  return { id, value: String(input).toUpperCase() };
+}

@@ -289,6 +289,17 @@ func translateReason(reason, language string) string {
 			return pair[1] + number + suffix
 		}
 	}
+	if reason == "stopped on all providers exhausted" {
+		return "사용 가능한 프로바이더가 없습니다"
+	}
+	if strings.HasPrefix(reason, "stopped on wall clock (") && strings.HasSuffix(reason, "m)") {
+		minutes := strings.TrimSuffix(strings.TrimPrefix(reason, "stopped on wall clock ("), "m)")
+		return "경과 시간 한도 " + minutes + "분에 도달했습니다"
+	}
+	if strings.HasPrefix(reason, "stopped on ") && strings.HasSuffix(reason, " consecutive failures") {
+		count := strings.TrimSuffix(strings.TrimPrefix(reason, "stopped on "), " consecutive failures")
+		return "후보가 " + count + "회 연속 실패했습니다"
+	}
 	if strings.HasPrefix(reason, "no validation command could be executed: ") {
 		return "검증 명령을 실행하지 못했습니다: " + strings.TrimPrefix(reason, "no validation command could be executed: ")
 	}

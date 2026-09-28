@@ -1,5 +1,6 @@
 # refactor-me CLI 기술 스택 전환 조사
 
+> **과거 전환 자료:** 본문은 2026-09-28 조사·설계와 당시 릴리스 준비 판단을 보존한 기록입니다. 현재 개발 절차는 [Go 개발 안내](../tool/README.ko.md#로컬-개발-검사), 테스트 이관 상태는 [계약 이관표](node-test-contracts.ko.md)를 따릅니다. 아래 Node 코드 링크는 삭제 전 고정 commit을 가리키며 현재 checkout의 실행 경로가 아닙니다.
 - **기준일:** 2026-09-28
 - **대상:** `tool/`의 CLI와 설치기. Skills 자체, `app/web`, 실행 대상 저장소의 언어는 범위 밖.
 - **상태:** 의사결정용 조사. 전환 구현, 배포, 실사용 성능 측정은 수행하지 않았다.
@@ -16,16 +17,16 @@
 
 ## 1. 현재 시스템에서 확인한 사실
 
-`README.md`는 macOS, Node.js 24+, Git, 인증된 Codex 또는 Claude CLI를 전제로 한다. `tool/install.mjs`는 `tool/src`와 `tool/bin`을 대상 저장소의 `.refactor/lib`에 복사하고 셸 shim을 만든다. 설치에 npm 의존성 설치나 빌드는 없다. 설정과 과거 run 자료는 설치 업데이트에서 보존한다. `tool/bin/refactor-me.mjs`가 `help`, `version`, `doctor`, 실행, `report` 등을 처리한다.
+`README.md`는 macOS, Node.js 24+, Git, 인증된 Codex 또는 Claude CLI를 전제로 한다. [`tool/install.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/install.mjs)는 `tool/src`와 `tool/bin`을 대상 저장소의 `.refactor/lib`에 복사하고 셸 shim을 만든다. 설치에 npm 의존성 설치나 빌드는 없다. 설정과 과거 run 자료는 설치 업데이트에서 보존한다. [`tool/bin/refactor-me.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/bin/refactor-me.mjs)가 `help`, `version`, `doctor`, 실행, `report` 등을 처리한다.
 
 `tool/src`의 15개 `.mjs` 모듈은 Git worktree, 스코프, provider 호출, JSON schema, 정책 게이트, 검증 명령, 상태·보고서를 분담한다. `tool/test`에는 18개 `*.test.mjs` 파일이 있다. 이 숫자는 파일 수이지 테스트 케이스 수가 아니다. 전체 `tool` 소스·테스트는 약 9.4천 줄이다 (`wc -l`의 개행 기준). 별도 `package.json`, `tsconfig.json`, `go.mod`, `Cargo.toml`은 현재 확인되지 않는다.
 
 특히 다음은 언어를 바꿔도 지켜야 할 **관찰 가능한 계약**이다.
 
-1. 원본 checkout의 HEAD·index·작업 파일을 건드리지 않고 별도 worktree에서 변경·검증·로컬 branch 발행을 수행한다 (`tool/src/git.mjs`, `tool/src/loop.mjs`).
-2. provider와 검증 명령을 셸 문자열이 아닌 argv로 실행하고, 제한된 환경 변수·timeout·프로세스 종료·오류 분류를 적용한다 (`tool/src/provider.mjs`, `tool/src/validate.mjs`).
-3. `.refactor/config.json`, `state.json`, `report.json`, phase JSON, patch와 기존 run 읽기 동작을 보존한다 (`tool/src/config.mjs`, `tool/src/state.mjs`, `tool/src/report.mjs`).
-4. 상태 JSON을 임시 파일에 쓰고 `fsync` 후 rename한다. 잠금·재시작·실패 복구의 의미는 파일 형식뿐 아니라 파일시스템 동작에도 걸려 있다 (`tool/src/state.mjs`).
+1. 원본 checkout의 HEAD·index·작업 파일을 건드리지 않고 별도 worktree에서 변경·검증·로컬 branch 발행을 수행한다 ([`tool/src/git.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/git.mjs), [`tool/src/loop.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/loop.mjs)).
+2. provider와 검증 명령을 셸 문자열이 아닌 argv로 실행하고, 제한된 환경 변수·timeout·프로세스 종료·오류 분류를 적용한다 ([`tool/src/provider.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/provider.mjs), [`tool/src/validate.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/validate.mjs)).
+3. `.refactor/config.json`, `state.json`, `report.json`, phase JSON, patch와 기존 run 읽기 동작을 보존한다 ([`tool/src/config.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/config.mjs), [`tool/src/state.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/state.mjs), [`tool/src/report.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/report.mjs)).
+4. 상태 JSON을 임시 파일에 쓰고 `fsync` 후 rename한다. 잠금·재시작·실패 복구의 의미는 파일 형식뿐 아니라 파일시스템 동작에도 걸려 있다 ([`tool/src/state.mjs`](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/src/state.mjs)).
 5. CI는 현재 macOS에서 Node 24 구문 검사, `node --test`, CLI smoke check를 실행한다 (`.github/workflows/verify.yml`). Linux/Windows 지원은 이 CI만으로 확인할 수 없다.
 
 따라서 전환 비용의 중심은 파서 성능보다 **Git와 하위 프로세스의 실패 의미, 영속 상태의 호환성, 설치 경로**다. 현재 구현에는 macOS에 가까운 `cp -c`, `/usr/bin/which`, Unix 프로세스 그룹 신호가 있으므로 Go/Rust로 컴파일만 해서는 플랫폼 지원 범위가 넓어지지 않는다.

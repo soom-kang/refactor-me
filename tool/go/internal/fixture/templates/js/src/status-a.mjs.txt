@@ -1,0 +1,12 @@
+// Account view.
+
+export const STATUS = {
+  active: 'Active',
+  pending: 'Pending review',
+  suspended: 'Suspended',
+  closed: 'Closed',
+};
+
+export function statusLabel(key) {
+  return STATUS[key] ?? 'Unknown';
+}

@@ -192,16 +192,20 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	return report, nil
 }
 
-func missingSkills(provider, root string) []string {
-	roots := []string{filepath.Join(root, ".agents", "skills")}
+func skillRoots(provider, root, home string) []string {
 	if provider == "claude" {
-		roots = []string{filepath.Join(root, ".claude", "skills")}
-	} else {
-		home, _ := os.UserHomeDir()
-		if home != "" {
-			roots = append(roots, filepath.Join(home, ".agents", "skills"))
-		}
+		return []string{filepath.Join(root, ".claude", "skills")}
 	}
+	roots := []string{filepath.Join(root, ".agents", "skills")}
+	if home != "" {
+		roots = append(roots, filepath.Join(home, ".agents", "skills"))
+	}
+	return roots
+}
+
+func missingSkills(provider, root string) []string {
+	home, _ := os.UserHomeDir()
+	roots := skillRoots(provider, root, home)
 	var missing []string
 	for _, name := range requiredSkills {
 		found := false
@@ -245,8 +249,18 @@ func renderDoctor(report doctorReport) string {
 			icon = "[x]"
 		}
 		lines = append(lines, fmt.Sprintf("  %s %-26s %s", icon, row.ID, row.Detail))
+		if row.Fix != "" {
+			lines = append(lines, "    → "+row.Fix)
+		}
 	}
-	return fmt.Sprintf("doctor: %s  (healthy providers: %s)\n%s", state, strings.Join(report.Healthy, ", "), strings.Join(lines, "\n"))
+	healthy := strings.Join(report.Healthy, ", ")
+	if healthy == "" {
+		healthy = "none"
+	}
+	if len(report.Excluded) > 0 {
+		healthy += "; excluded: " + strings.Join(report.Excluded, ", ")
+	}
+	return fmt.Sprintf("doctor: %s  (healthy providers: %s)\n%s", state, healthy, strings.Join(lines, "\n"))
 }
 
 func Doctor(c surface.Context) (surface.DoctorResult, error) {

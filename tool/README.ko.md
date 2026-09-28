@@ -213,11 +213,9 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 
 ## 로컬 개발 검사
 
-저장소 루트에서 실행합니다.
+검증 대상은 macOS Apple Silicon이며 Go 1.27과 Git이 필요합니다. 저장소 루트에서 실행합니다.
 
 ```bash
-node --test tool/test/*.test.mjs
-node --check tool/bin/refactor-me.mjs
 cd tool/go
 go test -race ./...
 go vet ./...
@@ -225,4 +223,10 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-Go는 `gofmt`, `go vet`, `go test -race`, `go build`로 검증합니다. 기존 Node 테스트는 비교 기준선으로 유지합니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**
+Go는 `gofmt`, `go vet`, `go test -race`, `go build`로 검증합니다. 기본 개발·검증에는 Node가 필요하지 않습니다. 이전 Node 테스트의 대응 관계는 [계약 이관표](../docs/node-test-contracts.ko.md)에 기록합니다. [로컬 fixture 안내](fixtures/README.ko.md)에서 Go 예제와 선택적 JavaScript 예제를 만들 수 있습니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**
+
+Node 실행 차단까지 확인하려면 저장소 루트에서 다음 명령을 실행하세요. 이 검사는 프로젝트 도구의 Node 의존성을 확인하며 GitHub Actions 자체의 실행 환경을 제거하지는 않습니다.
+
+```bash
+bash tool/check-no-node.sh sh -c 'cd tool/go && go test -race -count=1 ./... && go vet ./...'
+```

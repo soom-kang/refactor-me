@@ -6,7 +6,7 @@
 
 Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행하는 CLI입니다. 별도 worktree에서 수정과 검증을 진행하고 결과를 `refactor/auto-*` 로컬 브랜치에 남깁니다. 병합 전에는 diff와 리포트를 확인하세요.
 
-**Go 개발 빌드:** `dev`. 첫 Go Beta 릴리스는 macOS Apple Silicon용 `0.9.20-beta.1`로 계획되어 있습니다. GitHub 릴리스 게시 전에는 아래 소스 빌드 방법을 사용하세요.
+**Go 개발 빌드:** `dev`. 첫 Go Beta 릴리스는 macOS Apple Silicon용 `0.9.20-beta.1`입니다.
 
 [English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [상세 문서](../tool/README.ko.md) · [Workflow](../tool/WORKFLOW.ko.md) · [변경 이력](../tool/CHANGELOG.md)
 
@@ -19,7 +19,7 @@ Codex와 Claude Code로 동작을 유지하는 리팩터링을 실행하는 CLI�
 - 별도로 릴리스된 필수 의존성 [sharpen-me](https://github.com/soom-kang/sharpen-me)의 Skill 8개
 - 의존성을 설치하고 빌드 캐시를 준비한 대상 프로젝트
 
-1. `v0.9.20-beta.1`이 게시된 뒤 macOS Apple Silicon용 압축파일과 checksum 파일을 받으세요. 압축을 풀거나 실행하기 전에 검증하고, 예시 저장소 경로를 바꾸세요.
+1. [`v0.9.20-beta.1` 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.9.20-beta.1)에서 macOS Apple Silicon용 압축파일과 checksum 파일을 받으세요. 압축을 풀거나 실행하기 전에 검증하고, 예시 저장소 경로를 바꾸세요.
 
 ```bash
 RELEASE_DIR="$(mktemp -d)"
@@ -44,7 +44,7 @@ printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
 
 압축파일에는 `refactor-me`, `LICENSE`, `INSTALL.md`, `BUILD-INFO.txt`가 들어갑니다. 설치 전에 `version --json`이 릴리스 버전과 같은지 확인하고 `INSTALL.md`를 읽으세요. `SHA256SUMS`는 내려받은 파일의 변경을 확인하지만 게시자 신원을 단독으로 증명하지는 않습니다. 첫 Beta는 **서명하지 않고 공증하지 않습니다**. macOS가 실행을 차단하거나 경고할 수 있습니다. 이 경우 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 따르세요. 시스템 전체의 보안 설정을 끄지 마세요.
 
-릴리스 게시 전이나 개발 중에는 Go 1.27로 소스에서 빌드하세요.
+개발용 빌드는 Go 1.27로 소스에서 만드세요.
 
 ```bash
 git clone https://github.com/soom-kang/refactor-me.git

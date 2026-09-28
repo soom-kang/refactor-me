@@ -34,7 +34,7 @@ claude auth status
 
 ## 2. 도구와 Skill 설치
 
-`v0.9.20-beta.1`이 게시된 뒤 태그에 연결된 압축파일과 checksum 파일을 받으세요. 게시 전에는 다운로드할 수 없는 릴리스입니다. 터미널에서 실행합니다.
+[`v0.9.20-beta.1` 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.9.20-beta.1)에서 압축파일과 checksum 파일을 받으세요. 터미널에서 실행합니다.
 
 ```bash
 RELEASE_DIR="$(mktemp -d)"

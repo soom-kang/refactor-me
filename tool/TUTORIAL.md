@@ -34,7 +34,7 @@ Provider calls require network access and consume the provider account's availab
 
 ## 2. Install the tool and skills
 
-After `v0.9.20-beta.1` is published, download the tagged archive and checksum file. The release is not assumed to be available until publication. In a terminal:
+Download the archive and checksum file from the [`v0.9.20-beta.1` release](https://github.com/soom-kang/refactor-me/releases/tag/v0.9.20-beta.1). In a terminal:
 
 ```bash
 RELEASE_DIR="$(mktemp -d)"

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Dedupe"
+  short_description: "Check whether repeated code is one behavior"
+  default_prompt: "Use $sharpen-dedupe to audit semantic equivalence and ownership, including reasons to keep or defer consolidation."
+policy:
+  allow_implicit_invocation: true

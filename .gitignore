@@ -45,5 +45,3 @@ app
 
 # Release packaging checks
 /tool/release/__pycache__/
-/.agents/
-/.claude/

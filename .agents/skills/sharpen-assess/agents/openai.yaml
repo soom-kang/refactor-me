@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Assess"
+  short_description: "Separate change risk from reasoning budget"
+  default_prompt: "Use $sharpen-assess to assess change exposure, judgment difficulty, and verification before recommending capability and effort."
+policy:
+  allow_implicit_invocation: true

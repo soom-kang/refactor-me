@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sharpen Cold Review"
+  short_description: "Review as a reader who never saw the reasoning"
+  default_prompt: "Use $sharpen-cold-review to independently review this artifact in comprehension or code mode and report actual isolation."
+policy:
+  allow_implicit_invocation: true

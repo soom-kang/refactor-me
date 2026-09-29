@@ -1,34 +1,41 @@
-# Install refactor-me `0.9.20-beta.1` on macOS Apple Silicon
+# Install refactor-me `0.10.0-beta.1`
 
-This public Beta is unsigned and has not been notarized by Apple. Download it
-only from the `v0.9.20-beta.1` GitHub release. Check the archive hash against
-the release's `SHA256SUMS` before extracting it. The hash detects a changed
-download; it does not independently authenticate the publisher.
+This document describes the macOS Apple Silicon release candidate. The tap and source release must be published before the Homebrew command is available.
+
+## Homebrew
 
 ```sh
-shasum -a 256 -c SHA256SUMS
-unzip refactor-me_0.9.20-beta.1_darwin_arm64.zip -d refactor-me-release
-./refactor-me-release/refactor-me version --json
-./refactor-me-release/refactor-me install /path/to/target-repo
+brew install soom-kang/refactor-me/refactor-me
+refactor-me version --json
+npx skills add \
+  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+  --global --skill '*' --agent codex claude-code
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-The installed binary is `.refactor/bin/refactor-me`. Configuration and earlier
-run reports remain under `.refactor/`. `doctor` writes a diagnostic run record
-and makes provider calls unless `--no-live-probe` is supplied. The target
-repository also needs Git, authenticated provider CLIs, its own validation
-tools, and the committed eight Skill files described in the project README.
-Install and commit those Skills before running
-`./.refactor/bin/refactor-me doctor --no-live-probe` from the target repository.
-Run `doctor` without that flag to verify live provider access; it uses account
-quota.
+Replace the target path with an existing Git repository. Homebrew builds from fixed source and manages Go as a build dependency. The executable does not need Go or Node at runtime. The external `npx` Skill installer requires Node.js. Git, an authenticated Codex or Claude CLI and the target's validation tools are separate prerequisites.
 
-macOS may block an unsigned download. Verify the source and hash first. If you
-choose to run it, follow Apple's per-app Privacy & Security guidance:
-https://support.apple.com/en-gb/102445 . Do not disable Gatekeeper globally.
+The eight global Skills use `~/.agents/skills` as the canonical source. `init` creates optional configuration without overwriting an existing file. No executable or Skill commit is needed in the target project. The disk-only check does not verify live provider loading; `doctor` without `--no-live-probe` calls models and consumes usage.
 
-To update, verify a newer release archive and run its `install` command for the
-same repository. To remove this Go installation, run the extracted binary's
-`uninstall /path/to/target-repo`; configuration, runs, and result branches stay.
-For a return to the previous Node CLI, follow the collision-checked rollback
-procedure in the `v0.9.20-beta.1` guide at
-https://github.com/soom-kang/refactor-me/blob/v0.9.20-beta.1/tool/TUTORIAL.md#update-and-remove .
+After setting run limits, start explicitly:
+
+```sh
+refactor-me run --repo /path/to/target-repo
+refactor-me report --repo /path/to/target-repo
+```
+
+## Standalone archive
+
+If using a verified release archive, invoke its executable directly, for example `./refactor-me run --repo /path/to/target-repo`. It has no project installation command. Check the archive against the published `SHA256SUMS` before extracting it, then inspect `version --json` for version, architecture and commit provenance. A checksum detects changed bytes; it does not authenticate the publisher.
+
+This Beta is unsigned and not notarized. macOS may warn or block downloaded files. Use [Apple's individual-app instructions](https://support.apple.com/en-gb/102445) if needed; do not disable system-wide security settings.
+
+## Update and remove
+
+```sh
+brew upgrade soom-kang/refactor-me/refactor-me
+brew uninstall refactor-me
+```
+
+An update changes the shared CLI for every project. Removal retains project configuration, runs, branches, worktrees and global Skills. Configuration schema 2 and report schema 3 are required. Older formats are rejected without conversion or deletion; preserve old data separately before creating new configuration. See the [full guide](https://github.com/soom-kang/refactor-me/blob/main/tool/TUTORIAL.md) for limits, diagnostics and cleanup.

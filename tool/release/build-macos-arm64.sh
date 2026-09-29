@@ -69,7 +69,7 @@ trap 'if [[ -d "$stage" ]]; then rm -r "$stage"; fi' EXIT
 (
   cd "$root/tool/go"
   CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -buildvcs=true \
-    -ldflags "-X main.version=$version" -o "$stage/refactor-me" ./cmd/refactor-me
+    -ldflags "-X main.version=$version -X main.commit=$commit" -o "$stage/refactor-me" ./cmd/refactor-me
 )
 
 build_info=$(go version -m "$stage/refactor-me")
@@ -85,7 +85,7 @@ if [[ $(lipo -archs "$stage/refactor-me") != arm64 ]]; then
   echo "binary is not darwin/arm64" >&2
   exit 2
 fi
-python3 -c 'import json,subprocess,sys; d=json.loads(subprocess.check_output([sys.argv[1], "version", "--json"])); assert (d["name"],d["version"],d["platform"],d["arch"]) == ("refactor-me",sys.argv[2],"darwin","arm64")' "$stage/refactor-me" "$version"
+python3 -c 'import json,subprocess,sys; d=json.loads(subprocess.check_output([sys.argv[1], "version", "--json"])); assert (d["name"],d["version"],d["platform"],d["arch"],d["commit"]) == ("refactor-me",sys.argv[2],"darwin","arm64",sys.argv[3])' "$stage/refactor-me" "$version" "$commit"
 
 cp "$root/LICENSE" "$stage/LICENSE"
 cp "$root/tool/release/INSTALL.md" "$stage/INSTALL.md"

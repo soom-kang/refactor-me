@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.10.0-beta.1
 
-- Remove the legacy Node CLI, installer, tests, and fixture generator from the current source tree. Keep known-installation migration and older report compatibility in Go.
-- Map legacy test contracts to Go coverage and add a Go fixture generator with safe destination handling, a default Go example, and optional JavaScript examples.
-- Run the default CI and development checks without Node. Keep JavaScript/TypeScript target support and make JavaScript fixture execution an explicit CI option.
-- Restore excluded-provider diagnostics in doctor summaries and Korean translations for time, failure, and provider-exhaustion stop reasons.
+**Unreleased.** This candidate prepares a macOS Apple Silicon source-build Homebrew formula. Publication and live-provider verification are separate release gates.
+
+- Install the CLI globally with Homebrew; add `--repo` to select a target Git repository from any directory. No arguments now show help; use explicit `run` to start refactoring.
+- Add optional, non-overwriting `init`. Remove project-local `install` and `uninstall`, legacy Node ownership data and migration/rollback functionality.
+- Require the eight global sharpen-me Skills from `~/.agents/skills`. Record content hashes and delivery paths, reject conflicting sources, and stop publication on unexpected Skill changes. Give Claude a dedicated Skill copy while retaining project-only settings.
+- Require configuration schema 2 and saved report schema 3. Reject older formats without modifying existing records.
+- Remove the Node implementation and its test runner. Keep Go fixtures and optional JavaScript examples; fixture generation no longer copies Skills. Preserve JavaScript/TypeScript target support.
+- Update English and Korean installation, execution, configuration and release documentation. Homebrew removal leaves project data, result branches, worktrees and global Skills in place.
 
 ## 0.9.20-beta.1
 

@@ -8,7 +8,7 @@ Prepare the target repository, then follow these five steps. Check each commandâ
 
 ## 1. Prepare the target
 
-Use macOS Apple Silicon. Go 1.27 is needed only for a source build. From the repository you want to refactor:
+Use macOS Apple Silicon and Homebrew. The formula manages Go as a build dependency; a manual source build requires Go 1.27. From the repository you want to refactor:
 
 ```bash
 cd /path/to/target-repo
@@ -32,64 +32,41 @@ Provider calls require network access and consume the provider account's availab
 
 <a id="install-the-tool-and-skills"></a>
 
-## 2. Install the tool and skills
+## 2. Install the tool and global Skills
 
-Download the archive and checksum file from the [`v0.9.20-beta.1` release](https://github.com/soom-kang/refactor-me/releases/tag/v0.9.20-beta.1). In a terminal:
+`0.10.0-beta.1` is a release candidate. The Homebrew instructions require the tap and source release to be published; use the [development build](../README.md#install) until then.
 
-```bash
-RELEASE_DIR="$(mktemp -d)"
-(
-set -e
-RELEASE_VERSION=0.9.20-beta.1
-RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${RELEASE_VERSION}"
-curl -fL "$RELEASE_URL/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
-curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
-cd "$RELEASE_DIR"
-shasum -a 256 -c SHA256SUMS
-unzip -q "refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
-cat INSTALL.md
-RELEASE_INFO="$(./refactor-me version --json)"
-printf '%s\n' "$RELEASE_INFO"
-printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$RELEASE_VERSION\""
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
-./refactor-me install /path/to/target-repo
-)
+```sh
+brew install soom-kang/refactor-me/refactor-me
+refactor-me version --json
+npx skills add \
+  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+  --global --skill '*' --agent codex claude-code
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-The archive contains `refactor-me`, `LICENSE`, `INSTALL.md`, and `BUILD-INFO.txt`. Read `INSTALL.md` and confirm the displayed version before installing. `SHA256SUMS` checks the downloaded bytes, not the publisher's identity. This first Beta is unsigned and not notarized; macOS may block or warn about it. Follow [Apple's individual-app opening instructions](https://support.apple.com/en-gb/102445) if needed. Do not disable macOS protections system-wide. For a development source build, use the [README instructions](../README.md#install).
+Homebrew builds the CLI using Go and places it on PATH. The external `npx` installer needs Node.js; CLI execution does not. The shared Skill source is `~/.agents/skills`. Do not commit Skills to target repositories for this workflow. Distinct same-name Skills in provider search paths block execution; doctor reports the paths for you to inspect. Aliases resolving to the same source are allowed.
 
-Install the eight required sharpen-me Skills in the target repository:
+`init` is optional and creates `.refactor/config.json` without overwriting an existing file. It copies neither the binary nor Skills. Running `refactor-me` without arguments shows help.
 
-```bash
-cd /path/to/target-repo
-npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
+Codex uses the selected global Skill paths. Claude receives a dedicated per-run copy through `--add-dir`, while `--setting-sources project` continues to exclude user settings. Skill contents are checked around provider calls; an unexpected change stops publication.
+
+For a development build, replace `refactor-me` in every command below with `/private/tmp/refactor-me`.
+
+The disk-only doctor check writes diagnostics but does not establish live Skill loading. To test the authenticated provider sessions, run the following separately; it calls models and consumes account usage:
+
+```sh
+refactor-me doctor --repo /path/to/target-repo
 ```
 
-Choose Project scope. Review and commit the eight Skill directories, agent links, and `skills-lock.json`. Worktrees read files from the base commit. Keep unrelated files out of the commit.
-
-```bash
-git add .agents .claude skills-lock.json && git commit
-```
-
-Both directories: the real files land in `.agents/skills/<name>/`, and `.claude/skills/<name>` is a symlink into them. Committing one without the other leaves a link that resolves to nothing in the worktree.
-
-Check the installed tool:
-
-```bash
-./.refactor/bin/refactor-me version
-./.refactor/bin/refactor-me help
-./.refactor/bin/refactor-me doctor --no-live-probe
-./.refactor/bin/refactor-me doctor
-```
-
-Doctor writes diagnostics under `.refactor/runs/` and calls models. Resolve blocking failures. `doctor --no-live-probe` checks disk installation without verifying session Skill loading.
+This Beta is not Apple-signed or notarized. If macOS blocks a downloaded executable, follow [Apple's individual-app instructions](https://support.apple.com/en-gb/102445). Do not disable system-wide protections.
 
 <a id="set-limits-and-run"></a>
 
 ## 3. Set limits
 
-In `.refactor/config.json`, set `policy.max_commits` to `1` and `policy.max_wall_clock_min` to a suitable limit (for example `30`) for a first run. Characterization test commits are counted apart from this refactor-commit limit.
+After `init`, edit `/path/to/target-repo/.refactor/config.json`: set `policy.max_commits` to `1` and `policy.max_wall_clock_min` to a suitable limit (for example `30`) for a first run. Characterization test commits are counted apart from this refactor-commit limit.
 
 **The loop does not enforce a total monetary budget.** Claudeâ€™s budget option is not a total run limit either. See [configuration and defaults](README.md#configuration).
 
@@ -98,22 +75,22 @@ In `.refactor/config.json`, set `policy.max_commits` to `1` and `policy.max_wall
 From the target repository, use Codex only:
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback none
+refactor-me run --provider codex --fallback none
 ```
 
 With Claude available as a fallback:
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback claude
+refactor-me run --provider codex --fallback claude
 ```
 
 To find candidates in one directory:
 
 ```bash
-./.refactor/bin/refactor-me --target app/web
+refactor-me run --target app/web
 ```
 
-`--target` is relative to your current directory. Caller changes and validation can extend beyond it. Keep the source checkout unchanged during a run.
+`--target` is relative to your current directory when `--repo` is omitted. To run from any directory, use `refactor-me run --repo /path/to/target-repo --target app/web`; targets then start at the selected Git root. `--repo` accepts a repository or a directory within it, and relative repository paths start at your calling directory. Paths resolving outside the selected repository are rejected. Caller changes and validation can extend beyond the target within the repository. Keep the source checkout unchanged during a run.
 
 Accepted changes remain on a local `refactor/auto-*` branch. The loop stops for no eligible candidates, run limits, repeated failures, unavailable providers, or safety violations.
 
@@ -124,18 +101,18 @@ Accepted changes remain on a local `refactor/auto-*` branch. The loop stops for 
 ## 5. Read the result
 
 ```bash
-./.refactor/bin/refactor-me report
-./.refactor/bin/refactor-me report --lang ko
-./.refactor/bin/refactor-me report --json
+refactor-me report
+refactor-me report --lang ko
+refactor-me report --json
 ```
 
 To write the report and final summary in Korean when running:
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback none --lang ko
+refactor-me run --provider codex --fallback none --lang ko
 ```
 
-Viewing another language preserves the saved `report.md`. `--lang` applies to `run` and `report`; doctor and progress logs remain in English. See [reports and language](README.md#reports-and-language) for translated fields and JSON compatibility.
+Viewing another language preserves the saved `report.md`. `--lang` applies to `run` and `report`; doctor and progress logs remain in English. See [reports and language](README.md#reports-and-language) for translated fields and supported JSON format.
 
 Check committed changes, skipped candidates, validation, usage, and the worktree path. Missing cost is not zero; a partial total is a lower bound.
 
@@ -156,8 +133,9 @@ See [Workflow](WORKFLOW.md) for phase checks. `handoff.md` is an intermediate re
 
 | Symptom | Next action |
 | --- | --- |
-| Missing skill | Install the named Skill in Project scope and check the agent link |
-| `skill-worktree` failure | A required Skill is missing from the base-commit checkout. Commit both `.agents` and `.claude`; the `.claude` entries are symlinks into `.agents`, so one without the other is not enough |
+| Missing global Skill | Check the named directory under `~/.agents/skills` and rerun the global installer if needed |
+| Skill name conflict | Inspect the reported provider/project paths and choose one canonical source; the CLI does not delete them |
+| Skill changed during a run | Preserve diagnostics, finish catalog maintenance, then start a new run |
 | Dirty source checkout | Finish or set aside your work, then rerun doctor |
 | No usable baseline | Inspect command failures, dependencies, and build caches; define commands if discovery is insufficient |
 | No eligible candidates | Read the exclusion reasons; a run can finish without changes |
@@ -169,68 +147,26 @@ For explicit validation commands, see [Validation commands](README.md#validation
 
 ## Update and remove
 
-For an update, choose the **published newer version** in `NEW_VERSION` and download it in a new directory. This block works in a fresh terminal; it stops before installation if the hash or embedded version differs. Keep the previous verified archive until the update is working.
-
-```bash
-NEW_VERSION=0.9.20-beta.1  # replace with the published newer version
-RELEASE_DIR="$(mktemp -d)"
-(
-set -e
-RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${NEW_VERSION}"
-curl -fL "$RELEASE_URL/refactor-me_${NEW_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${NEW_VERSION}_darwin_arm64.zip"
-curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
-cd "$RELEASE_DIR"
-shasum -a 256 -c SHA256SUMS
-unzip -q "refactor-me_${NEW_VERSION}_darwin_arm64.zip"
-cat INSTALL.md
-RELEASE_INFO="$(./refactor-me version --json)"
-printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$NEW_VERSION\""
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
-./refactor-me install /path/to/target-repo
-)
+```sh
+brew upgrade soom-kang/refactor-me/refactor-me
+refactor-me version --json
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-Reinstalling replaces the owned Go binary and preserves `.refactor/config.json`, run records, and `last-run.json`. A recognized Node shim can be replaced during migration; custom or unidentified files are preserved and reported. An unrecognized command stops installation before replacement. Check the output and investigate any preserved file before deleting it yourself.
+An upgrade changes the executable used by every project. Review the release notes before upgrading. Global Skills are maintained separately; inspect local modifications before updating the pinned catalog and do not update it while a run is active.
 
-Review local Skill edits before updating the catalog in the target repository. Use the [sharpen-me documentation](https://github.com/soom-kang/sharpen-me) for catalog maintenance, then commit the reviewed update.
+Current configuration requires `schema_version: 2`; reports require `schemaVersion: 3`. Earlier formats are rejected without rewriting or deleting them. There is no migration or Node rollback command. If an old configuration exists, preserve it outside the active `.refactor/config.json` path, run `init`, and transfer reviewed settings into the generated schema. Keep old run records as archives; the current CLI cannot render them. `init` itself never moves or overwrites existing files.
 
-To remove finished worktrees, run from the target repository:
+To remove eligible finished worktrees:
 
-```bash
-./.refactor/bin/refactor-me clean
+```sh
+refactor-me clean --repo /path/to/target-repo
 ```
 
-The command retains partial, unfinished, and safety-halted worktrees. To uninstall the Go tool, use the verified release executable you downloaded. Replace `RELEASE_DIR` with the absolute path of its extracted directory:
+Partial, unfinished and safety-halted worktrees remain available for investigation. To remove the Homebrew executable:
 
-```bash
-RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
-test -x "$RELEASE_DIR/refactor-me"
-"$RELEASE_DIR/refactor-me" uninstall /path/to/target-repo
+```sh
+brew uninstall refactor-me
 ```
 
-Uninstall removes the owned Go binary and its ownership marker. It keeps configuration, run records, custom files, Skill catalog, result branches, and worktrees.
-
-To return to the earlier Node CLI, use Node.js 24 and fetch the vetted `v0.8.8-beta.1` source. Its expected commit is `fa845c98fba01f87466531ae50c5f1d671f0392f`. The old installer replaces `.refactor/lib/src` and `.refactor/lib/bin`, so the command stops if any library file remains after migration. Inspect and resolve those files separately; do not remove them merely to pass the check. Replace `RELEASE_DIR` with the absolute path of the verified Go release directory. The following leaves `.refactor/config.json` and `.refactor/runs/` in place:
-
-```bash
-RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
-test -x "$RELEASE_DIR/refactor-me"
-ROLLBACK_SOURCE="$(mktemp -d)/refactor-me-v0.8.8-beta.1"
-git clone --quiet --depth 1 --branch v0.8.8-beta.1 https://github.com/soom-kang/refactor-me.git "$ROLLBACK_SOURCE"
-(
-set -e
-TARGET=/path/to/target-repo
-test "$(git -C "$ROLLBACK_SOURCE" rev-parse HEAD)" = fa845c98fba01f87466531ae50c5f1d671f0392f
-if [ -d "$TARGET/.refactor/lib" ] && [ -n "$(find "$TARGET/.refactor/lib" -mindepth 1 -print -quit)" ]; then
-  echo 'Stop: inspect retained .refactor/lib files before Node rollback' >&2
-  exit 2
-fi
-"$RELEASE_DIR/refactor-me" uninstall "$TARGET"
-node "$ROLLBACK_SOURCE/tool/install.mjs" "$TARGET"
-"$TARGET/.refactor/bin/refactor-me" version
-"$TARGET/.refactor/bin/refactor-me" doctor --no-live-probe
-)
-```
-
-If the Node installer or its `doctor` check fails after Go removal, keep the verified Go archive and run its `install` command to recover the Go CLI. If that installer reports an unrecognized command or file, stop and inspect the partial Node installation before retrying; do not overwrite it manually. A successful version check alone does not establish that the preserved configuration works with the older Node CLI.
+Removal leaves project configuration, reports, worktrees, result branches and global Skills in place. The CLI no longer implements project-local `install` or `uninstall`. It does not remove older local executables. Use `command -v refactor-me` and `version --json` to identify the executable in use; inspect any old project files before removing them yourself.

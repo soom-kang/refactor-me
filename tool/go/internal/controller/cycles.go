@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -173,6 +174,12 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 				}
 				result, err = engine.CallWithRepair(r.ctx, name, request, r.engineConfig, r)
 				if err != nil {
+					if errors.Is(err, workspace.ErrUnsafe) {
+						if result.Processes > 0 {
+							r.noteUsage(name, phase, result)
+						}
+						return phaseResult{}, err
+					}
 					result = engine.Result{Failure: "PROCESS", Detail: err.Error(), Provider: name}
 				}
 			}
@@ -202,7 +209,9 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 				if err := r.save(); err != nil {
 					return phaseResult{}, err
 				}
-				_ = r.writeHandoff(name, result.Failure)
+				if err := r.writeHandoff(name, result.Failure); errors.Is(err, workspace.ErrUnsafe) {
+					return phaseResult{}, err
+				}
 				break
 			}
 			resourceOnly = false
@@ -257,10 +266,12 @@ func (r *runner) writeHandoff(dead, failure string) error {
 		return err
 	}
 	res, err := engine.CallProvider(r.ctx, live, engine.Request{Phase: "handoff", Mode: "read", CWD: r.wt, Body: prompt, RunDir: r.runDir, Effort: "low", Attempt: "primary"}, r.engineConfig, nil)
+	if res.Processes > 0 {
+		r.noteUsage(live, "handoff", res)
+	}
 	if err != nil {
 		return err
 	}
-	r.noteUsage(live, "handoff", res)
 	if err := r.save(); err != nil {
 		return err
 	}
@@ -364,6 +375,14 @@ func (r *runner) rollback(preOID string) error {
 }
 
 func (r *runner) publish(oid string) error {
+	if r.engineConfig.Skills != nil {
+		if err := r.engineConfig.Skills.Verify(); err != nil {
+			return fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
+		if err := r.engineConfig.Skills.CheckWorkspace(r.wt); err != nil {
+			return fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
+	}
 	ref := "refs/heads/" + r.state.BranchName
 	if err := workspace.PublishCAS(r.surface.Repo, ref, oid, r.state.PublishedOID); err != nil {
 		return halt{"HALTED_UNSAFE", "could not publish " + ref + ": " + err.Error()}

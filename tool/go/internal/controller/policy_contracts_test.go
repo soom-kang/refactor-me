@@ -16,18 +16,18 @@ import (
 	"time"
 )
 
-func migrationCandidate(overrides map[string]any) map[string]any {
+func contractCandidate(overrides map[string]any) map[string]any {
 	c := map[string]any{"candidate_id": "c", "category": "DEAD_CODE", "risk_level": "L0_LOW", "readiness": "READY", "related_files": []any{"src/a.go"}, "estimated_file_count": 1, "primary_symbol": "A", "problem": "missing evidence"}
 	for k, v := range overrides {
 		c[k] = v
 	}
 	return c
 }
-func migrationPolicy() policy {
+func contractPolicy() policy {
 	return policy{AllowedRisks: []string{"L0_LOW", "L1_MODERATE", "L2_HIGH"}, UnknownRisk: "set_aside", MaxAttemptsPerFingerprint: 2, MaxFilesPerCandidate: 8}
 }
 
-func TestMigrationRankContracts(t *testing.T) {
+func TestContractRankContracts(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		overrides map[string]any
@@ -39,7 +39,7 @@ func TestMigrationRankContracts(t *testing.T) {
 		{"oversized", map[string]any{"estimated_file_count": 9}, "TOO_LARGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			eligible, rejected := rank([]map[string]any{migrationCandidate(tc.overrides)}, nil, migrationPolicy(), nil, nil)
+			eligible, rejected := rank([]map[string]any{contractCandidate(tc.overrides)}, nil, contractPolicy(), nil, nil)
 			if len(eligible) != 0 || len(rejected) != 1 || rejected[0].Reason != tc.reason {
 				t.Fatalf("%v %+v", eligible, rejected)
 			}
@@ -48,15 +48,15 @@ func TestMigrationRankContracts(t *testing.T) {
 			}
 		})
 	}
-	p := migrationPolicy()
+	p := contractPolicy()
 	p.AllowedRisks = append(p.AllowedRisks, "UNKNOWN")
-	c := migrationCandidate(map[string]any{"risk_level": "UNKNOWN"})
+	c := contractCandidate(map[string]any{"risk_level": "UNKNOWN"})
 	if eligible, _ := rank([]map[string]any{c}, nil, p, nil, nil); len(eligible) != 0 {
 		t.Fatal("UNKNOWN widened")
 	}
 	p.UnknownRisk = "deep_check"
 	for _, readiness := range []string{"READY", "REJECT", "NEEDS_EVIDENCE"} {
-		c := migrationCandidate(map[string]any{"risk_level": "UNKNOWN", "readiness": readiness})
+		c := contractCandidate(map[string]any{"risk_level": "UNKNOWN", "readiness": readiness})
 		eligible, rejected := rank([]map[string]any{c}, nil, p, nil, nil)
 		if readiness == "NEEDS_EVIDENCE" {
 			if len(eligible) != 1 || len(rejected) != 0 {
@@ -75,17 +75,17 @@ func TestMigrationRankContracts(t *testing.T) {
 		{[]any{"app/website/a.ts"}, []string{"app/web"}, false},
 		{[]any{"outside.go"}, nil, true},
 	} {
-		eligible, _ := rank([]map[string]any{migrationCandidate(map[string]any{"related_files": tc.paths})}, tc.targets, p, nil, nil)
+		eligible, _ := rank([]map[string]any{contractCandidate(map[string]any{"related_files": tc.paths})}, tc.targets, p, nil, nil)
 		if (len(eligible) == 1) != tc.want {
 			t.Fatal(tc, eligible)
 		}
 	}
 }
 
-func TestMigrationRankSeenAndOrder(t *testing.T) {
-	c := migrationCandidate(nil)
+func TestContractRankSeenAndOrder(t *testing.T) {
+	c := contractCandidate(nil)
 	fp := fingerprint(c)
-	reworded := migrationCandidate(map[string]any{"title": "new prose", "candidate_id": "other"})
+	reworded := contractCandidate(map[string]any{"title": "new prose", "candidate_id": "other"})
 	if fingerprint(reworded) != fp {
 		t.Fatal("prose changes identity")
 	}
@@ -94,7 +94,7 @@ func TestMigrationRankSeenAndOrder(t *testing.T) {
 		attempts map[string]int
 		reason   string
 	}{{map[string]bool{fp: true}, nil, "ALREADY_SEEN"}, {nil, map[string]int{fp: 2}, "ATTEMPTS_EXHAUSTED"}, {nil, map[string]int{fp: 1}, ""}} {
-		eligible, rejected := rank([]map[string]any{reworded}, nil, migrationPolicy(), tc.seen, tc.attempts)
+		eligible, rejected := rank([]map[string]any{reworded}, nil, contractPolicy(), tc.seen, tc.attempts)
 		if tc.reason == "" {
 			if len(eligible) != 1 {
 				t.Fatal(rejected)
@@ -103,14 +103,14 @@ func TestMigrationRankSeenAndOrder(t *testing.T) {
 			t.Fatal(rejected)
 		}
 	}
-	p := migrationPolicy()
+	p := contractPolicy()
 	p.UnknownRisk = "deep_check"
 	out, _ := rank([]map[string]any{
-		migrationCandidate(map[string]any{"candidate_id": "big", "estimated_file_count": 5}),
-		migrationCandidate(map[string]any{"candidate_id": "risky", "risk_level": "L2_HIGH"}),
-		migrationCandidate(map[string]any{"candidate_id": "small"}),
-		migrationCandidate(map[string]any{"candidate_id": "unsure", "readiness": "NEEDS_EVIDENCE"}),
-		migrationCandidate(map[string]any{"candidate_id": "unknown", "risk_level": "UNKNOWN", "readiness": "NEEDS_EVIDENCE"}),
+		contractCandidate(map[string]any{"candidate_id": "big", "estimated_file_count": 5}),
+		contractCandidate(map[string]any{"candidate_id": "risky", "risk_level": "L2_HIGH"}),
+		contractCandidate(map[string]any{"candidate_id": "small"}),
+		contractCandidate(map[string]any{"candidate_id": "unsure", "readiness": "NEEDS_EVIDENCE"}),
+		contractCandidate(map[string]any{"candidate_id": "unknown", "risk_level": "UNKNOWN", "readiness": "NEEDS_EVIDENCE"}),
 	}, nil, p, nil, nil)
 	var ids []string
 	for _, x := range out {
@@ -121,7 +121,7 @@ func TestMigrationRankSeenAndOrder(t *testing.T) {
 	}
 }
 
-func TestMigrationPolicyAndHistory(t *testing.T) {
+func TestContractPolicyAndHistory(t *testing.T) {
 	for _, mode := range []string{"set_aside", "deep_check", "deep-check"} {
 		_, err := readPolicy(map[string]any{"policy": map[string]any{"unknown_risk": mode}})
 		if (err != nil) != (mode == "deep-check") {
@@ -158,7 +158,7 @@ func TestMigrationPolicyAndHistory(t *testing.T) {
 	}
 }
 
-func TestMigrationPacketRiskGate(t *testing.T) {
+func TestContractPacketRiskGate(t *testing.T) {
 	for _, risk := range []string{"UNKNOWN", "L3_CRITICAL"} {
 		t.Run(risk, func(t *testing.T) {
 			repo := t.TempDir()
@@ -190,13 +190,13 @@ func TestMigrationPacketRiskGate(t *testing.T) {
 				t.Fatal(err)
 			}
 			runDir := t.TempDir()
-			p := migrationPolicy()
+			p := contractPolicy()
 			p.UnknownRisk = "deep_check"
 			p.MaxWallClockMin = 10
 			p.MaxCommits = 10
 			p.MaxCycles = 10
 			r := runner{ctx: context.Background(), surface: surface.Context{Repo: repo, Stderr: io.Discard}, wt: repo, runDir: runDir, policy: p, state: newState("r", repo, repo, "", "main", "result", nil, []string{"codex"}), started: time.Now(), engineConfig: engine.Config{Agents: map[string]engine.AgentConfig{"codex": {Bin: bin}}}}
-			c := migrationCandidate(map[string]any{"fp": "fp"})
+			c := contractCandidate(map[string]any{"fp": "fp"})
 			_, ok, err := r.selectPacket(c, runDir)
 			if err != nil || ok {
 				t.Fatal(ok, err)
@@ -212,7 +212,7 @@ func TestMigrationPacketRiskGate(t *testing.T) {
 	}
 }
 
-func TestMigrationDeclaredDeletionRefusal(t *testing.T) {
+func TestContractDeclaredDeletionRefusal(t *testing.T) {
 	repo := t.TempDir()
 	gitTest(t, repo, "init", "-q")
 	gitTest(t, repo, "config", "user.name", "Test")
@@ -259,7 +259,7 @@ func TestMigrationDeclaredDeletionRefusal(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	p := migrationPolicy()
+	p := contractPolicy()
 	p.MaxWallClockMin = 10
 	p.MaxCommits = 10
 	p.MaxCycles = 10
@@ -277,7 +277,7 @@ func TestMigrationDeclaredDeletionRefusal(t *testing.T) {
 	}
 }
 
-func TestMigrationHandoffSnapshot(t *testing.T) {
+func TestContractHandoffSnapshot(t *testing.T) {
 	repo := t.TempDir()
 	gitTest(t, repo, "init", "-q")
 	bin := filepath.Join(t.TempDir(), "fake-codex")

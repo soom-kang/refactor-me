@@ -187,7 +187,7 @@ func TestRecordedRemovalRequiresMatchingCleanCompletedRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := map[string]any{"runId": id, "repoRoot": root, "worktree": wt, "terminal": map[string]any{"status": "HALTED_UNSAFE"}}
+	st := map[string]any{"schema": StateSchema, "runId": id, "repoRoot": root, "worktree": wt, "terminal": map[string]any{"status": "HALTED_UNSAFE"}}
 	if err := WriteJSONAtomic(filepath.Join(dir, "state.json"), st); err != nil {
 		t.Fatal(err)
 	}

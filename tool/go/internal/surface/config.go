@@ -8,11 +8,14 @@ import (
 	"path/filepath"
 )
 
-// Config retains unknown user keys for forward compatibility with Node configs.
+// ConfigSchemaVersion identifies supported project settings.
+const ConfigSchemaVersion = 2
+
+// Config stores settings, including unknown extension keys.
 type Config map[string]any
 
 const defaultConfigJSON = `{
-  "schema_version": 1,
+  "schema_version": 2,
   "workspace": {"branch_prefix":"refactor/auto-","worktree_parent":"","keep_worktree":true},
   "agents": {
     "primary":"codex","fallback":"claude",
@@ -37,10 +40,15 @@ func DefaultConfig() Config {
 	return cfg
 }
 
-// LoadConfig copies Node's one-level merge for workspace, policy and verification,
-// and its two-level merge for agents. Unknown fields remain available to callers.
+// LoadConfig merges versioned settings with defaults while retaining extension keys.
 func LoadConfig(repo string) (Config, error) {
 	cfg := DefaultConfig()
+	if err := checkDirectory(filepath.Join(repo, ".refactor")); err != nil {
+		return nil, err
+	}
+	if err := checkRegularFile(filepath.Join(repo, ".refactor", "config.json")); err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(filepath.Join(repo, ".refactor", "config.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
@@ -52,8 +60,8 @@ func LoadConfig(repo string) (Config, error) {
 	if err := json.Unmarshal(data, &user); err != nil {
 		return nil, fmt.Errorf("config.json: %w", err)
 	}
-	if user == nil {
-		return cfg, nil
+	if user["schema_version"] != float64(ConfigSchemaVersion) {
+		return nil, fmt.Errorf("config.json: unsupported schema_version %v; expected %d", user["schema_version"], ConfigSchemaVersion)
 	}
 	for key, value := range user {
 		switch key {

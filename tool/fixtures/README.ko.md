@@ -33,10 +33,9 @@ printf '%s\n' "$FIXTURE"
 
 ```bash
 go run ./cmd/make-fixture /tmp/my-new-refactor-fixture --lang go --multi
-go run ./cmd/make-fixture --skills /absolute/path/to/skills
 ```
 
-`--multi`는 선택한 언어로 `app/api`와 `app/worker` 영역을 추가합니다. 두 영역은 각각 manifest를 가집니다. `--skills DIR`는 지정한 Skill 디렉터리를 fixture에 복사하고 파일과 에이전트 링크를 최초 커밋에 포함합니다. 비밀 값이나 개인 파일이 없는지 확인한 디렉터리만 사용하세요. 입력 Skill 디렉터리의 심볼릭 링크는 따라가지 않고 거부합니다. 생성 성공이 Skill 구성의 완전성이나 provider의 사용 가능성을 보장하지는 않습니다.
+`--multi`는 선택한 언어로 `app/api`와 `app/worker` 영역을 추가합니다. 두 영역은 각각 manifest를 가집니다. 생성기는 Skills를 설치하거나 복사하지 않습니다. 실제 provider 실행은 fixture의 기준 커밋과 독립적으로 `~/.agents/skills`에서 전역 Skills를 찾습니다. 제거된 `--skills` 옵션은 거부합니다.
 
 잘못된 옵션이나 기존 목적지는 오류입니다. 진단을 확인하고 새 목적지를 선택하세요. 재시도하기 위해 기존 저장소를 지우지 마세요.
 
@@ -64,4 +63,4 @@ Lint·test·build는 통과해야 합니다. Typecheck는 `src/broken.mjs`에서
 REFACTOR_TEST_JS=1 go test -count=1 ./internal/fixture
 ```
 
-기본 테스트는 Node를 실행하지 않습니다. CI에서는 Verify를 수동 실행할 때 `js_fixture: true`를 선택해 JavaScript fixture 검사를 켭니다. 위 명령은 provider를 호출하거나 모델 판단 품질을 측정하지 않습니다. 실제 실행에는 [가이드](../TUTORIAL.ko.md)의 Skill 설치·커밋, provider 인증과 실행 한도 설정이 별도로 필요합니다.
+기본 테스트는 Node를 실행하지 않습니다. CI에서는 Verify를 수동 실행할 때 `js_fixture: true`를 선택해 JavaScript fixture 검사를 켭니다. 위 명령은 provider를 호출하거나 모델 판단 품질을 측정하지 않습니다. 실제 실행에는 [가이드](../TUTORIAL.ko.md)의 전역 Skill 설치, provider 인증과 실행 한도 설정이 별도로 필요합니다. 생성 후 `refactor-me init --repo "$FIXTURE"`와 `refactor-me doctor --repo "$FIXTURE" --no-live-probe`로 준비 상태를 확인하세요. `run` 시작은 사용량을 소비하는 별도 작업입니다.

@@ -9,9 +9,11 @@ import (
 
 // version is set only for an approved release build. A local build reports dev.
 var version = "dev"
+var commit = "unknown"
 
 func main() {
 	surface.Version = version
+	surface.Commit = commit
 	cwd, err := os.Getwd()
 	if err != nil {
 		os.Exit(surface.ExitAborted)

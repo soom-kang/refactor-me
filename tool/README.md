@@ -6,9 +6,25 @@
 
 Follow the [guide](TUTORIAL.md) for installation.
 
+## Commands and repository selection
+
+| Command | Purpose |
+| --- | --- |
+| `help` or no arguments | Show usage without starting a run |
+| `version [--json]` | Show build version, Go runtime, platform, architecture, executable source path and commit provenance |
+| `init` | Create optional project configuration without overwriting existing settings |
+| `doctor [--no-live-probe]` | Check repository, providers and global Skills; the default includes model calls |
+| `run` | Start the automated refactoring loop |
+| `report [--json] [--lang en\|ko]` | Read the latest supported saved report |
+| `clean` | Remove eligible finished worktrees |
+
+`init`, `doctor`, `run`, `report` and `clean` accept `--repo <path>`. A relative path starts at the calling directory; the CLI finds its Git root. Without `--repo`, it finds the current directory's Git root. `help` and `version` work outside Git. Installation belongs to Homebrew; there are no project-local `install` or `uninstall` commands.
+
+Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path. A fresh installation does not need files in `.refactor/bin` or `.refactor/lib`.
+
 ## Configuration
 
-The installer creates `.refactor/config.json` if absent and preserves it on reinstall. Runtime defaults are in `go/internal/surface/config.go` and `go/internal/controller`; the installation template is [config.default.json](config.default.json).
+`refactor-me init --repo <path>` creates `.refactor/config.json` if absent and never overwrites it. Initialization is optional; commands use built-in defaults when configuration is absent. Runtime defaults are in `go/internal/surface/config.go` and `go/internal/controller`; the initialization template is [config.default.json](config.default.json). Configuration requires `schema_version: 2`. Unsupported or missing versions in an existing file are errors, not migration requests.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -46,7 +62,7 @@ Default reasoning effort:
 
 Provider configuration can override these values; per-phase settings take precedence.
 
-`schema_version` and `verification` remain in the configuration format. The current loop does not use `verification.locked` to choose validation commands. For explicit commands, use `.refactor/commands.json` as described below.
+`verification` remains in the configuration format. The current loop does not use `verification.locked` to choose validation commands. For explicit commands, use `.refactor/commands.json` as described below.
 
 ## Candidate selection
 
@@ -61,7 +77,7 @@ The audit looks for four categories:
 
 Preserve return values, side effects, ordering, errors, rendered output, and persisted data shapes reachable from existing entrypoints and published surfaces. Bug fixes and speculative improvements are excluded.
 
-`--target <dir>` is relative to the current directory and can be repeated.
+`--target <dir>` can be repeated. With `--repo`, targets are relative to the selected Git root; without it, they are relative to the current directory. Real paths are resolved, including symlinks, and must remain inside the selected repository.
 
 - It limits candidate discovery. Caller and reachability checks cover the repository.
 - Candidates must relate to a target and change a target file. Invalid paths or targets without tracked source files stop execution.
@@ -83,18 +99,18 @@ Quota or authentication failure can switch providers within the same phase. The 
 
 ## Skill availability
 
-Install all eight Skills from `soom-kang/sharpen-me`, a separately released required dependency, in the target repository. Review and commit their files, agent links, and `skills-lock.json`.
+Install all eight required Skills globally from the pinned sharpen-me catalog in the [guide](TUTORIAL.md#install-the-tool-and-skills). The shared source is `~/.agents/skills`; a project-local copy does not replace a missing global Skill.
 
-Doctor checks required Skill paths on disk, then checks the base commit by creating a temporary worktree and looking for each `SKILL.md` inside it. It judges the checkout by what it resolves to, not by index paths, so a symlinked catalog is measured correctly. This runs for every available provider, because the paths below differ per provider.
+The CLI resolves each Skill directory, validates `SKILL.md` and its supporting files, and records the real path and SHA-256 of the full content. A Skill directory may be a symlink, but links inside it must not escape the resolved directory. Broken links and unsupported file structures are errors. Distinct same-name Skills in project/provider discovery paths block execution; aliases to the same canonical source are permitted and no user files are removed.
 
-| Provider | Skill paths |
+| Provider | Skill delivery |
 | --- | --- |
-| Claude Code | `.claude/skills` with `--setting-sources project`; a global install alone is insufficient |
-| Codex | `.agents/skills` and its supported home path |
+| Codex | Native global discovery with the selected absolute Skill paths in phase prompts |
+| Claude Code | A dedicated per-run `.claude/skills` copy passed through `--add-dir`; `--setting-sources project` continues to exclude user settings |
 
-`.claude/skills/<name>` is a symlink into `.agents/skills/<name>`, so the base commit needs both directories. Git stores the link as a single entry and never tracks a path through it; committing one directory without the other leaves a link that resolves to nothing in the run worktree.
+Required Skill files do not have to be in the target's base commit. The Claude directory contains only the selected Skills and supporting files; the CLI does not grant access to the whole home directory through `--add-dir`. Content hashes are checked around provider calls. Unexpected drift halts the run before publishing that result.
 
-Doctor calls models and writes diagnostics by default. A session reporting no visible Skills fails. A partial self-report does not override a complete disk installation. `--no-live-probe` skips this session check.
+Doctor validates the global source and delivery paths. By default it also calls models, consumes account usage and writes diagnostics. `--no-live-probe` checks files and configuration only; it does not prove live session loading. Local fixture tests and live provider checks are separate evidence. The live probe requires the provider to report all eight visible Skill names; this is session self-report, not independent proof of every file read. File paths and hashes are measured separately.
 
 | Skill | Used when | Result |
 | --- | --- | --- |
@@ -109,7 +125,7 @@ Doctor calls models and writes diagnostics by default. A session reporting no vi
 
 The loop defines each phase's allowed skills, output schema, and permissions. Model and effort settings come from the loop's configuration; skill recommendations do not change them.
 
-The installed Skill files and `skills-lock.json` record the catalog used by this checkout.
+Run reports record the resolved Skill paths and content hashes, CLI/provider versions and the delivery path used for each provider. Keep these records when comparing runs after a global catalog update.
 
 ## Validation commands
 
@@ -167,7 +183,7 @@ After a change, validation selects the deepest affected area for each path and t
 
 `--lang en|ko` applies to `run` and `report`; the default is `en`. It translates the final summary, `report.md`, and fixed handoff header. Progress logs and doctor output remain in English. Model explanations, errors, paths, and commit subjects keep their original wording.
 
-Each run writes one `report.md` and one `report.json`. `report --lang ko` renders the latest JSON without changing files. Older JSON may omit version or usage fields. Missing or invalid JSON produces an error and preserves existing Markdown. `--json` returns the same data in either language.
+Each run writes one `report.md` and one `report.json`. `report --lang ko` renders the latest JSON without changing files. Current reports use `schemaVersion: 3`. Missing, invalid or unsupported older JSON produces an error and preserves existing files. Reports are not automatically migrated. `--json` prints the stored JSON bytes for a supported report and is independent of language.
 
 ### Code comparison
 
@@ -193,7 +209,7 @@ The optional `codeComparison` object in `report.json` contains:
 | No published commit | `NO_CHANGES`, no patch |
 | Published commits have identical trees | Empty patch |
 | Missing Git objects or patch-storage failure | `UNAVAILABLE` with a reason; run status and exit code unchanged |
-| Older JSON has no comparison field | Missing-comparison notice |
+| Unsupported report schema | Error; stored files remain unchanged |
 
 Viewing a report does not recollect the comparison. `accepted.patch` is a pre-review snapshot and may belong to a rejected candidate. Use the final comparison to inspect committed changes.
 
@@ -209,7 +225,7 @@ Failed calls and schema-repair processes count toward usage. Missing cost is not
 | `2` | Aborted or CLI error; inspect diagnostics |
 | `4` | Safety invariant failed; worktree retained as evidence |
 
-Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation evidence, and reports. `last-run.json` points to the latest result. Records retain their worktree path, so older records remain readable after cache defaults change.
+Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation evidence, and reports. `last-run.json` points to the latest result. Supported records retain their worktree path independently of the current cache default. Unsupported older formats are not read or cleaned by the current CLI.
 
 ## Local development checks
 
@@ -223,7 +239,7 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The default development and verification flow does not require Node. The [contract migration map](../docs/node-test-contracts.ko.md) records the former Node tests and their Go replacements. Use the [local fixture guide](fixtures/README.md) to generate Go examples or optional JavaScript examples. **Live model decision quality and CLI Skill loading require separate provider runs.**
+Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The default development and verification flow does not require Node. The historical [contract migration map](../docs/node-test-contracts.ko.md) records the Node-removal baseline; its legacy installation and report contracts no longer describe this release. Use the [local fixture guide](fixtures/README.md) to generate Go examples or optional JavaScript examples. **Live model decision quality and CLI Skill loading require separate provider runs.**
 
 To verify that project checks do not invoke Node, run this guard from the repository root. It checks project tooling; GitHub Actions may still use its own JavaScript action runtime.
 

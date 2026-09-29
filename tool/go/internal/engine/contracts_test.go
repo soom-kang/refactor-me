@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestMigrationProviderRing(t *testing.T) {
+func TestContractProviderRing(t *testing.T) {
 	fresh := func() *RingState {
 		return &RingState{Providers: NewProviderRing([]string{"claude", "codex"}), ProviderOrder: []string{"codex", "claude"}}
 	}
@@ -49,7 +49,7 @@ func TestMigrationProviderRing(t *testing.T) {
 	}
 }
 
-func TestMigrationProviderParsing(t *testing.T) {
+func TestContractProviderParsing(t *testing.T) {
 	if got := LastJSONObject("banner\n{\"old\":1}\n{\"message\":\"brace } and \\\" quote\"}"); got["message"] != "brace } and \" quote" {
 		t.Fatal(got)
 	}
@@ -89,7 +89,7 @@ func TestMigrationProviderParsing(t *testing.T) {
 	}
 }
 
-func TestMigrationUsageAccounting(t *testing.T) {
+func TestContractUsageAccounting(t *testing.T) {
 	a := Usage{InputTokens: 10, OutputTokens: 1}
 	b := Usage{InputTokens: 20, OutputTokens: 2}
 	m := MergeUsage(a, b)
@@ -134,7 +134,7 @@ func TestMigrationUsageAccounting(t *testing.T) {
 	}
 }
 
-func TestMigrationAuditHistory(t *testing.T) {
+func TestContractAuditHistory(t *testing.T) {
 	for phase, want := range map[string]string{"audit": "high", "deep_check": "high", "preflight": "medium", "characterization": "medium", "execute": "high", "review": "high", "handoff": "low", "doctor": "low"} {
 		if got := EffortFor(phase, AgentConfig{}); got != want {
 			t.Fatal(phase, got)
@@ -183,7 +183,7 @@ func TestMigrationAuditHistory(t *testing.T) {
 	}
 }
 
-func TestMigrationVerdictEnforcers(t *testing.T) {
+func TestContractVerdictEnforcers(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		result map[string]any
@@ -219,7 +219,7 @@ func TestMigrationVerdictEnforcers(t *testing.T) {
 	}
 }
 
-func TestMigrationExternalSurface(t *testing.T) {
+func TestContractExternalSurface(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{{"package.json", `{"private":true}`, "NONE_DETECTED"}, {"package.json", `{"private":true,"exports":"./index.js"}`, "POSSIBLE"}, {"go.mod", "module github.com/example/fixture\n", "POSSIBLE"}, {".github/workflows/publish.yml", "run: npm publish\n", "POSSIBLE"}} {
 		t.Run(tc.name+tc.want, func(t *testing.T) {
 			root := t.TempDir()
@@ -237,7 +237,7 @@ func TestMigrationExternalSurface(t *testing.T) {
 	}
 }
 
-func TestMigrationPromptSafety(t *testing.T) {
+func TestContractPromptSafety(t *testing.T) {
 	for _, provider := range []string{"claude", "codex"} {
 		prompt, err := BuildPrompt("audit", PromptArgs{Provider: provider})
 		if err != nil {
@@ -293,7 +293,7 @@ func TestMigrationPromptSafety(t *testing.T) {
 	}
 }
 
-func TestMigrationWorkflowExamples(t *testing.T) {
+func TestContractWorkflowExamples(t *testing.T) {
 	re := regexp.MustCompile("(?s)<!-- example: ([\\w-]+) schema: (\\w+) -->\n```json\n(.*?)\n```")
 	read := func(name string) map[string]map[string]any {
 		b, err := os.ReadFile(filepath.Join("..", "..", "..", name))
@@ -338,7 +338,7 @@ func TestMigrationWorkflowExamples(t *testing.T) {
 	}
 }
 
-func TestMigrationSkillCatalog(t *testing.T) {
+func TestContractSkillCatalog(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "..")
 	b, err := os.ReadFile(filepath.Join(root, "skills-lock.json"))
 	if err != nil {
@@ -394,7 +394,7 @@ func TestMigrationSkillCatalog(t *testing.T) {
 	}
 }
 
-func TestMigrationScopedInventory(t *testing.T) {
+func TestContractScopedInventory(t *testing.T) {
 	root := t.TempDir()
 	cmd := exec.Command("git", "init", "-q", root)
 	if out, err := cmd.CombinedOutput(); err != nil {

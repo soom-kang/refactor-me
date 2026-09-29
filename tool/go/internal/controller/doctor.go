@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,15 +13,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/soom-kang/refactor-me/tool/go/internal/catalog"
 	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
 
-var requiredSkills = []string{
-	"sharpen-clarify", "sharpen-review", "sharpen-challenge", "sharpen-assess",
-	"sharpen-refine", "sharpen-cold-review", "sharpen-brief", "sharpen-dedupe",
-}
+var requiredSkills = catalog.Required
 
 type doctorCheck struct {
 	ID       string `json:"id"`
@@ -31,13 +30,16 @@ type doctorCheck struct {
 }
 
 type doctorReport struct {
-	At       string        `json:"at"`
-	Version  string        `json:"version"`
-	OK       bool          `json:"ok"`
-	Healthy  []string      `json:"healthy"`
-	Excluded []string      `json:"excluded"`
-	Checks   []doctorCheck `json:"checks"`
-	Usage    []doctorUsage `json:"usage"`
+	Skills           *catalog.Catalog  `json:"skills"`
+	ProviderVersions map[string]string `json:"providerVersions"`
+	LiveProbe        bool              `json:"liveProbe"`
+	At               string            `json:"at"`
+	Version          string            `json:"version"`
+	OK               bool              `json:"ok"`
+	Healthy          []string          `json:"healthy"`
+	Excluded         []string          `json:"excluded"`
+	Checks           []doctorCheck     `json:"checks"`
+	Usage            []doctorUsage     `json:"usage"`
 }
 
 type doctorUsage struct {
@@ -54,7 +56,7 @@ func check(id, status, detail string, blocking bool) doctorCheck {
 
 func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	report := doctorReport{At: time.Now().UTC().Format(time.RFC3339Nano), Version: surface.Version,
-		Healthy: []string{}, Excluded: []string{}, Checks: []doctorCheck{}}
+		Healthy: []string{}, Excluded: []string{}, Checks: []doctorCheck{}, ProviderVersions: map[string]string{}, LiveProbe: c.Args.Live}
 	add := func(id, status, detail string, blocking bool) {
 		report.Checks = append(report.Checks, check(id, status, detail, blocking))
 	}
@@ -94,28 +96,60 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 			}
 		}
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return report, err
+	}
+	report.Skills, err = catalog.Load(home, c.Repo)
+	if err != nil {
+		add("global-skills", "FAIL", err.Error(), true)
+	} else {
+		add("global-skills", "PASS", "canonical global skill files and references validated", true)
+		if slices.Contains(c.Providers, "claude") {
+			snapshotParent := runDir
+			if snapshotParent == "" {
+				snapshotParent, err = os.MkdirTemp("", "refactor-doctor-skills-")
+				if err != nil {
+					return report, err
+				}
+				defer os.RemoveAll(snapshotParent)
+			}
+			if err := report.Skills.Snapshot(snapshotParent); err != nil {
+				return report, err
+			}
+		}
+	}
 	probePath := filepath.Join(os.TempDir(), fmt.Sprintf("refactor-probe-%d-%d", os.Getpid(), time.Now().UnixNano()))
 	base, err := workspace.HeadOID(c.Repo)
 	if err != nil {
 		return report, err
 	}
+	opened := false
 	if err := workspace.WorktreeAdd(c.Repo, probePath, base); err != nil {
 		add("git-worktree", "FAIL", err.Error(), true)
 	} else {
+		opened = true
+		defer func() {
+			if err := workspace.WorktreeRemove(c.Repo, probePath); err != nil {
+				if c.Stderr != nil {
+					fmt.Fprintln(c.Stderr, "warning: doctor worktree retained:", err)
+				}
+			}
+		}()
 		add("git-worktree", "PASS", "detached checkout opens", true)
-		for _, provider := range c.Providers {
-			missing := missingSkills(provider, probePath)
-			if len(missing) > 0 {
-				add(provider+"-skills", "FAIL", "base commit lacks: "+strings.Join(missing, ", "), true)
-			} else {
-				add(provider+"-skills", "PASS", "required skills resolve in base checkout", true)
+		if report.Skills != nil {
+			if err := report.Skills.CheckWorkspace(probePath); err != nil {
+				add("checkout-skills", "FAIL", err.Error(), true)
+				report.Skills = nil
 			}
 		}
-		if err := workspace.WorktreeRemove(c.Repo, probePath); err != nil {
-			add("git-worktree-cleanup", "WARN", err.Error(), false)
-		}
+	}
+	sourceBefore, err := workspace.SourceFingerprint(c.Repo)
+	if err != nil {
+		return report, err
 	}
 	config := engineConfig(c.Config)
+	config.Skills = report.Skills
 	for _, provider := range c.Providers {
 		agent := config.Agents[provider]
 		bin := agent.Bin
@@ -128,17 +162,31 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 			continue
 		}
 		add(provider+"-cli", "PASS", where, false)
+		if version, err := engine.ProviderVersion(context.Background(), bin, probePath); err == nil {
+			report.ProviderVersions[provider] = version
+		} else {
+			report.ProviderVersions[provider] = "unknown"
+			add(provider+"-version", "WARN", err.Error(), false)
+		}
+		if report.Skills == nil || !opened {
+			report.Excluded = append(report.Excluded, provider)
+			continue
+		}
+		add(provider+"-skills", "PASS", "required global skills resolved; session loading requires live probe", true)
 		if c.Args.Live {
-			probeFile := filepath.Join(c.Repo, ".refactor", fmt.Sprintf("probe-%d.txt", time.Now().UnixNano()))
+			probeFile := filepath.Join(probePath, fmt.Sprintf("refactor-probe-%d.txt", time.Now().UnixNano()))
 			prompt := fmt.Sprintf("Capability probe. Return JSON with answer 7, visible_skills listing only skills available in this session from %s, and wrote_file indicating whether creating %s succeeded. Attempt the write once. Do not work around a refusal.", strings.Join(requiredSkills, ", "), probeFile)
 			res, err := engine.CallProvider(context.Background(), provider, engine.Request{
-				Phase: "doctor", Mode: "read", CWD: c.Repo, Body: prompt,
+				Phase: "doctor", Mode: "read", CWD: probePath, Body: prompt,
 				Schema: map[string]any{"type": "object", "additionalProperties": false,
 					"required":   []any{"answer", "visible_skills", "wrote_file"},
 					"properties": map[string]any{"answer": map[string]any{"type": "integer"}, "visible_skills": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "wrote_file": map[string]any{"type": "boolean"}}},
 				RunDir: runDir, Timeout: 180 * time.Second, Attempt: "primary", Effort: "low",
 			}, config, nil)
 			report.Usage = append(report.Usage, doctorUsage{Provider: provider, Usage: res.Usage, DurationMS: res.DurationMS, Processes: res.Processes, OK: res.OK})
+			if errors.Is(err, workspace.ErrUnsafe) {
+				return report, err
+			}
 			wroteFile := false
 			if _, statErr := os.Lstat(probeFile); statErr == nil {
 				wroteFile = true
@@ -165,15 +213,27 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 				report.Excluded = append(report.Excluded, provider)
 				continue
 			}
-			if len(stringsOf(data["visible_skills"])) == 0 {
-				add(provider+"-visible-skills", "FAIL", "provider did not report any visible skills", false)
+			if !allSkillsVisible(stringsOf(data["visible_skills"])) {
+				add(provider+"-visible-skills", "FAIL", "provider did not report all required skills", false)
 				report.Excluded = append(report.Excluded, provider)
 				continue
 			}
-			add(provider+"-visible-skills", "PASS", "provider reported visible skills", false)
+			add(provider+"-visible-skills", "PASS", "provider reported all required skills; self-reported session evidence", false)
 			add(provider+"-structured-output", "PASS", "structured output received", true)
 		}
 		report.Healthy = append(report.Healthy, provider)
+	}
+	sourceAfter, err := workspace.SourceFingerprint(c.Repo)
+	if err != nil {
+		return report, err
+	}
+	if sourceBefore != sourceAfter {
+		return report, fmt.Errorf("%w: source checkout changed during doctor", workspace.ErrUnsafe)
+	}
+	if report.Skills != nil {
+		if err := report.Skills.Verify(); err != nil {
+			return report, fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
 	}
 	if len(report.Healthy) == 0 {
 		add("providers", "FAIL", "no provider passed availability checks", true)
@@ -192,34 +252,13 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	return report, nil
 }
 
-func skillRoots(provider, root, home string) []string {
-	if provider == "claude" {
-		return []string{filepath.Join(root, ".claude", "skills")}
-	}
-	roots := []string{filepath.Join(root, ".agents", "skills")}
-	if home != "" {
-		roots = append(roots, filepath.Join(home, ".agents", "skills"))
-	}
-	return roots
-}
-
-func missingSkills(provider, root string) []string {
-	home, _ := os.UserHomeDir()
-	roots := skillRoots(provider, root, home)
-	var missing []string
+func allSkillsVisible(visible []string) bool {
 	for _, name := range requiredSkills {
-		found := false
-		for _, base := range roots {
-			if _, err := os.Stat(filepath.Join(base, name, "SKILL.md")); err == nil {
-				found = true
-				break
-			}
-		}
-		if !found {
-			missing = append(missing, name)
+		if !slices.Contains(visible, name) {
+			return false
 		}
 	}
-	return missing
+	return true
 }
 
 func engineConfig(cfg surface.Config) engine.Config {

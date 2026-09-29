@@ -1,5 +1,7 @@
 # refactor-me Go 전환 설계 보고서
 
+> **2026-09-29 보관 기준:** 이 문서는 Homebrew 전환 전 조사·검증 기록입니다. 본문의 프로젝트별 설치, Node rollback, 과거 JSON 호환과 Skill 커밋 요건은 `0.10.0-beta.1`에 적용되지 않습니다. 현재 절차는 [Homebrew·전역 Skill 안내](README.ko.md), 명령·형식 계약은 [현재 참조 문서](../tool/README.ko.md)를 따르세요. 아래 테스트명과 실행 결과는 당시 근거이며 현재 테스트 목록이나 새 릴리스의 검증 결과가 아닙니다.
+
 > **과거 전환 자료:** 본문은 2026-09-28 조사·설계와 당시 릴리스 준비 판단을 보존한 기록입니다. 현재 개발 절차는 [Go 개발 안내](../tool/README.ko.md#로컬-개발-검사), 테스트 이관 상태는 [계약 이관표](node-test-contracts.ko.md)를 따릅니다. 아래 Node 코드 링크는 삭제 전 고정 commit을 가리키며 현재 checkout의 실행 경로가 아닙니다.
 | 항목 | 결정 |
 | --- | --- |
@@ -49,7 +51,7 @@ Go 개발 빌드는 `dev`로 표시하며 첫 공개 Go Beta 후보는 `0.9.20-b
 
 ### 설치와 업데이트 — 배포 계약 자체가 바뀐다
 
-기존 Node 설치기는 소스를 복사하고 셸 shim을 만들었다. Go 설치기는 압축파일에서 꺼낸 실행 파일을 대상 저장소의 `.refactor/bin/refactor-me`로 복사한다. 대상 저장소에는 Go toolchain이 필요하지 않다. `config.json`, `runs/`, `last-run.json`과 사용자 파일은 보존한다. 이미 있는 `refactor-me`가 식별된 Node shim이나 소유 marker가 일치하는 Go 바이너리가 아니면 교체하지 않는다. 설치 실패 시 기존 명령을 복원할 수 있도록 임시 파일과 백업을 사용한다. 기존 Node 파일의 소유 여부도 파일별로 판정하는 것이 첫 릴리스 조건이다. [Go 설치기](../tool/go/internal/surface/install.go), [Node 설치·재설치 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/cli.test.mjs)
+기존 Node 설치기는 소스를 복사하고 셸 shim을 만들었다. Go 설치기는 압축파일에서 꺼낸 실행 파일을 대상 저장소의 `.refactor/bin/refactor-me`로 복사한다. 대상 저장소에는 Go toolchain이 필요하지 않다. `config.json`, `runs/`, `last-run.json`과 사용자 파일은 보존한다. 이미 있는 `refactor-me`가 식별된 Node shim이나 소유 marker가 일치하는 Go 바이너리가 아니면 교체하지 않는다. 설치 실패 시 기존 명령을 복원할 수 있도록 임시 파일과 백업을 사용한다. 기존 Node 파일의 소유 여부도 파일별로 판정하는 것이 첫 릴리스 조건이다. [Go 설치기](https://github.com/soom-kang/refactor-me/blob/c19b4e212563a774b532239af6ff774f6e1ae00c/tool/go/internal/surface/install.go), [Node 설치·재설치 테스트](https://github.com/soom-kang/refactor-me/blob/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test/cli.test.mjs)
 
 ### 하위 프로세스 — `CommandContext`만으로 충분하지 않다
 

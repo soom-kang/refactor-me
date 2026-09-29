@@ -8,7 +8,7 @@
 
 ## 1. 대상 저장소 준비
 
-macOS Apple Silicon을 사용합니다. Go 1.27은 소스에서 빌드할 때만 필요합니다. 리팩터링할 저장소에서 확인하세요.
+macOS Apple Silicon과 Homebrew를 사용합니다. Formula는 Go를 빌드 의존성으로 관리하며 수동 소스 빌드에는 Go 1.27이 필요합니다. 리팩터링할 저장소에서 확인하세요.
 
 ```bash
 cd /path/to/target-repo
@@ -32,64 +32,42 @@ claude auth status
 
 <a id="도구와-skill-설치"></a>
 
-## 2. 도구와 Skill 설치
+## 2. 도구와 전역 Skill 설치
 
-[`v0.9.20-beta.1` 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.9.20-beta.1)에서 압축파일과 checksum 파일을 받으세요. 터미널에서 실행합니다.
+`0.10.0-beta.1`은 릴리스 후보입니다. Homebrew 명령은 tap과 소스 릴리스 게시 후 사용할 수 있습니다. 게시 전에는 [개발 빌드](../docs/README.ko.md#설치)를 사용하세요.
 
-```bash
-RELEASE_DIR="$(mktemp -d)"
-(
-set -e
-RELEASE_VERSION=0.9.20-beta.1
-RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${RELEASE_VERSION}"
-curl -fL "$RELEASE_URL/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
-curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
-cd "$RELEASE_DIR"
-shasum -a 256 -c SHA256SUMS
-unzip -q "refactor-me_${RELEASE_VERSION}_darwin_arm64.zip"
-cat INSTALL.md
-RELEASE_INFO="$(./refactor-me version --json)"
-printf '%s\n' "$RELEASE_INFO"
-printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$RELEASE_VERSION\""
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
-./refactor-me install /path/to/target-repo
-)
+개발 빌드를 사용한다면 아래 모든 명령의 `refactor-me`를 `/private/tmp/refactor-me`로 바꿔 실행하세요.
+
+```sh
+brew install soom-kang/refactor-me/refactor-me
+refactor-me version --json
+npx skills add \
+  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+  --global --skill '*' --agent codex claude-code
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-압축파일에는 `refactor-me`, `LICENSE`, `INSTALL.md`, `BUILD-INFO.txt`가 들어갑니다. 설치 전에 `INSTALL.md`를 읽고 출력 버전을 확인하세요. `SHA256SUMS`는 내려받은 파일의 변경을 확인할 뿐 게시자 신원을 증명하지는 않습니다. 첫 Beta는 서명·공증하지 않으므로 macOS에서 차단되거나 경고가 나올 수 있습니다. 필요하면 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 따르세요. 시스템 전체의 보안 설정은 끄지 마세요. 개발용 소스 빌드는 [README 설치 안내](../docs/README.ko.md#설치)를 참고하세요.
+Homebrew는 Go로 CLI를 빌드하고 PATH에서 실행할 수 있게 설치합니다. 외부 `npx` 설치기에는 Node.js가 필요하지만 CLI 실행에는 필요하지 않습니다. Skill의 공통 원본은 `~/.agents/skills`입니다. 이 실행 흐름을 위해 대상 프로젝트에 Skill을 커밋하지 마세요. provider 탐색 경로에 이름이 같고 원본은 다른 Skill이 있으면 실행을 막고 경로를 알려줍니다. 같은 원본으로 해석되는 링크는 허용합니다.
 
-대상 저장소에 필수 의존성인 sharpen-me Skill 8개를 설치하세요.
+`init`은 선택 사항이며 기존 파일을 덮어쓰지 않고 `.refactor/config.json`을 만듭니다. 바이너리나 Skills를 복사하지 않습니다. 인자 없는 `refactor-me`는 도움말을 표시합니다.
 
-```bash
-cd /path/to/target-repo
-npx skills add soom-kang/sharpen-me --skill '*' --agent codex claude-code
+Codex는 선택한 전역 Skill 경로를 사용합니다. Claude에는 실행별 전용 복사본을 `--add-dir`로 전달하고 `--setting-sources project`로 사용자 설정을 계속 제외합니다. provider 호출 전후 Skill 내용이 예상과 다르게 바뀌면 결과 반영을 중단합니다.
+
+디스크 전용 doctor 검사는 진단 기록을 쓰지만 실제 세션의 Skill 로딩을 입증하지는 않습니다. 인증된 provider 세션까지 확인하려면 아래 명령을 별도로 실행하세요. 모델을 호출하고 계정 사용량을 소비합니다.
+
+```sh
+refactor-me doctor --repo /path/to/target-repo
 ```
 
-Project 범위를 선택하세요. Skill 디렉터리 8개, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋하세요. Worktree는 기준 커밋의 파일을 읽습니다. 관련 없는 파일은 함께 stage하지 마세요.
-
-```bash
-git add .agents .claude skills-lock.json && git commit
-```
-
-두 디렉터리를 모두 커밋해야 합니다. 실체 파일은 `.agents/skills/<name>/`에 놓이고 `.claude/skills/<name>`은 그곳을 가리키는 심볼릭 링크입니다. 한쪽만 커밋하면 worktree에서 링크가 아무것도 가리키지 못합니다.
-
-설치된 도구를 확인합니다.
-
-```bash
-./.refactor/bin/refactor-me version
-./.refactor/bin/refactor-me help
-./.refactor/bin/refactor-me doctor --no-live-probe
-./.refactor/bin/refactor-me doctor
-```
-
-Doctor는 `.refactor/runs/`에 진단 기록을 쓰고 모델을 호출합니다. 실행을 막는 실패를 해결하세요. `doctor --no-live-probe`는 디스크만 검사하며 세션의 Skill 로딩은 확인하지 않습니다.
+이 Beta는 Apple 서명·공증을 제공하지 않습니다. macOS가 다운로드한 실행 파일을 차단하면 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 따르세요. 시스템 전체 보안 설정을 끄지 마세요.
 
 <a id="한도-설정과-실행"></a>
+<a id="set-limits-and-run"></a>
 
 ## 3. 실행 한도 설정
 
-`.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`, `policy.max_wall_clock_min`을 적절한 값(예: `30`)으로 설정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
+`init` 후 `/path/to/target-repo/.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`, `policy.max_wall_clock_min`을 적절한 값(예: `30`)으로 설정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
 
 **전체 금액 예산은 강제하지 않습니다.** Claude 예산 옵션도 실행 전체의 한도가 아닙니다. [설정과 기본값](README.ko.md#설정)을 확인하세요.
 
@@ -98,22 +76,22 @@ Doctor는 `.refactor/runs/`에 진단 기록을 쓰고 모델을 호출합니다
 Codex만 사용하려면 대상 저장소에서 실행하세요.
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback none
+refactor-me run --provider codex --fallback none
 ```
 
 Claude를 대체 프로바이더로 사용하려면:
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback claude
+refactor-me run --provider codex --fallback claude
 ```
 
 특정 폴더에서 후보를 찾으려면:
 
 ```bash
-./.refactor/bin/refactor-me --target app/web
+refactor-me run --target app/web
 ```
 
-`--target`은 현재 디렉터리 기준입니다. 호출부 수정과 검증은 대상 밖까지 이어질 수 있습니다. 실행 중에는 원본 checkout을 수정하지 마세요.
+`--repo`를 생략한 `--target`은 현재 디렉터리 기준입니다. 다른 위치에서 실행하려면 `refactor-me run --repo /path/to/target-repo --target app/web`을 사용하세요. 이때 target은 선택한 Git 루트 기준입니다. `--repo`에는 저장소나 그 안의 디렉터리를 지정할 수 있으며 상대 경로는 호출 디렉터리 기준입니다. 실제 경로가 선택한 저장소 밖이면 거부합니다. 호출부 수정과 검증은 저장소 안에서 target 밖까지 이어질 수 있습니다. 실행 중에는 원본 checkout을 수정하지 마세요.
 
 통과한 변경은 `refactor/auto-*` 로컬 브랜치에 반영합니다. 후보 소진, 실행 한도, 반복 실패, 프로바이더 사용 불가, 안전 규칙 위반이 종료 조건입니다.
 
@@ -124,18 +102,18 @@ Claude를 대체 프로바이더로 사용하려면:
 ## 5. 결과 확인
 
 ```bash
-./.refactor/bin/refactor-me report
-./.refactor/bin/refactor-me report --lang ko
-./.refactor/bin/refactor-me report --json
+refactor-me report
+refactor-me report --lang ko
+refactor-me report --json
 ```
 
 실행할 때부터 리포트와 종료 요약을 한국어로 저장하려면:
 
 ```bash
-./.refactor/bin/refactor-me --provider codex --fallback none --lang ko
+refactor-me run --provider codex --fallback none --lang ko
 ```
 
-언어를 바꿔 조회해도 저장된 `report.md`는 유지합니다. `--lang`은 `run`과 `report`에 적용하며 doctor와 진행 로그는 영어입니다. 번역 대상과 JSON 호환성은 [리포트와 언어](README.ko.md#리포트와-언어)를 확인하세요.
+언어를 바꿔 조회해도 저장된 `report.md`는 유지합니다. `--lang`은 `run`과 `report`에 적용하며 doctor와 진행 로그는 영어입니다. 번역 대상과 지원하는 JSON 형식은 [리포트와 언어](README.ko.md#리포트와-언어)를 확인하세요.
 
 리포트에서 커밋한 변경, 제외한 후보, 검증 결과, 사용량과 worktree 경로를 확인하세요. 미보고 비용은 0이 아니며 일부만 집계한 금액은 최소 금액입니다.
 
@@ -156,8 +134,9 @@ git diff <base-commit> <published-commit>
 
 | 증상 | 다음 조치 |
 | --- | --- |
-| Skill 누락 | 해당 Skill을 Project 범위로 설치하고 에이전트 링크 확인 |
-| `skill-worktree` 실패 | 기준 커밋 checkout에 필요한 Skill이 없음. `.agents`와 `.claude`를 함께 커밋. `.claude` 항목은 `.agents`로 가는 심볼릭 링크이므로 한쪽만으로는 부족 |
+| 전역 Skill 누락 | `~/.agents/skills` 아래 해당 경로를 확인하고 필요하면 전역 설치 명령 재실행 |
+| Skill 이름 충돌 | 표시된 provider·프로젝트 경로를 확인하고 사용할 원본 선택. CLI가 파일을 삭제하지 않음 |
+| 실행 중 Skill 변경 | 진단 기록 보존 후 카탈로그 수정을 마치고 새 실행 시작 |
 | 원본 checkout에 변경 있음 | 작업을 마치거나 별도 보관 후 doctor 재실행 |
 | 사용할 기준선 없음 | 명령 실패, 의존성과 빌드 캐시 확인, 탐색이 부족하면 검증 명령 직접 지정 |
 | 실행할 후보 없음 | 제외 사유 확인, 변경 없이 끝날 수 있음 |
@@ -169,68 +148,26 @@ git diff <base-commit> <published-commit>
 
 ## 업데이트와 제거
 
-업데이트하려면 `NEW_VERSION`에 **실제로 게시된 새 버전**을 넣고 새 디렉터리에 내려받으세요. 새 터미널에서도 그대로 시작할 수 있으며 hash나 바이너리 버전이 다르면 설치 전에 중단합니다. 업데이트가 확인될 때까지 이전에 검증한 압축파일을 보관하세요.
-
-```bash
-NEW_VERSION=0.9.20-beta.1  # 실제 게시된 새 버전으로 변경
-RELEASE_DIR="$(mktemp -d)"
-(
-set -e
-RELEASE_URL="https://github.com/soom-kang/refactor-me/releases/download/v${NEW_VERSION}"
-curl -fL "$RELEASE_URL/refactor-me_${NEW_VERSION}_darwin_arm64.zip" -o "$RELEASE_DIR/refactor-me_${NEW_VERSION}_darwin_arm64.zip"
-curl -fL "$RELEASE_URL/SHA256SUMS" -o "$RELEASE_DIR/SHA256SUMS"
-cd "$RELEASE_DIR"
-shasum -a 256 -c SHA256SUMS
-unzip -q "refactor-me_${NEW_VERSION}_darwin_arm64.zip"
-cat INSTALL.md
-RELEASE_INFO="$(./refactor-me version --json)"
-printf '%s\n' "$RELEASE_INFO" | grep -Fq "\"version\": \"$NEW_VERSION\""
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"platform": "darwin"'
-printf '%s\n' "$RELEASE_INFO" | grep -Fq '"arch": "arm64"'
-./refactor-me install /path/to/target-repo
-)
+```sh
+brew upgrade soom-kang/refactor-me/refactor-me
+refactor-me version --json
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-재설치는 소유가 확인된 Go 실행 파일을 교체하고 `.refactor/config.json`, 실행 기록과 `last-run.json`을 보존합니다. Node 전환 시 식별된 shim만 교체하며 사용자 파일이나 식별되지 않은 파일은 보존하고 경로를 알립니다. 소유를 확인할 수 없는 명령이 있으면 교체 전에 중단합니다. 보존된 파일을 삭제하기 전에 직접 확인하세요.
+업데이트는 모든 프로젝트가 사용하는 실행 파일을 바꿉니다. 먼저 릴리스 노트를 확인하세요. 전역 Skills는 별도로 관리합니다. 고정한 카탈로그를 업데이트하기 전에 로컬 수정 사항을 확인하고 실행 중에는 업데이트하지 마세요.
 
-대상 저장소의 카탈로그를 업데이트하기 전에 로컬 Skill 수정 사항을 검토하세요. 카탈로그 관리는 [sharpen-me 문서](https://github.com/soom-kang/sharpen-me)를 참고하고 검토한 변경을 커밋하세요.
+현재 설정에는 `schema_version: 2`, 리포트에는 `schemaVersion: 3`이 필요합니다. 이전 형식에는 오류를 내며 자동 변환·삭제하지 않습니다. 마이그레이션이나 Node rollback 명령은 없습니다. 이전 설정이 있다면 활성 `.refactor/config.json` 경로 밖에 보관한 뒤 `init`을 실행하고 검토한 설정값을 새 형식에 옮기세요. 과거 실행 기록은 별도로 보관할 수 있지만 현재 CLI로 렌더링할 수는 없습니다. `init` 자체는 기존 파일을 옮기거나 덮어쓰지 않습니다.
 
-완료된 worktree를 정리하려면 대상 저장소에서 실행합니다.
+정리 가능한 완료 worktree를 제거하려면:
 
-```bash
-./.refactor/bin/refactor-me clean
+```sh
+refactor-me clean --repo /path/to/target-repo
 ```
 
-부분 완료, 미완료, 안전 정지 상태의 worktree는 보존합니다. Go 도구를 제거하려면 내려받아 검증한 릴리스 실행 파일을 사용하세요. `RELEASE_DIR`는 압축을 푼 디렉터리의 절대 경로로 바꾸세요.
+부분 완료·미완료·안전 정지 worktree는 조사할 수 있도록 보존합니다. Homebrew 실행 파일을 제거하려면:
 
-```bash
-RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
-test -x "$RELEASE_DIR/refactor-me"
-"$RELEASE_DIR/refactor-me" uninstall /path/to/target-repo
+```sh
+brew uninstall refactor-me
 ```
 
-제거 명령은 소유가 확인된 Go 바이너리만 삭제합니다. 설정과 실행 기록을 보존하며 Skill 카탈로그, 결과 브랜치와 worktree는 제거하지 않습니다. 사용자 정의 명령은 도구 설치 디렉터리 밖에 보관하세요.
-
-이전 Node CLI로 돌아가려면 Node.js 24를 준비하고 검증된 `v0.8.8-beta.1` 소스를 받으세요. 예상 commit은 `fa845c98fba01f87466531ae50c5f1d671f0392f`입니다. 구 Node 설치기는 `.refactor/lib/src`와 `.refactor/lib/bin`을 교체하므로, 전환 후 library 파일이 남아 있으면 아래 명령은 중단합니다. 해당 파일은 별도로 확인하고 해결하세요. 검사를 통과하기 위해 임의로 지우지 마세요. `RELEASE_DIR`는 검증한 Go 릴리스 디렉터리의 절대 경로로 바꾸세요. `.refactor/config.json`과 `.refactor/runs/`는 유지합니다.
-
-```bash
-RELEASE_DIR=/absolute/path/to/verified/refactor-me-release
-test -x "$RELEASE_DIR/refactor-me"
-ROLLBACK_SOURCE="$(mktemp -d)/refactor-me-v0.8.8-beta.1"
-git clone --quiet --depth 1 --branch v0.8.8-beta.1 https://github.com/soom-kang/refactor-me.git "$ROLLBACK_SOURCE"
-(
-set -e
-TARGET=/path/to/target-repo
-test "$(git -C "$ROLLBACK_SOURCE" rev-parse HEAD)" = fa845c98fba01f87466531ae50c5f1d671f0392f
-if [ -d "$TARGET/.refactor/lib" ] && [ -n "$(find "$TARGET/.refactor/lib" -mindepth 1 -print -quit)" ]; then
-  echo 'Stop: inspect retained .refactor/lib files before Node rollback' >&2
-  exit 2
-fi
-"$RELEASE_DIR/refactor-me" uninstall "$TARGET"
-node "$ROLLBACK_SOURCE/tool/install.mjs" "$TARGET"
-"$TARGET/.refactor/bin/refactor-me" version
-"$TARGET/.refactor/bin/refactor-me" doctor --no-live-probe
-)
-```
-
-Go 제거 후 Node 설치기나 `doctor`가 실패하면 검증된 Go 압축파일을 보관한 상태에서 그 실행 파일의 `install` 명령으로 Go CLI를 복구하세요. 이때 소유를 확인할 수 없는 명령이나 파일 오류가 나오면 부분적으로 설치된 Node 파일을 먼저 조사하고, 수동으로 덮어쓰지 마세요. 버전 출력만으로 보존된 설정이 이전 Node CLI에서 작동한다고 판단하지 않습니다.
+제거해도 프로젝트의 설정·리포트·worktree·결과 브랜치와 전역 Skills는 남습니다. CLI의 프로젝트별 `install`·`uninstall` 명령은 더 이상 제공하지 않으며 이전 로컬 실행 파일도 자동 삭제하지 않습니다. `command -v refactor-me`와 `version --json`으로 사용하는 실행 파일을 확인하세요. 과거 프로젝트 파일은 내용을 확인한 뒤 직접 정리하세요.

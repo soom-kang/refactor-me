@@ -23,10 +23,16 @@ const (
 // Version is overridden by release builds. Local builds identify themselves as dev.
 var Version = "dev"
 
+// Commit identifies the source revision embedded by release builds.
+var Commit = "unknown"
+
+// LastRunSchemaVersion identifies the latest-run pointer format.
+const LastRunSchemaVersion = 1
+
 type Args struct {
-	Command, Provider, Fallback, Language, ForceQuotaAt string
-	FallbackSet, JSON, Live, Version, LanguageSet       bool
-	Targets                                             []string
+	Command, Provider, Fallback, Language, ForceQuotaAt, Repo string
+	FallbackSet, JSON, Live, Version, LanguageSet             bool
+	Targets                                                   []string
 }
 
 type Context struct {
@@ -56,17 +62,23 @@ type Callbacks struct {
 }
 
 func Parse(argv []string) (Args, error) {
-	args := Args{Command: "run", Language: "en", Live: true}
+	args := Args{Command: "help", Language: "en", Live: true}
 	var positional []string
 	value := func(i *int, flag string) (string, error) {
 		*i++
-		if *i >= len(argv) || strings.HasPrefix(argv[*i], "-") {
+		if *i >= len(argv) || argv[*i] == "" || strings.HasPrefix(argv[*i], "-") {
 			return "", fmt.Errorf("%s needs a value", flag)
 		}
 		return argv[*i], nil
 	}
 	for i := 0; i < len(argv); i++ {
 		switch argv[i] {
+		case "--repo":
+			v, e := value(&i, "--repo")
+			if e != nil {
+				return args, e
+			}
+			args.Repo = v
 		case "--target":
 			v, e := value(&i, "--target")
 			if e != nil {
@@ -120,11 +132,18 @@ func Parse(argv []string) (Args, error) {
 	if len(positional) > 0 {
 		args.Command = positional[0]
 	}
-	if len(positional) > 1 && args.Command != "install" && args.Command != "uninstall" {
+	if len(positional) > 1 {
 		return args, fmt.Errorf("unexpected argument: %s", positional[1])
 	}
-	if (args.Command == "install" || args.Command == "uninstall") && len(positional) > 1 {
-		args.Targets = []string{positional[1]}
+	if slices.Contains(argv, "--help") || slices.Contains(argv, "-h") {
+		args.Command = "help"
+		return args, nil
+	}
+	if len(positional) == 0 && len(argv) > 0 && !args.Version {
+		return args, errors.New("a command is required; use refactor-me run to start refactoring")
+	}
+	if args.Repo != "" && !slices.Contains([]string{"init", "run", "doctor", "report", "clean"}, args.Command) {
+		return args, errors.New("--repo is supported only for init, run, doctor, report and clean")
 	}
 	if args.LanguageSet && (args.Version || (args.Command != "run" && args.Command != "report")) {
 		return args, errors.New("--lang is supported only for run and report")
@@ -135,16 +154,17 @@ func Parse(argv []string) (Args, error) {
 const Help = `refactor-me — unattended behavior-preserving refactoring
 
 USAGE
-  refactor-me [run] [options]     audit → implement → validate → review → commit
+  refactor-me run [options]       audit → implement → validate → review → commit
   refactor-me doctor [options]    check preconditions only
   refactor-me report              print the most recent run's report
   refactor-me clean               remove finished worktrees
-  refactor-me install <repo>      install this binary into a repository
-  refactor-me uninstall <repo>    remove the owned binary
+  refactor-me init [--repo path]   create optional project settings
   refactor-me version             print the tool version
 
 OPTIONS
+  --repo <path>            select a Git repository (default: current directory)
   --target <dir>            survey only inside <dir>; repeatable
+                            relative to --repo root, or current directory without --repo
   --provider claude|codex   agent leading the run
   --fallback claude|codex|none
   --json                    machine-readable stdout
@@ -164,10 +184,10 @@ func VersionText(asJSON bool) string {
 	source, _ := os.Executable()
 	source, _ = filepath.Abs(source)
 	if asJSON {
-		data, _ := json.MarshalIndent(map[string]string{"name": "refactor-me", "version": Version, "go": runtime.Version(), "platform": runtime.GOOS, "arch": runtime.GOARCH, "source": source}, "", "  ")
+		data, _ := json.MarshalIndent(map[string]string{"name": "refactor-me", "version": Version, "go": runtime.Version(), "platform": runtime.GOOS, "arch": runtime.GOARCH, "source": source, "commit": Commit}, "", "  ")
 		return string(data) + "\n"
 	}
-	return fmt.Sprintf("refactor-me %s\n  go      %s (%s/%s)\n  source  %s\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, source)
+	return fmt.Sprintf("refactor-me %s\n  go      %s (%s/%s)\n  source  %s\n  commit  %s\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, source, Commit)
 }
 
 func ProviderOrder(cfg Config, args Args) ([]string, error) {
@@ -210,7 +230,14 @@ func NormalizeTargets(repo, cwd string, inputs []string) ([]string, error) {
 		if !filepath.IsAbs(abs) {
 			abs = filepath.Join(cwd, raw)
 		}
-		abs, _ = filepath.Abs(abs)
+		abs, e := filepath.Abs(abs)
+		if e != nil {
+			return nil, fmt.Errorf("resolve --target %q: %w", raw, e)
+		}
+		abs, e = filepath.EvalSymlinks(abs)
+		if e != nil {
+			return nil, fmt.Errorf("resolve --target %q: %w", raw, e)
+		}
 		rel, e := filepath.Rel(repo, abs)
 		if e != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 			return nil, fmt.Errorf("--target %s: %s is outside the repository (%s)", raw, abs, repo)
@@ -252,7 +279,7 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
-	if args.Command == "help" {
+	if args.Command == "help" && !args.Version {
 		fmt.Fprint(stdout, Help)
 		return ExitOK
 	}
@@ -260,40 +287,30 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprint(stdout, VersionText(args.JSON))
 		return ExitOK
 	}
-	if args.Command == "install" || args.Command == "uninstall" {
-		if len(args.Targets) != 1 {
-			fmt.Fprintln(stderr, "refactor-me: install/uninstall needs a repository path")
-			return ExitAborted
-		}
-		if args.Command == "install" {
-			source, e := os.Executable()
-			var retained []string
-			if e == nil {
-				retained, e = InstallWithReport(args.Targets[0], source)
-			}
-			err = e
-			for _, path := range retained {
-				fmt.Fprintln(stderr, "refactor-me: retained unverified legacy file:", path)
-			}
-		} else {
-			err = Uninstall(args.Targets[0])
-		}
-		if err != nil {
-			fmt.Fprintln(stderr, "refactor-me:", err)
-			return ExitAborted
-		}
-		fmt.Fprintln(stdout, args.Command+"ed refactor-me in", args.Targets[0])
-		return ExitOK
-	}
-	if !slices.Contains([]string{"run", "doctor", "report", "clean"}, args.Command) {
+	if !slices.Contains([]string{"init", "run", "doctor", "report", "clean"}, args.Command) {
 		fmt.Fprintln(stderr, "unknown command:", args.Command)
 		fmt.Fprintln(stderr, "run `refactor-me help` for usage")
 		return ExitAborted
 	}
-	repo, err := RepoRoot(cwd)
+	repoDir := cwd
+	if args.Repo != "" {
+		repoDir = args.Repo
+		if !filepath.IsAbs(repoDir) {
+			repoDir = filepath.Join(cwd, repoDir)
+		}
+	}
+	repo, err := RepoRoot(repoDir)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return ExitAborted
+	}
+	if args.Command == "init" {
+		if err := Init(repo); err != nil {
+			fmt.Fprintln(stderr, "refactor-me:", err)
+			return ExitAborted
+		}
+		fmt.Fprintln(stdout, "initialized refactor-me in", repo)
+		return ExitOK
 	}
 	cfg, err := LoadConfig(repo)
 	if err != nil {
@@ -308,7 +325,11 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
-	targets, err := NormalizeTargets(repo, cwd, args.Targets)
+	targetDir := cwd
+	if args.Repo != "" {
+		targetDir = repo
+	}
+	targets, err := NormalizeTargets(repo, targetDir, args.Targets)
 	if err != nil {
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
@@ -384,13 +405,16 @@ func writeLastRun(repo string, r RunResult) error {
 	if r.RunDir == "" {
 		return errors.New("missing run directory")
 	}
-	ptr := map[string]any{"runId": r.RunID, "toolVersion": Version, "runDir": r.RunDir, "status": r.Status, "branch": r.Branch, "finishedAt": time.Now().UTC().Format(time.RFC3339Nano)}
+	ptr := map[string]any{"schemaVersion": LastRunSchemaVersion, "runId": r.RunID, "toolVersion": Version, "runDir": r.RunDir, "status": r.Status, "branch": r.Branch, "finishedAt": time.Now().UTC().Format(time.RFC3339Nano)}
 	data, e := json.MarshalIndent(ptr, "", "  ")
 	if e != nil {
 		return e
 	}
 	data = append(data, '\n')
 	dir := filepath.Join(repo, ".refactor")
+	if e := checkDirectory(dir); e != nil {
+		return e
+	}
 	if e := os.MkdirAll(dir, 0755); e != nil {
 		return e
 	}

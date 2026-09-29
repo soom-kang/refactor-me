@@ -1,5 +1,7 @@
 # Node 테스트 계약의 Go 대응표
 
+> **2026-09-29 보관 기준:** 이 문서는 Homebrew 전환 전 조사·검증 기록입니다. 본문의 프로젝트별 설치, Node rollback, 과거 JSON 호환과 Skill 커밋 요건은 `0.10.0-beta.1`에 적용되지 않습니다. 현재 절차는 [Homebrew·전역 Skill 안내](README.ko.md), 명령·형식 계약은 [현재 참조 문서](../tool/README.ko.md)를 따르세요. 아래 테스트명과 실행 결과는 당시 근거이며 현재 테스트 목록이나 새 릴리스의 검증 결과가 아닙니다.
+
 ## 기준과 읽는 방법
 
 2026-09-29 삭제 전 Node 테스트를 실행하여 **257개 통과**를 확인했다. 기준 소스는 [`fdf05a1`](https://github.com/soom-kang/refactor-me/tree/fdf05a1a2609ef15a185479c379a4a46eeb349b4/tool/test)이다. 아래 ID는 해당 실행의 TAP 순서이며, 반복 사례도 각각 기록했다.

@@ -30,6 +30,9 @@ func Clean(c surface.Context) (string, error) {
 		if err != nil {
 			continue
 		}
+		if state["schema"] != float64(workspace.StateSchema) {
+			return "", fmt.Errorf("run %s has unsupported state schema %v; expected %d", id, state["schema"], workspace.StateSchema)
+		}
 		wt := str(state["worktree"])
 		if wt == "" {
 			continue

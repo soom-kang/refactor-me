@@ -18,7 +18,7 @@ The controller checks run limits and provider availability between steps. Ordina
 
 ## 1. INIT, doctor and baseline
 
-**Input:** Check the repository, configuration, providers, and eight required Skills. Doctor calls models to check session Skill visibility, using a diagnostic response distinct from audit JSON. `doctor --no-live-probe` skips the session check.
+**Input:** Resolve the target Git repository from `--repo` or the current directory. Check configuration, providers and the eight global Skills from `~/.agents/skills`. Codex receives the selected absolute paths; Claude receives a dedicated Skill copy through `--add-dir` while retaining project-only settings. Hash checks around provider calls detect catalog changes before result publication. Doctor calls models to check session Skill visibility, using a diagnostic response distinct from audit JSON. `doctor --no-live-probe` skips the session check. The optional `init` command only creates configuration; this INIT phase is part of `run`.
 
 **Check and next step:** Missing prerequisites abort the run. After initialization, run baseline commands in the detached worktree. Use discovered commands unless `.refactor/commands.json` locks a list. At least one selected command across discovered areas must be `GREEN` to reach audit.
 
@@ -272,7 +272,7 @@ The report provides file statistics, a diff preview, and the full text `changes.
 
 `codeComparison.status` is `AVAILABLE`, `NO_CHANGES`, or `UNAVAILABLE`. No publication means no committed changes. Collection or patch-storage failures record a reason while preserving the run outcome and exit code.
 
-Older JSON without `codeComparison` shows a missing-comparison notice. `report --lang ko` renders saved JSON without new diffs, file changes, or model calls.
+Saved reports require `schemaVersion: 3`; unsupported older formats produce an error and remain unchanged. `report --lang ko` renders supported saved JSON without new diffs, file changes or model calls. Provider response examples below retain their own `schema_version: "1"`, independently of saved report and configuration versions.
 
 ## Failure and recovery branches
 

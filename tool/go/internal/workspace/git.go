@@ -212,6 +212,7 @@ func WorktreeRemoveRecorded(root, wt, runID string) error {
 		return err
 	}
 	var saved struct {
+		Schema   int    `json:"schema"`
 		RunID    string `json:"runId"`
 		RepoRoot string `json:"repoRoot"`
 		Worktree string `json:"worktree"`
@@ -222,6 +223,9 @@ func WorktreeRemoveRecorded(root, wt, runID string) error {
 	file := filepath.Join(root, ".refactor", "runs", runID, "state.json")
 	if err := ReadJSON(file, &saved); err != nil {
 		return fmt.Errorf("read worktree record: %w", err)
+	}
+	if saved.Schema != StateSchema {
+		return fmt.Errorf("unsupported state schema %d; expected %d", saved.Schema, StateSchema)
 	}
 	if saved.RunID != runID || filepath.Clean(saved.RepoRoot) != filepath.Clean(root) || filepath.Clean(saved.Worktree) != filepath.Clean(wt) {
 		return fmt.Errorf("worktree record identity mismatch")

@@ -40,7 +40,7 @@ func comparisonFixture(t *testing.T) (*runner, func(string, string), func() stri
 	return &runner{runDir: t.TempDir(), state: &runState{RepoRoot: repo}}, write, commit
 }
 
-func TestComparisonMigrationContracts(t *testing.T) {
+func TestComparisonContracts(t *testing.T) {
 	r, write, commit := comparisonFixture(t)
 	if got := r.collectComparison()["status"]; got != "NO_CHANGES" {
 		t.Fatal(got)
@@ -142,58 +142,40 @@ func TestComparisonLimitsAndFailures(t *testing.T) {
 	}
 }
 
-func TestDoctorCommittedSkillsAndCleanup(t *testing.T) {
-	for _, mode := range []string{"committed", "dangling", "uncommitted"} {
+func TestDoctorGlobalSkillsAndCleanup(t *testing.T) {
+	for _, mode := range []string{"global", "missing", "project-conflict"} {
 		t.Run(mode, func(t *testing.T) {
+			home := globalSkillsFixture(t)
 			r, write, commit := comparisonFixture(t)
 			write("source.txt", "base\n")
-			for _, name := range requiredSkills {
-				write(".agents/skills/"+name+"/SKILL.md", "# "+name+"\n")
-				link := filepath.Join(r.state.RepoRoot, ".claude", "skills", name)
-				if err := os.MkdirAll(filepath.Dir(link), 0755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.Symlink(filepath.Join("..", "..", ".agents", "skills", name), link); err != nil {
+			if mode == "missing" {
+				if err := os.Remove(filepath.Join(home, ".agents", "skills", requiredSkills[0], "SKILL.md")); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if mode == "dangling" {
-				write(".gitignore", ".agents/\n")
-			}
-			if mode == "uncommitted" {
-				write(".gitignore", ".agents/\n.claude/\n")
+			if mode == "project-conflict" {
+				write(".claude/skills/"+requiredSkills[0]+"/SKILL.md", "different")
 			}
 			commit()
 			cfg := surface.DefaultConfig()
 			cfg["agents"] = map[string]any{"claude": map[string]any{"bin": "/usr/bin/true"}}
 			before := gitTest(t, r.state.RepoRoot, "worktree", "list", "--porcelain")
-			report, err := runDoctor(surface.Context{Repo: r.state.RepoRoot, Config: cfg, Providers: []string{"claude"}, Args: surface.Args{Live: false}}, "")
+			report, err := runDoctor(surface.Context{Repo: r.state.RepoRoot, Config: cfg, Providers: []string{"claude"}}, "")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.OK != (mode == "committed") {
+			if report.OK != (mode == "global") {
 				b, _ := json.Marshal(report)
-				t.Fatalf("%s", b)
+				t.Fatal(string(b))
 			}
-			if after := gitTest(t, r.state.RepoRoot, "worktree", "list", "--porcelain"); after != before {
+			if got := gitTest(t, r.state.RepoRoot, "worktree", "list", "--porcelain"); got != before {
 				t.Fatal("probe worktree leaked")
 			}
 		})
 	}
-	r, write, commit := comparisonFixture(t)
-	write("source.txt", "base\n")
-	commit()
-	before := gitTest(t, r.state.RepoRoot, "worktree", "list", "--porcelain")
-	report, err := runDoctor(surface.Context{Repo: r.state.RepoRoot, Config: surface.DefaultConfig()}, "")
-	if err != nil || report.OK {
-		t.Fatal(report, err)
-	}
-	if gitTest(t, r.state.RepoRoot, "worktree", "list", "--porcelain") != before {
-		t.Fatal("no-provider probe leaked")
-	}
 }
 
-func TestDoctorRenderingMigration(t *testing.T) {
+func TestDoctorRendering(t *testing.T) {
 	cases := []struct {
 		report doctorReport
 		want   []string
@@ -213,13 +195,12 @@ func TestDoctorRenderingMigration(t *testing.T) {
 }
 
 func TestDoctorLiveFixtureProviderIsolation(t *testing.T) {
-	for _, visible := range []string{`["sharpen-assess"]`, `[]`} {
+	visibleData, _ := json.Marshal(requiredSkills)
+	for _, visible := range []string{string(visibleData), `[]`} {
 		t.Run(visible, func(t *testing.T) {
 			r, write, commit := comparisonFixture(t)
-			for _, name := range requiredSkills {
-				write(".agents/skills/"+name+"/SKILL.md", "# Skill\n")
-				write(".claude/skills/"+name+"/SKILL.md", "# Skill\n")
-			}
+			globalSkillsFixture(t)
+			write("source.txt", "source\n")
 			commit()
 			dir := t.TempDir()
 			good := filepath.Join(dir, "codex")
@@ -271,23 +252,8 @@ func TestComparisonAfterWorktreeRemoval(t *testing.T) {
 	}
 }
 
-func TestDoctorSkillRoots(t *testing.T) {
-	if got := skillRoots("claude", "/project", "/home"); !reflect.DeepEqual(got, []string{"/project/.claude/skills"}) {
-		t.Fatal(got)
-	}
-	if got := skillRoots("codex", "/project", "/home"); !reflect.DeepEqual(got, []string{"/project/.agents/skills", "/home/.agents/skills"}) {
-		t.Fatal(got)
-	}
-	if got := skillRoots("codex", "/project", ""); !reflect.DeepEqual(got, []string{"/project/.agents/skills"}) {
-		t.Fatal(got)
-	}
-	root := t.TempDir()
-	if got := missingSkills("claude", root); !reflect.DeepEqual(got, requiredSkills) {
-		t.Fatal(got)
-	}
-}
-
 func TestDoctorProbeFailure(t *testing.T) {
+	globalSkillsFixture(t)
 	r, write, commit := comparisonFixture(t)
 	write("source.txt", "base\n")
 	commit()
@@ -312,7 +278,7 @@ func TestDoctorProbeFailure(t *testing.T) {
 		if c.ID == "git-worktree" && c.Status == "FAIL" && c.Blocking {
 			failed = true
 		}
-		if strings.HasSuffix(c.ID, "-skills") {
+		if strings.HasSuffix(c.ID, "-skills") && c.ID != "global-skills" {
 			t.Fatal("unmeasured skill check reported", c)
 		}
 	}

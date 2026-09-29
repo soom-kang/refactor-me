@@ -1,37 +1,34 @@
-# refactor-me 0.9.20-beta.1 — Go CLI public Beta
+# refactor-me 0.10.0-beta.1 — Homebrew and global Skills
 
-This is the first Go CLI Beta for **macOS Apple Silicon**. The repository-scoped
-installer places one executable at `.refactor/bin/refactor-me`. Existing
-`.refactor/config.json`, `commands.json`, and run reports remain readable.
+Release candidate; publication is pending verification and approval. This Beta targets macOS Apple Silicon and introduces a shared Homebrew executable and global sharpen-me Skills.
 
-The Go CLI provides `run`, `doctor`, `report`, `clean`, `help`, `version`,
-`install`, and `uninstall`. `version --json` now reports `go` and `arch` instead
-of the Node runtime field. A new run writes schema version 2; older reports are
-read without rewriting their JSON. Git, an authenticated Codex or Claude CLI,
-the eight committed sharpen-me Skills, and the target project's validation
-tools are still required.
+## Installation and execution
 
-## Download and verification
+After publication:
 
-Download `refactor-me_0.9.20-beta.1_darwin_arm64.zip` and `SHA256SUMS` from this
-release. In the download directory, run `shasum -a 256 -c SHA256SUMS` before
-extracting the archive. The archive includes `INSTALL.md` with installation
-steps. The checksum checks for a changed download; it does not independently
-authenticate the publisher.
+```sh
+brew install soom-kang/refactor-me/refactor-me
+npx skills add \
+  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+  --global --skill '*' --agent codex claude-code
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo --no-live-probe
+refactor-me run --repo /path/to/target-repo
+```
 
-**This Beta is unsigned and has not been notarized by Apple.** macOS may warn
-or block execution. Read the [installation guide](https://github.com/soom-kang/refactor-me/blob/v0.9.20-beta.1/tool/TUTORIAL.md)
-and [Apple's guidance for opening an individual app](https://support.apple.com/en-gb/102445)
-before choosing to run it. Do not disable system-wide macOS protections.
+The formula builds pinned source with Go as a build dependency. Runtime prerequisites remain Git, authenticated provider CLIs and the target's validation tools. The external Skills installer requires Node.js; refactor-me does not. Configure run limits before the first model run. Doctor's default live checks and `run` consume provider usage.
 
-## Updating and recovery
+## Changes to existing usage
 
-`install` replaces a recognized Node shim or owned Go binary. It preserves
-unverified legacy files and reports their paths. `uninstall` removes only the
-owned Go executable and its marker; configuration, runs, worktrees, and result
-branches remain. The installation guide documents a collision-checked return
-to the earlier `v0.8.8-beta.1` Node CLI.
+- Use `--repo` from any directory, or run inside the selected repository. With `--repo`, relative `--target` paths start at its Git root; otherwise they start at the calling directory.
+- No arguments display help. Start automation with `run`. Optional `init` creates configuration without overwriting it.
+- The eight global Skills resolve from `~/.agents/skills`. Claude receives a dedicated copy through `--add-dir` and retains project-only settings. Conflicting sources and unexpected Skill changes block publication.
+- Project-local `install` and `uninstall`, Node migration and rollback are removed. Existing local binaries and data are not automatically removed.
+- Configuration schema 2 and report schema 3 are required; unsupported old formats are rejected without rewriting or deleting them. Save older records separately if needed.
+- `brew upgrade` changes the executable for every project. `brew uninstall` retains configuration, runs, branches, worktrees and Skills.
 
-This Beta does not include Intel, Linux, or Windows binaries. It is an
-unattended refactoring tool: review its proposed changes and local result
-branch before merging them.
+## Distribution and validation
+
+The Beta is unsigned and not notarized. macOS can warn or block downloaded binaries. Checksums verify download integrity and do not authenticate the publisher. Read the [installation guide](INSTALL.md) and [Apple's individual-app opening instructions](https://support.apple.com/en-gb/102445).
+
+The release review must record local Go and formula checks, source archive hash, commit, CI results and separate Codex/Claude live checks. Those checks are not established by this candidate document. Existing published tags and assets remain unchanged.

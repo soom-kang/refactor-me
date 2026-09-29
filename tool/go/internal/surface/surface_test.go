@@ -2,13 +2,10 @@ package surface
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -32,7 +29,7 @@ func TestParseAndVersionOutsideRepo(t *testing.T) {
 		if err := json.Unmarshal(out.Bytes(), &version); err != nil {
 			t.Fatal(err)
 		}
-		for _, key := range []string{"name", "version", "platform", "source", "go", "arch"} {
+		for _, key := range []string{"name", "version", "platform", "source", "go", "arch", "commit"} {
 			if version[key] == nil {
 				t.Errorf("missing %s", key)
 			}
@@ -52,12 +49,12 @@ func TestParseAndVersionOutsideRepo(t *testing.T) {
 	}
 }
 
-func TestLoadConfigMergesOldSettings(t *testing.T) {
+func TestLoadConfigMergesSettings(t *testing.T) {
 	repo := testRepo(t)
 	if err := os.MkdirAll(filepath.Join(repo, ".refactor"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	data := `{"agents":{"claude":{"effort":"low"},"codex":{"effort_by_phase":{"audit":"low"}}},"policy":{"max_commits":3},"future":{"keep":true}}`
+	data := `{"schema_version":2,"agents":{"claude":{"effort":"low"},"codex":{"effort_by_phase":{"audit":"low"}}},"policy":{"max_commits":3},"future":{"keep":true}}`
 	if err := os.WriteFile(filepath.Join(repo, ".refactor", "config.json"), []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -82,17 +79,17 @@ func TestLoadConfigMergesOldSettings(t *testing.T) {
 	}
 }
 
-func TestReportJSONRawAndHistoricalMarkdown(t *testing.T) {
+func TestReportJSONRawAndMarkdown(t *testing.T) {
 	repo := testRepo(t)
 	runDir := filepath.Join(repo, ".refactor", "runs", "old")
 	if err := os.MkdirAll(runDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	report := `{"runId":"old","status":"NO_CHANGES","reason":"no eligible candidates remain","durationMinutes":4,"repoRoot":"/old","baseCommit":"abcdef0123","baseBranch":"main","branch":null,"commits":[],"skipped":[],"providers":{},"validation":{"describe":"GREEN 1","ran":["node --test"],"notRun":[]}}`
+	report := `{"schemaVersion":3,"runId":"old","status":"NO_CHANGES","reason":"no eligible candidates remain","durationMinutes":4,"repoRoot":"/old","baseCommit":"abcdef0123","baseBranch":"main","branch":null,"commits":[],"skipped":[],"providers":{},"validation":{"describe":"GREEN 1","ran":["go test ./..."],"notRun":[]}}`
 	if err := os.WriteFile(filepath.Join(runDir, "report.json"), []byte(report), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".refactor", "last-run.json"), []byte(`{"runDir":"`+runDir+`"}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".refactor", "last-run.json"), []byte(`{"schemaVersion":1,"runDir":"`+runDir+`"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	for _, lang := range []string{"en", "ko"} {
@@ -137,151 +134,13 @@ func TestReportRejectsCorruptPointerWithoutRewritingIt(t *testing.T) {
 		t.Fatalf("corrupt report produced stdout: %s", out.String())
 	}
 	if got, err := os.ReadFile(path); err != nil || string(got) != "{broken" {
-		t.Fatal("corrupt historical record was changed")
-	}
-}
-
-func TestInstallPreservesDataAndRejectsUnknownFiles(t *testing.T) {
-	repo := testRepo(t)
-	binDir := filepath.Join(repo, ".refactor", "bin")
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	unknown := filepath.Join(binDir, "refactor-me")
-	if err := os.WriteFile(unknown, []byte("user command"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	source, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Install(repo, source); err == nil || !strings.Contains(err.Error(), "unrecognized") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if data, _ := os.ReadFile(unknown); string(data) != "user command" {
-		t.Fatal("unknown command changed")
-	}
-	nodeShim := "#!/bin/sh\n# refactor-me dev — installed 2026-09-28 from /old/tool\nexec node \"$(dirname \"$0\")/../lib/bin/refactor-me.mjs\" \"$@\"\n"
-	if err := os.WriteFile(unknown, []byte(nodeShim), 0755); err != nil {
-		t.Fatal(err)
-	}
-	legacyLib := filepath.Join(repo, ".refactor", "lib")
-	if err := os.MkdirAll(filepath.Join(legacyLib, "src"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	modifiedProvider := filepath.Join(legacyLib, "src", "provider.mjs")
-	if err := os.WriteFile(modifiedProvider, []byte("user modified provider"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(legacyLib, "src", "custom.mjs"), []byte("user file"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	knownRuntime := filepath.Join(legacyLib, "bin", "refactor-me.mjs")
-	if err := os.MkdirAll(filepath.Dir(knownRuntime), 0755); err != nil {
-		t.Fatal(err)
-	}
-	knownBytes, err := os.ReadFile(filepath.Join("testdata", "legacy-refactor-me.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(knownBytes)); got != knownNodeFiles["bin/refactor-me.mjs"] {
-		t.Fatal("test fixture no longer matches the released Node file")
-	}
-	if err := os.WriteFile(knownRuntime, knownBytes, 0644); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(repo, ".refactor", "config.json")
-	if err := os.WriteFile(configPath, []byte(`{"custom":true}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	runFile := filepath.Join(repo, ".refactor", "runs", "old", "report.json")
-	if err := os.MkdirAll(filepath.Dir(runFile), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(runFile, []byte("evidence"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	custom := filepath.Join(binDir, "custom-command")
-	if err := os.WriteFile(custom, []byte("user"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	retained, err := InstallWithReport(repo, source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(knownRuntime); !os.IsNotExist(err) {
-		t.Fatal("verified Node runtime file remains")
-	}
-	if data, err := os.ReadFile(modifiedProvider); err != nil || string(data) != "user modified provider" {
-		t.Fatal("modified Node runtime file changed")
-	}
-	canonicalRepo, err := filepath.EvalSymlinks(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(retained, filepath.Join(canonicalRepo, ".refactor", "lib", "src", "provider.mjs")) ||
-		!slices.Contains(retained, filepath.Join(canonicalRepo, ".refactor", "lib", "src", "custom.mjs")) {
-		t.Fatalf("retained paths not reported: %v", retained)
-	}
-	if data, _ := os.ReadFile(filepath.Join(legacyLib, "src", "custom.mjs")); string(data) != "user file" {
-		t.Fatal("unknown library child changed")
-	}
-	if err := Install(repo, source); err != nil {
-		t.Fatalf("reinstall: %v", err)
-	}
-	for path, want := range map[string]string{configPath: `{"custom":true}`, runFile: "evidence", custom: "user"} {
-		data, e := os.ReadFile(path)
-		if e != nil || string(data) != want {
-			t.Fatalf("%s changed: %v", path, e)
-		}
-	}
-	if err := Uninstall(repo); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(unknown); !os.IsNotExist(err) {
-		t.Fatal("owned binary remains")
-	}
-	if data, _ := os.ReadFile(runFile); string(data) != "evidence" {
-		t.Fatal("run evidence changed")
-	}
-}
-
-func TestInstallCommandReportsRetainedLegacyFile(t *testing.T) {
-	repo := testRepo(t)
-	bin := filepath.Join(repo, ".refactor", "bin")
-	legacy := filepath.Join(repo, ".refactor", "lib", "src", "provider.mjs")
-	for _, dir := range []string{bin, filepath.Dir(legacy)} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	shim := "#!/bin/sh\n# refactor-me dev — installed 2026-09-28 from /old/tool\nexec node \"$(dirname \"$0\")/../lib/bin/refactor-me.mjs\" \"$@\"\n"
-	if err := os.WriteFile(filepath.Join(bin, "refactor-me"), []byte(shim), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(legacy, []byte("user modified provider"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	var stdout, stderr bytes.Buffer
-	if code := Execute([]string{"install", repo}, repo, &stdout, &stderr, Callbacks{}); code != ExitOK {
-		t.Fatalf("install exited %d: %s", code, stderr.String())
-	}
-	canonicalRepo, err := filepath.EvalSymlinks(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	canonicalLegacy := filepath.Join(canonicalRepo, ".refactor", "lib", "src", "provider.mjs")
-	if !strings.Contains(stderr.String(), "retained unverified legacy file: "+canonicalLegacy) {
-		t.Fatalf("missing retained file warning: %s", stderr.String())
-	}
-	if data, err := os.ReadFile(legacy); err != nil || string(data) != "user modified provider" {
-		t.Fatal("legacy file changed")
+		t.Fatal("corrupt record was changed")
 	}
 }
 
 func TestRichReportRendersSavedEvidenceInBothLanguages(t *testing.T) {
 	report := map[string]any{
-		"runId": "rich", "status": "DONE_PARTIAL", "reason": "stopped on cycle budget (3)", "durationMinutes": 9, "providerMinutes": 4,
+		"schemaVersion": 3, "runId": "rich", "status": "DONE_PARTIAL", "reason": "stopped on cycle budget (3)", "durationMinutes": 9, "providerMinutes": 4,
 		"toolVersion": "dev", "repoRoot": "/repo", "targets": []string{"app"}, "baseCommit": "1234567890abcdef", "baseBranch": "main", "branch": "refactor/auto-test", "worktree": "/worktree",
 		"counters":       map[string]any{"commits": 1, "auditsNoProposals": 1, "auditsAllFiltered": 2},
 		"commits":        []any{map[string]any{"oid": "abcdef0123456789", "category": "REFACTOR", "subject": "extract helper", "paths": []string{"app/a.go"}}},
@@ -314,52 +173,5 @@ func TestRichReportRendersSavedEvidenceInBothLanguages(t *testing.T) {
 		if strings.Contains(text, "<nil>") {
 			t.Errorf("%s leaked nil", tc.lang)
 		}
-	}
-}
-
-func TestInstallRefusesSymlinkedRuntimeDirectory(t *testing.T) {
-	repo := testRepo(t)
-	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(repo, ".refactor")); err != nil {
-		t.Fatal(err)
-	}
-	source, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Install(repo, source); err == nil || !strings.Contains(err.Error(), "not a regular directory") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if names, err := os.ReadDir(outside); err != nil || len(names) != 0 {
-		t.Fatal("installer wrote through symlink")
-	}
-}
-
-func TestInstallDoesNotDeleteThroughLegacyLibrarySymlink(t *testing.T) {
-	repo := testRepo(t)
-	outside := t.TempDir()
-	bin := filepath.Join(repo, ".refactor", "bin")
-	if err := os.MkdirAll(bin, 0755); err != nil {
-		t.Fatal(err)
-	}
-	shim := "#!/bin/sh\n# refactor-me dev — installed 2026-09-28 from /old/tool\nexec node \"$(dirname \"$0\")/../lib/bin/refactor-me.mjs\" \"$@\"\n"
-	if err := os.WriteFile(filepath.Join(bin, "refactor-me"), []byte(shim), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, filepath.Join(repo, ".refactor", "lib")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(outside, "provider.mjs"), []byte("keep"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	source, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Install(repo, source); err == nil {
-		t.Fatal("accepted symlinked Node runtime")
-	}
-	if data, _ := os.ReadFile(filepath.Join(outside, "provider.mjs")); string(data) != "keep" {
-		t.Fatal("wrote through symlink")
 	}
 }

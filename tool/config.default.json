@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "workspace": {
     "branch_prefix": "refactor/auto-",
     "worktree_parent": "",

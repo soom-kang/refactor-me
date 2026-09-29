@@ -18,7 +18,7 @@
 
 ## 1. INIT, doctor와 기준선
 
-**입력:** 저장소, 설정, 프로바이더와 필수 Skill 8개를 확인합니다. Doctor의 모델 호출은 세션에서 Skill을 읽는지 검사하며 audit과 다른 진단 응답을 받습니다. `doctor --no-live-probe`는 세션 확인을 생략합니다.
+**입력:** `--repo` 또는 현재 디렉터리에서 대상 Git 저장소를 찾고 설정·provider와 `~/.agents/skills`의 전역 Skill 8개를 확인합니다. Codex에는 선택한 절대 경로, Claude에는 `--add-dir`로 전용 Skill 복사본을 제공하며 project 설정만 읽는 경계를 유지합니다. provider 호출 전후 hash 검사로 결과 반영 전에 카탈로그 변경을 감지합니다. Doctor는 audit JSON과 다른 진단 응답으로 세션의 Skill 로딩을 확인하기 위해 모델을 호출합니다. `doctor --no-live-probe`는 세션 확인을 생략합니다. 선택적 `init` 명령은 설정만 만들며 이 INIT 단계는 `run`의 일부입니다.
 
 **검사와 다음 단계:** 필수 조건을 충족하지 못하면 중단합니다. 초기화 후 별도 worktree에서 기준선 명령을 실행합니다. `.refactor/commands.json`에 고정한 목록이 없으면 명령을 자동 탐색합니다. 발견한 영역의 선택된 명령 중 하나 이상이 `GREEN`이어야 audit으로 진행합니다.
 
@@ -272,7 +272,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 
 `codeComparison.status`는 `AVAILABLE`, `NO_CHANGES`, `UNAVAILABLE`입니다. 반영한 커밋이 없으면 변경 없음으로 표시합니다. 비교 수집이나 patch 저장 실패는 사유만 기록하고 실행 결과와 종료 코드는 유지합니다.
 
-과거 JSON에 `codeComparison`이 없으면 비교 미저장 안내를 표시합니다. `report --lang ko`는 새 diff 수집, 파일 변경, 모델 호출 없이 저장된 JSON을 출력합니다.
+저장 리포트에는 `schemaVersion: 3`이 필요합니다. 지원하지 않는 과거 형식은 오류를 내고 보존합니다. `report --lang ko`는 새 diff 수집·파일 변경·모델 호출 없이 지원하는 저장 JSON을 렌더링합니다. 아래 provider 응답 예시의 `schema_version: "1"`은 설정·저장 리포트와 별도인 프로토콜 버전입니다.
 
 ## 실패와 복구 분기
 

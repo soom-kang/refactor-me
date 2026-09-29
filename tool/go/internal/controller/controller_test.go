@@ -23,6 +23,7 @@ func gitTest(t *testing.T, dir string, args ...string) string {
 }
 
 func TestRunNoCandidatesPreservesSource(t *testing.T) {
+	globalSkillsFixture(t)
 	repo := filepath.Join(t.TempDir(), "project")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
@@ -34,11 +35,11 @@ func TestRunNoCandidatesPreservesSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, skill := range requiredSkills {
-		path := filepath.Join(repo, ".agents", "skills", skill, "SKILL.md")
+		path := filepath.Join(os.Getenv("HOME"), ".agents", "skills", skill, "SKILL.md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte("# "+skill+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte("---\nname: "+skill+"\ndescription: test skill\n---\nTest instructions.\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -55,7 +56,7 @@ func TestRunNoCandidatesPreservesSource(t *testing.T) {
 	if err := os.MkdirAll(refactor, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	config := `{"agents":{"primary":"codex","fallback":"none","codex":{"bin":"` + bin + `"}},"policy":{"empty_audits_to_stop":1},"workspace":{"worktree_parent":"` + t.TempDir() + `","keep_worktree":false}}`
+	config := `{"schema_version":2,"agents":{"primary":"codex","fallback":"none","codex":{"bin":"` + bin + `"}},"policy":{"empty_audits_to_stop":1},"workspace":{"worktree_parent":"` + t.TempDir() + `","keep_worktree":false}}`
 	if err := os.WriteFile(filepath.Join(refactor, "config.json"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +139,7 @@ func TestComparisonOfPublishedCommit(t *testing.T) {
 }
 
 func TestRunPublishesReviewedDeletion(t *testing.T) {
+	globalSkillsFixture(t)
 	repo := filepath.Join(t.TempDir(), "project")
 	if err := os.MkdirAll(filepath.Join(repo, "src"), 0o755); err != nil {
 		t.Fatal(err)
@@ -151,11 +153,11 @@ func TestRunPublishesReviewedDeletion(t *testing.T) {
 		}
 	}
 	for _, skill := range requiredSkills {
-		path := filepath.Join(repo, ".agents", "skills", skill, "SKILL.md")
+		path := filepath.Join(os.Getenv("HOME"), ".agents", "skills", skill, "SKILL.md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte("# "+skill+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte("---\nname: "+skill+"\ndescription: test skill\n---\nTest instructions.\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -189,7 +191,7 @@ func TestRunPublishesReviewedDeletion(t *testing.T) {
 	if err := os.MkdirAll(refactor, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	config := `{"agents":{"primary":"codex","fallback":"none","codex":{"bin":"` + bin + `"}},"policy":{"empty_audits_to_stop":1},"workspace":{"worktree_parent":"` + t.TempDir() + `","keep_worktree":true}}`
+	config := `{"schema_version":2,"agents":{"primary":"codex","fallback":"none","codex":{"bin":"` + bin + `"}},"policy":{"empty_audits_to_stop":1},"workspace":{"worktree_parent":"` + t.TempDir() + `","keep_worktree":true}}`
 	if err := os.WriteFile(filepath.Join(refactor, "config.json"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -214,4 +216,22 @@ func TestRunPublishesReviewedDeletion(t *testing.T) {
 	if !bytes.Contains(stdout.Bytes(), []byte(`"patchFile": "changes.patch"`)) {
 		t.Fatalf("missing published patch: %s", &stdout)
 	}
+}
+
+func globalSkillsFixture(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	for _, name := range requiredSkills {
+		path := filepath.Join(home, ".agents", "skills", name, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("---\nname: "+name+"\ndescription: test skill\n---\nTest instructions.\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return home
 }

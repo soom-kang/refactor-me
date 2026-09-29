@@ -33,10 +33,9 @@ Run these examples from `tool/go`. Explicit destinations must not already exist,
 
 ```bash
 go run ./cmd/make-fixture /tmp/my-new-refactor-fixture --lang go --multi
-go run ./cmd/make-fixture --skills /absolute/path/to/skills
 ```
 
-`--multi` adds independent `app/api` and `app/worker` areas in the selected language. Each has its own manifest. `--skills DIR` copies the supplied Skill directory into the fixture and includes the files and agent links in its initial commit. Use only a directory you have checked for secrets and local private files. Symlinks in the supplied Skill directory are rejected rather than followed. Creating a fixture does not establish that the copied Skills are complete or usable by a provider.
+`--multi` adds independent `app/api` and `app/worker` areas in the selected language. Each has its own manifest. The generator does not install or copy Skills. Actual provider runs resolve global Skills from `~/.agents/skills`, independently of the fixture base commit. The removed `--skills` option is rejected.
 
 An invalid option or an existing destination is an error. Inspect the diagnostic and choose a new destination; do not delete an existing repository to retry.
 
@@ -64,4 +63,4 @@ To include JavaScript execution in the generator's integration tests, run from `
 REFACTOR_TEST_JS=1 go test -count=1 ./internal/fixture
 ```
 
-The default test run does not execute Node. For CI, manually dispatch Verify with `js_fixture: true` to enable JavaScript fixture checks. Neither command above invokes a provider or measures model decision quality. Real runs require separately installed, committed Skills, authenticated providers, and explicit run limits as described in the [guide](../TUTORIAL.md).
+The default test run does not execute Node. For CI, manually dispatch Verify with `js_fixture: true` to enable JavaScript fixture checks. Neither command above invokes a provider or measures model decision quality. Real runs require separately installed global Skills, authenticated providers and explicit run limits as described in the [guide](../TUTORIAL.md). After generating a fixture, use `refactor-me init --repo "$FIXTURE"` and `refactor-me doctor --repo "$FIXTURE" --no-live-probe`. Starting `run` is a separate, usage-consuming action.

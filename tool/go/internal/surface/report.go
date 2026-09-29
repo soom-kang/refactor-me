@@ -12,8 +12,21 @@ import (
 	"strings"
 )
 
+// ReportSchemaVersion identifies reports produced by the global CLI.
+const ReportSchemaVersion = 3
+
 func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
+	for _, dir := range []string{filepath.Join(repo, ".refactor"), filepath.Join(repo, ".refactor", "runs")} {
+		if err := checkDirectory(dir); err != nil {
+			fmt.Fprintln(stderr, "refactor-me:", err)
+			return ExitAborted
+		}
+	}
 	lastPath := filepath.Join(repo, ".refactor", "last-run.json")
+	if err := checkRegularFile(lastPath); err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
 	lastData, err := os.ReadFile(lastPath)
 	if errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintln(stderr, "no run recorded yet")
@@ -28,18 +41,49 @@ func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "refactor-me: last-run.json:", err)
 		return ExitAborted
 	}
+	if last["schemaVersion"] != float64(LastRunSchemaVersion) {
+		fmt.Fprintln(stderr, "refactor-me: last-run.json: unsupported schemaVersion")
+		return ExitAborted
+	}
 	runDir, _ := last["runDir"].(string)
 	if runDir == "" {
 		fmt.Fprintln(stderr, "refactor-me: last-run.json has no runDir")
 		return ExitAborted
 	}
-	data, err := os.ReadFile(filepath.Join(runDir, "report.json"))
+	canonicalRun, err := filepath.EvalSymlinks(runDir)
 	if err != nil {
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
+	runsDir, err := filepath.EvalSymlinks(filepath.Join(repo, ".refactor", "runs"))
+	if err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
+	rel, err := filepath.Rel(runsDir, canonicalRun)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		fmt.Fprintln(stderr, "refactor-me: last-run.json points outside this repository's runs directory")
+		return ExitAborted
+	}
+	reportPath := filepath.Join(canonicalRun, "report.json")
+	if err := checkRegularFile(reportPath); err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
+	if _, err := parseReport(data); err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
 	if args.JSON {
-		_, _ = stdout.Write(data)
+		if _, err := stdout.Write(data); err != nil {
+			fmt.Fprintln(stderr, "refactor-me: write report:", err)
+			return ExitAborted
+		}
 		return ExitOK
 	}
 	text, err := RenderReport(data, args.Language)
@@ -79,15 +123,14 @@ func short(s string) string {
 	return s
 }
 
-// RenderReport reads historical report JSON without modifying the evidence.
-// Optional fields from earlier report versions receive explicit fallbacks.
+// RenderReport renders a supported report without modifying the saved evidence.
 func RenderReport(data []byte, language string) (string, error) {
 	if language != "en" && language != "ko" {
 		return "", fmt.Errorf("unsupported language: %s; use en or ko", language)
 	}
-	var report map[string]any
-	if err := json.Unmarshal(data, &report); err != nil {
-		return "", fmt.Errorf("report.json: %w", err)
+	report, err := parseReport(data)
+	if err != nil {
+		return "", err
 	}
 	status := val(report, "status")
 	statusNames := map[string][2]string{"DONE": {"Completed", "완료"}, "NO_CHANGES": {"No changes", "변경 없음"}, "DONE_PARTIAL": {"Partially completed", "부분 완료"}, "ABORTED": {"Aborted", "중단"}, "HALTED_UNSAFE": {"Safety halt", "안전 정지"}}
@@ -492,4 +535,15 @@ func commas(n int) string {
 		s = s[:i] + "," + s[i:]
 	}
 	return s
+}
+
+func parseReport(data []byte) (map[string]any, error) {
+	var report map[string]any
+	if err := json.Unmarshal(data, &report); err != nil {
+		return nil, fmt.Errorf("report.json: %w", err)
+	}
+	if report["schemaVersion"] != float64(ReportSchemaVersion) {
+		return nil, fmt.Errorf("report.json: unsupported schemaVersion %v; expected %d", report["schemaVersion"], ReportSchemaVersion)
+	}
+	return report, nil
 }

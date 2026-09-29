@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const StateSchema = 1
+const StateSchema = 2
 
 func Fingerprint(kind string, paths []string, symbol string) string {
 	set := map[string]bool{}
@@ -90,10 +90,25 @@ func ReadJSON(path string, dest any) error {
 
 func EnsureRefactorDir(root string) (string, error) {
 	dir := filepath.Join(root, ".refactor")
+	// State must belong to this repository, never a linked shared directory.
+	for _, path := range []string{dir, filepath.Join(dir, "runs")} {
+		if info, err := os.Lstat(path); err == nil {
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				return "", fmt.Errorf("state directory must be a real directory: %s", path)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	ignore := filepath.Join(dir, ".gitignore")
+	if info, err := os.Lstat(ignore); err == nil && !info.Mode().IsRegular() {
+		return "", fmt.Errorf("state ignore file must be a regular file: %s", ignore)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
 	buf, err := os.ReadFile(ignore)
 	if errors.Is(err, os.ErrNotExist) {
 		if err := os.WriteFile(ignore, []byte("*\n"), 0o644); err != nil {
@@ -108,12 +123,18 @@ func EnsureRefactorDir(root string) (string, error) {
 }
 
 func RunDirFor(root, id string) (string, error) {
+	if id == "" || id == "." || id == ".." || filepath.Base(id) != id {
+		return "", fmt.Errorf("invalid run ID: %q", id)
+	}
 	base, err := EnsureRefactorDir(root)
 	if err != nil {
 		return "", err
 	}
 	dir := filepath.Join(base, "runs", id)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(dir, 0o755); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -202,6 +223,9 @@ func (s *Store) Load() error {
 	var st RunState
 	if err := ReadJSON(s.File, &st); err != nil {
 		return err
+	}
+	if st.Schema != StateSchema {
+		return fmt.Errorf("unsupported state schema %d; expected %d", st.Schema, StateSchema)
 	}
 	s.State = &st
 	return nil
@@ -320,6 +344,9 @@ func (l *Lock) Release() error {
 func ReadLastRun(root string) (map[string]any, error) {
 	var result map[string]any
 	err := ReadJSON(filepath.Join(root, ".refactor", "last-run.json"), &result)
+	if err == nil && result["schemaVersion"] != float64(1) {
+		err = fmt.Errorf("unsupported last-run schema; expected 1")
+	}
 	return result, err
 }
 

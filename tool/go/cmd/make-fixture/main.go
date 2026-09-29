@@ -13,7 +13,7 @@ import (
 func main() {
 	for _, a := range os.Args[1:] {
 		if a == "--help" || a == "-h" {
-			fmt.Println("Usage: make-fixture [dest] [--lang go|js] [--skills DIR] [--multi]\nDefault: Go fixture in a new temporary directory. Existing destinations are refused.\nGo tests intentionally fail TestKnownBaseline; vet and build pass. JS requires Node for validation.")
+			fmt.Println("Usage: make-fixture [dest] [--lang go|js] [--multi]\nDefault: Go fixture in a new temporary directory. Existing destinations are refused.\nGo tests intentionally fail TestKnownBaseline; vet and build pass. JS requires Node for validation.")
 			return
 		}
 	}

@@ -6,9 +6,25 @@
 
 설치는 [실행 가이드](TUTORIAL.ko.md)를 따라 진행하세요.
 
+## 명령과 저장소 선택
+
+| 명령 | 용도 |
+| --- | --- |
+| `help` 또는 인자 없음 | 실행을 시작하지 않고 사용법 표시 |
+| `version [--json]` | 빌드 버전·Go 런타임·플랫폼·아키텍처·실행 파일 경로·commit 출처 표시 |
+| `init` | 기존 설정을 덮어쓰지 않고 선택적 프로젝트 설정 생성 |
+| `doctor [--no-live-probe]` | 저장소·provider·전역 Skills 검사. 기본값은 모델 호출 포함 |
+| `run` | 자동 리팩터링 루프 시작 |
+| `report [--json] [--lang en\|ko]` | 지원하는 최신 저장 리포트 조회 |
+| `clean` | 정리 가능한 완료 worktree 제거 |
+
+`init`, `doctor`, `run`, `report`, `clean`에는 `--repo <path>`를 지정할 수 있습니다. 상대 경로는 호출 디렉터리에서 해석하며 해당 경로의 Git 루트를 찾습니다. 생략하면 현재 디렉터리의 Git 루트를 사용합니다. `help`와 `version`은 Git 밖에서도 동작합니다. 설치는 Homebrew가 담당하며 프로젝트별 `install`·`uninstall` 명령은 없습니다.
+
+설정·잠금·실행 기록은 선택한 저장소에 속하며 Homebrew 실행 파일 경로와 독립적입니다. 새 설치에는 `.refactor/bin`이나 `.refactor/lib` 파일이 필요하지 않습니다.
+
 ## 설정
 
-`.refactor/config.json`이 없으면 설치기가 생성하고 재설치 시에는 보존합니다. 실행 기본값은 `go/internal/surface/config.go`와 `go/internal/controller`, 설치 템플릿은 [config.default.json](config.default.json)에 있습니다.
+`refactor-me init --repo <path>`는 `.refactor/config.json`이 없으면 생성하고 기존 파일은 덮어쓰지 않습니다. 초기화는 선택 사항이며 설정 파일이 없으면 내장 기본값을 사용합니다. 실행 기본값은 `go/internal/surface/config.go`와 `go/internal/controller`, 초기화 템플릿은 [config.default.json](config.default.json)에 있습니다. 설정에는 `schema_version: 2`가 필요합니다. 기존 파일의 버전이 없거나 지원되지 않으면 자동 이관하지 않고 오류를 냅니다.
 
 | 설정 | 기본값 | 동작 |
 | --- | --- | --- |
@@ -46,7 +62,7 @@
 
 프로바이더 설정으로 바꿀 수 있으며 단계별 값이 우선합니다.
 
-`schema_version`과 `verification`은 설정 형식에 남아 있습니다. 현재 루프는 검증 명령을 고를 때 `verification.locked`를 사용하지 않습니다. 직접 지정하려면 아래의 `.refactor/commands.json`을 사용하세요.
+`verification`은 설정 형식에 남아 있습니다. 현재 루프는 검증 명령을 고를 때 `verification.locked`를 사용하지 않습니다. 직접 지정하려면 아래의 `.refactor/commands.json`을 사용하세요.
 
 ## 후보 선택
 
@@ -61,7 +77,7 @@ Audit은 다음 네 종류의 후보를 찾습니다.
 
 기존 진입점과 공개 인터페이스의 반환값, 부수 효과, 순서, 오류, 화면 출력과 저장 데이터 형태를 보존합니다. 버그 수정과 추측에 따른 개선은 제외합니다.
 
-`--target <dir>`은 현재 디렉터리 기준이며 여러 번 지정할 수 있습니다.
+`--target <dir>`은 여러 번 지정할 수 있습니다. `--repo`를 지정하면 선택한 Git 루트, 생략하면 현재 디렉터리 기준입니다. 심볼릭 링크를 포함한 실제 경로가 선택한 저장소 안에 있어야 합니다.
 
 - 후보 탐색 범위만 제한합니다. 호출부와 도달성은 저장소 전체에서 확인합니다.
 - 후보는 대상과 관련이 있어야 하며 변경 결과에 대상 파일이 포함되어야 합니다. 잘못된 경로나 추적 중인 소스 파일이 없는 대상은 실행을 막습니다.
@@ -83,18 +99,18 @@ CLI는 로컬 커밋과 결과 브랜치를 만듭니다. merge, push, 배포와
 
 ## Skill 설치 상태
 
-별도로 릴리즈된 필수 의존성 `soom-kang/sharpen-me`의 Skill 8개를 대상 저장소에 설치하세요. 파일, 에이전트 링크와 `skills-lock.json`을 검토하고 커밋해야 합니다.
+[가이드](TUTORIAL.ko.md#도구와-skill-설치)의 고정한 sharpen-me 카탈로그에서 필수 Skill 8개를 전역 설치하세요. 공통 원본은 `~/.agents/skills`이며 프로젝트의 복사본으로 누락된 전역 Skill을 대신할 수 없습니다.
 
-Doctor는 디스크의 필수 Skill 경로를 확인한 뒤, 임시 worktree를 만들어 그 안에서 각 `SKILL.md`를 찾는 방식으로 기준 커밋을 확인합니다. 인덱스의 경로가 아니라 checkout이 실제로 해석하는 결과로 판정하므로 심볼릭 링크로 연결한 카탈로그도 올바르게 측정합니다. 아래 표처럼 경로가 프로바이더마다 다르므로 이 확인은 가용한 모든 프로바이더에 대해 실행됩니다.
+CLI는 각 Skill의 실제 디렉터리를 찾고 `SKILL.md`와 참조 자료를 확인한 뒤 실제 경로와 전체 내용의 SHA-256을 기록합니다. Skill 디렉터리 자체는 심볼릭 링크일 수 있지만 내부 링크가 해당 실제 디렉터리 밖으로 나가면 거부합니다. 끊어진 링크와 지원하지 않는 파일 구조도 오류입니다. 프로젝트·provider 탐색 경로의 동명 Skill이 서로 다른 원본이면 실행을 막습니다. 같은 원본으로 해석되는 링크는 허용하며 사용자 파일을 삭제하지 않습니다.
 
-| 프로바이더 | Skill 경로 |
+| Provider | Skill 전달 방식 |
 | --- | --- |
-| Claude Code | `--setting-sources project`로 `.claude/skills` 사용. 전역 설치만으로는 부족 |
-| Codex | `.agents/skills`와 지원하는 홈 경로 |
+| Codex | 전역 탐색을 사용하고 단계별 프롬프트에 선택한 Skill의 절대 경로 명시 |
+| Claude Code | 실행별 전용 `.claude/skills` 복사본을 `--add-dir`로 제공. `--setting-sources project`로 사용자 설정 제외 유지 |
 
-`.claude/skills/<name>`은 `.agents/skills/<name>`으로 가는 심볼릭 링크이므로 기준 커밋에 두 디렉터리가 모두 필요합니다. Git은 링크를 항목 하나로 저장하고 링크를 통과하는 경로는 추적하지 않습니다. 한쪽만 커밋하면 실행용 worktree에서 링크가 아무것도 가리키지 못합니다.
+필수 Skill을 대상 저장소의 기준 커밋에 넣을 필요가 없습니다. Claude 전용 디렉터리에는 선택한 Skills와 참조 자료만 담으며 `--add-dir`에 사용자 홈 전체를 제공하지 않습니다. provider 호출 전후 내용 hash를 확인하고 예상하지 못한 변경이 있으면 해당 결과를 반영하기 전에 안전 정지합니다.
 
-Doctor는 기본적으로 모델을 호출하고 진단 기록을 씁니다. 세션이 Skill을 하나도 볼 수 없다고 보고하면 실패합니다. 디스크에 전부 설치되어 있다면 일부만 보고했다는 이유로 실패시키지는 않습니다. `--no-live-probe`는 세션 확인을 생략합니다.
+Doctor는 전역 원본과 전달 경로를 검사합니다. 기본적으로 모델을 호출해 사용량을 소비하고 진단 기록을 씁니다. `--no-live-probe`는 파일·설정만 검사하며 실제 세션의 로딩을 입증하지는 않습니다. 로컬 fixture 검증과 실제 provider 검증은 별도 근거입니다. live probe는 provider가 여덟 Skill을 모두 볼 수 있다고 응답해야 통과합니다. 이 응답은 세션의 자기보고이며 모든 파일을 실제로 읽었다는 독립 증명은 아닙니다. 파일 경로와 hash는 별도로 측정합니다.
 
 | Skill | 사용 시점 | 결과 |
 | --- | --- | --- |
@@ -109,7 +125,7 @@ Doctor는 기본적으로 모델을 호출하고 진단 기록을 씁니다. 세
 
 루프가 단계별 Skill 허용 목록, 출력 스키마와 권한을 정합니다. 모델과 추론 수준은 루프 설정을 따르며 Skill의 권고로 바뀌지 않습니다.
 
-설치된 Skill 파일과 `skills-lock.json`에서 이 checkout의 카탈로그를 확인하세요.
+실행 리포트에는 Skill의 실제 경로·내용 hash, CLI·provider 버전과 provider별 전달 경로를 기록합니다. 전역 카탈로그 업데이트 전후의 실행을 비교할 때 이 기록을 사용하세요.
 
 ## 검증 명령
 
@@ -167,7 +183,7 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 
 `--lang en|ko`는 `run`과 `report`에 적용하며 기본값은 `en`입니다. 종료 요약, `report.md`, handoff 고정 안내를 번역합니다. 진행 로그와 doctor 출력은 영어이며 모델 설명, 오류, 경로, 커밋 제목은 원문을 유지합니다.
 
-실행마다 `report.md`와 `report.json`을 하나씩 저장합니다. `report --lang ko`는 최신 JSON을 읽어 출력하며 파일을 바꾸지 않습니다. 버전이나 사용량 필드가 없는 과거 JSON도 지원합니다. JSON 누락이나 형식 오류 시 기존 Markdown을 보존하고 오류를 냅니다. `--json` 결과는 언어와 무관합니다.
+실행마다 `report.md`와 `report.json`을 하나씩 저장합니다. `report --lang ko`는 최신 JSON을 읽어 출력하며 파일을 바꾸지 않습니다. 현재 리포트는 `schemaVersion: 3`을 사용합니다. JSON 누락·형식 오류·지원하지 않는 과거 버전에는 오류를 내고 기존 파일을 보존합니다. 자동 이관하지 않습니다. `--json`은 지원하는 리포트의 저장된 JSON 바이트를 그대로 출력하며 언어와 무관합니다.
 
 ### 코드 비교
 
@@ -193,7 +209,7 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 | 반영한 커밋 없음 | `NO_CHANGES`, patch 없음 |
 | 반영한 커밋의 두 tree가 같음 | 빈 patch |
 | Git 객체 누락 또는 patch 저장 실패 | `UNAVAILABLE`과 사유 기록. 실행 상태와 종료 코드 유지 |
-| 과거 JSON에 비교 필드 없음 | 비교 미저장 안내 |
+| 지원하지 않는 리포트 schema | 오류, 저장 파일 보존 |
 
 조회할 때 비교를 다시 수집하지 않습니다. `accepted.patch`는 리뷰 전 스냅샷으로 거절한 후보에도 남을 수 있습니다. 커밋된 변경은 최종 비교에서 확인하세요.
 
@@ -209,7 +225,7 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 | `2` | 실행 중단 또는 CLI 오류, 진단 확인 필요 |
 | `4` | 안전 불변식 위반, 증거로 worktree 보존 |
 
-`.refactor/runs/<id>/`에서 상태, 이벤트, 프로바이더 출력, 검증 근거와 리포트를 확인하세요. `last-run.json`은 최신 결과를 가리킵니다. 기록에 worktree 경로가 있어 기본 캐시 경로가 바뀌어도 과거 기록을 읽을 수 있습니다.
+`.refactor/runs/<id>/`에서 상태, 이벤트, 프로바이더 출력, 검증 근거와 리포트를 확인하세요. `last-run.json`은 최신 결과를 가리킵니다. 지원하는 기록은 현재 캐시 기본값과 독립적인 worktree 경로를 보관합니다. 지원하지 않는 과거 형식은 현재 CLI에서 읽거나 정리하지 않습니다.
 
 ## 로컬 개발 검사
 
@@ -223,7 +239,7 @@ go build -o /private/tmp/refactor-me ./cmd/refactor-me
 /private/tmp/refactor-me version --json
 ```
 
-Go는 `gofmt`, `go vet`, `go test -race`, `go build`로 검증합니다. 기본 개발·검증에는 Node가 필요하지 않습니다. 이전 Node 테스트의 대응 관계는 [계약 이관표](../docs/node-test-contracts.ko.md)에 기록합니다. [로컬 fixture 안내](fixtures/README.ko.md)에서 Go 예제와 선택적 JavaScript 예제를 만들 수 있습니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**
+Go는 `gofmt`, `go vet`, `go test -race`, `go build`로 검증합니다. 기본 개발·검증에는 Node가 필요하지 않습니다. 과거 [계약 이관표](../docs/node-test-contracts.ko.md)는 Node 제거 당시의 기준선이며 이전 설치·리포트 호환 계약은 현재 릴리스에 적용되지 않습니다. [로컬 fixture 안내](fixtures/README.ko.md)에서 Go 예제와 선택적 JavaScript 예제를 만들 수 있습니다. **실제 모델의 판단 품질과 CLI의 Skill 로딩은 별도 프로바이더 실행으로 확인해야 합니다.**
 
 Node 실행 차단까지 확인하려면 저장소 루트에서 다음 명령을 실행하세요. 이 검사는 프로젝트 도구의 Node 의존성을 확인하며 GitHub Actions 자체의 실행 환경을 제거하지는 않습니다.
 

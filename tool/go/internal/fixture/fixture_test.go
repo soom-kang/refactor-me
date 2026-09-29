@@ -34,8 +34,8 @@ func makeRepo(t *testing.T, o Options) string {
 	return dest
 }
 func TestParse(t *testing.T) {
-	o, err := Parse([]string{"--multi", "target", "--lang", "js", "--skills", "catalog"})
-	if err != nil || !o.Multi || o.Destination != "target" || o.Language != "js" || o.Skills != "catalog" {
+	o, err := Parse([]string{"--multi", "target", "--lang", "js"})
+	if err != nil || !o.Multi || o.Destination != "target" || o.Language != "js" {
 		t.Fatalf("%+v %v", o, err)
 	}
 	for _, args := range [][]string{{"--lang"}, {"--lang", "rust"}, {"--skills", "--multi"}, {"--unknown"}, {"one", "two"}} {
@@ -54,7 +54,7 @@ func TestExistingDestinationAndInvalidOptionsPreserveFiles(t *testing.T) {
 	if err := os.WriteFile(marker, []byte("unchanged"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	for _, o := range []Options{{Destination: dir, Language: "go"}, {Destination: dir, Language: "rust"}, {Destination: dir, Language: "go", Skills: filepath.Join(dir, "missing")}} {
+	for _, o := range []Options{{Destination: dir, Language: "go"}, {Destination: dir, Language: "rust"}} {
 		if _, err := Create(context.Background(), o); err == nil {
 			t.Fatal("existing or invalid accepted")
 		}
@@ -114,34 +114,12 @@ func TestGoFixtureContractsAndBaseline(t *testing.T) {
 		t.Fatalf("validation dirtied fixture: %s %v", out, err)
 	}
 }
-func TestSkillsAreInBaseCommit(t *testing.T) {
-	skills := t.TempDir()
-	if err := writeFile(skills, "review/SKILL.md", "# Review\n"); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFile(skills, "review/check.sh", "#!/bin/sh\nexit 0\n"); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(filepath.Join(skills, "review/check.sh"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	root := makeRepo(t, Options{Language: "go", Skills: skills})
-	info, err := os.Stat(filepath.Join(root, ".agents/skills/review/check.sh"))
-	if err != nil || info.Mode().Perm() != 0755 {
-		t.Fatalf("skill executable mode: %v %v", info, err)
-	}
-	if out, err := command(t, root, "git", "show", "HEAD:.agents/skills/review/SKILL.md"); err != nil || out != "# Review\n" {
-		t.Fatalf("skill not committed: %s %v", out, err)
-	}
-	link, err := os.Readlink(filepath.Join(root, ".claude/skills/review"))
-	if err != nil || link != "../../.agents/skills/review" {
-		t.Fatalf("link %s %v", link, err)
-	}
-	if err := os.Symlink("/etc/passwd", filepath.Join(skills, "review", "outside")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Create(context.Background(), Options{Destination: filepath.Join(t.TempDir(), "repo"), Language: "go", Skills: skills}); err == nil {
-		t.Fatal("copied unsafe skill symlink")
+func TestFixtureDoesNotInstallSkills(t *testing.T) {
+	root := makeRepo(t, Options{Language: "go"})
+	for _, name := range []string{".agents", ".claude"} {
+		if _, err := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Fatalf("unexpected skill installation: %s %v", name, err)
+		}
 	}
 }
 func TestJavaScriptFixtureDiscovery(t *testing.T) {
@@ -175,44 +153,5 @@ func TestJavaScriptFixtureExecution(t *testing.T) {
 		if err == nil || !strings.Contains(out, "TS2345") {
 			t.Fatalf("expected typecheck RED: %s %v", out, err)
 		}
-	}
-}
-
-func TestUnsafeSkillsFailBeforeDestinationCreation(t *testing.T) {
-	for _, scenario := range []string{"source-symlink", "top-level-symlink", "nested-destination", "aliased-destination"} {
-		t.Run(scenario, func(t *testing.T) {
-			base := t.TempDir()
-			source := filepath.Join(base, "skills")
-			if err := writeFile(source, "review/SKILL.md", "# Review\n"); err != nil {
-				t.Fatal(err)
-			}
-			dest := filepath.Join(base, "fixture")
-			switch scenario {
-			case "source-symlink":
-				alias := filepath.Join(base, "alias")
-				if err := os.Symlink(source, alias); err != nil {
-					t.Fatal(err)
-				}
-				source = alias
-			case "top-level-symlink":
-				if err := os.Symlink(filepath.Join(source, "review"), filepath.Join(source, "linked")); err != nil {
-					t.Fatal(err)
-				}
-			case "nested-destination":
-				dest = filepath.Join(source, "review", "fixture")
-			case "aliased-destination":
-				alias := filepath.Join(base, "alias")
-				if err := os.Symlink(filepath.Join(source, "review"), alias); err != nil {
-					t.Fatal(err)
-				}
-				dest = filepath.Join(alias, "fixture")
-			}
-			if _, err := Create(context.Background(), Options{Destination: dest, Language: "go", Skills: source}); err == nil {
-				t.Fatal("unsafe source accepted")
-			}
-			if _, err := os.Lstat(dest); !os.IsNotExist(err) {
-				t.Fatalf("destination created: %v", err)
-			}
-		})
 	}
 }

@@ -2,10 +2,8 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,6 +110,7 @@ func (r *runner) init() error {
 		return err
 	}
 	r.Info(renderDoctor(r.doctor))
+	r.engineConfig.Skills = r.doctor.Skills
 	if !r.doctor.OK {
 		return errors.New("doctor found a blocking problem")
 	}
@@ -280,11 +279,12 @@ func (r *runner) result() (surface.RunResult, error) {
 	}
 	providerMinutes := int(float64(usageTotals.MS)/60000 + 0.5)
 	report := map[string]any{
-		"schemaVersion": 2, "runId": state.RunID, "toolVersion": state.ToolVersion,
+		"schemaVersion": surface.ReportSchemaVersion, "runId": state.RunID, "toolVersion": state.ToolVersion,
 		"status": status, "reason": state.Terminal.Reason,
 		"durationMinutes": int(time.Since(r.started).Minutes() + 0.5), "providerMinutes": providerMinutes,
 		"repoRoot": state.RepoRoot, "targets": state.Targets, "baseCommit": state.BaseOID,
 		"baseBranch": state.BaseBranch, "branch": branch, "worktree": state.Worktree,
+		"skills": r.doctor.Skills, "providerVersions": r.doctor.ProviderVersions, "skillLiveProbe": r.doctor.LiveProbe,
 		"providers": state.Providers, "providerOrder": state.ProviderOrder,
 		"usage":    map[string]any{"totals": usageTotals, "byPhase": state.Usage.ByPhase},
 		"counters": state.Counters, "commits": state.Commits, "skipped": state.Seen.Skipped,
@@ -342,6 +342,4 @@ func (r *runner) skippedDescriptions() []string {
 	return out
 }
 
-func writeText(path, value string) error      { return os.WriteFile(path, []byte(value), 0o600) }
-func jsonText(value any) string               { data, _ := json.MarshalIndent(value, "", "  "); return string(data) }
-func copyReader(dst io.Writer, src io.Reader) { _, _ = io.Copy(dst, src) }
+func writeText(path, value string) error { return os.WriteFile(path, []byte(value), 0o600) }

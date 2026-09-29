@@ -14,6 +14,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/soom-kang/refactor-me/tool/go/internal/catalog"
+	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
 
 var Providers = []string{"claude", "codex"}
@@ -49,6 +52,7 @@ type AgentConfig struct {
 }
 type Config struct {
 	Agents map[string]AgentConfig `json:"agents"`
+	Skills *catalog.Catalog       `json:"-"`
 }
 type Request struct {
 	Phase   string
@@ -182,7 +186,7 @@ func (w *eventWriter) Write(p []byte) (int, error) {
 func runProcess(ctx context.Context, bin string, args []string, req Request, onEvent func(map[string]any)) processResult {
 	var r processResult
 	// CommandContext's default Cancel only kills the direct child. Manage the
-	// process group ourselves to match Node's detached process contract.
+	// process group ourselves so descendants cannot outlive a timed-out call.
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = req.CWD
 	cmd.Env = SanitizedEnv()
@@ -534,6 +538,18 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	if req.CWD == "" || req.RunDir == "" {
 		return Result{}, errors.New("provider cwd and run directory are required")
 	}
+	if cfg.Skills != nil {
+		if err := cfg.Skills.Verify(); err != nil {
+			return Result{}, fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
+		if err := cfg.Skills.CheckWorkspace(req.CWD); err != nil {
+			return Result{}, fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
+		if provider == "claude" && cfg.Skills.ClaudeRoot == "" {
+			return Result{}, fmt.Errorf("%w: missing claude skill snapshot", workspace.ErrUnsafe)
+		}
+		req.Body += cfg.Skills.Prompt(provider)
+	}
 	agent := cfg.Agents[provider]
 	bin := agent.Bin
 	if bin == "" {
@@ -558,6 +574,9 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	outPath := ""
 	if provider == "claude" {
 		args = ClaudeArgs(mode, req.Schema, agent.Model, effort, agent.MaxBudgetUSD)
+		if cfg.Skills != nil {
+			args = append(args, "--add-dir", cfg.Skills.ClaudeRoot)
+		}
 	} else {
 		outPath = filepath.Join(req.RunDir, "provider", req.Phase+"-last.json")
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
@@ -593,6 +612,15 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 		}
 	})
 	duration := time.Since(started).Milliseconds()
+	var unsafeErr error
+	if cfg.Skills != nil {
+		if err := cfg.Skills.Verify(); err != nil {
+			unsafeErr = fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
+		}
+		if err := cfg.Skills.CheckWorkspace(req.CWD); err != nil {
+			unsafeErr = errors.Join(unsafeErr, fmt.Errorf("%w: %v", workspace.ErrUnsafe, err))
+		}
+	}
 	rawBase := filepath.Join(req.RunDir, "provider", fmt.Sprintf("%s-%s-%s", req.Phase, provider, attempt))
 	if err := os.MkdirAll(filepath.Dir(rawBase), 0700); err != nil {
 		return Result{}, fmt.Errorf("create transcript directory: %w", err)
@@ -629,7 +657,13 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	p.ToolCalls = tools
 	p.DurationMS = duration
 	p.Processes = 1
-	return p, nil
+	if unsafeErr != nil {
+		p.OK = false
+		p.Failure = "UNSAFE"
+		p.Fatal = true
+		p.Detail = unsafeErr.Error()
+	}
+	return p, unsafeErr
 }
 
 // CallWithRepair checks the schema and makes at most one read-only repair call.
@@ -659,6 +693,9 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 	req.Body = RepairPrompt(NewNonce(), res.Detail, res.Text)
 	repair, err := CallProvider(ctx, provider, req, cfg, log)
 	if err != nil {
+		repair.Usage = MergeUsage(res.Usage, repair.Usage)
+		repair.DurationMS += res.DurationMS
+		repair.Processes += res.Processes
 		return repair, err
 	}
 	if repair.OK && req.Schema != nil {
@@ -692,4 +729,17 @@ func MergeUsage(a, b Usage) Usage {
 		u.CostUSD = &cost
 	}
 	return u
+}
+
+// ProviderVersion reads only local CLI version metadata with a bounded subprocess.
+func ProviderVersion(ctx context.Context, bin, cwd string) (string, error) {
+	result := runProcess(ctx, bin, []string{"--version"}, Request{CWD: cwd, Timeout: 10 * time.Second}, nil)
+	if result.killed || result.exitCode == nil || *result.exitCode != 0 {
+		return "", errors.New("provider version command failed")
+	}
+	line := firstLine(result.stdout)
+	if line == "" {
+		return "", errors.New("provider version command returned empty output")
+	}
+	return truncate(line, 256), nil
 }

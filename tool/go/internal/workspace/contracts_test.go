@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func migrationFiles(t *testing.T, files map[string]string) string {
+func contractFiles(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	for name, body := range files {
@@ -25,8 +25,8 @@ func migrationFiles(t *testing.T, files map[string]string) string {
 	return root
 }
 
-func TestMigrationDiscovery(t *testing.T) {
-	simple := migrationFiles(t, map[string]string{"package.json": `{"scripts":{"lint":"node lint.mjs","test":"node --test","typecheck":"node check.mjs","build":"node build.mjs"}}`})
+func TestContractDiscovery(t *testing.T) {
+	simple := contractFiles(t, map[string]string{"package.json": `{"scripts":{"lint":"node lint.mjs","test":"node --test","typecheck":"node check.mjs","build":"node build.mjs"}}`})
 	if commands := DiscoverArea(simple, "."); len(commands) != 4 {
 		t.Fatal(commands)
 	}
@@ -48,7 +48,7 @@ func TestMigrationDiscovery(t *testing.T) {
 		{"uv-declared", map[string]string{"pyproject.toml": "dependencies = ['ruff']\n", "uv.lock": ""}, [][]string{{"uv", "run", "--", "ruff", "check", "."}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			root := migrationFiles(t, tc.files)
+			root := contractFiles(t, tc.files)
 			var got [][]string
 			for _, c := range DiscoverArea(root, ".") {
 				got = append(got, c.Argv)
@@ -64,7 +64,7 @@ func TestMigrationDiscovery(t *testing.T) {
 			if runner.lock != "" {
 				files[runner.lock] = ""
 			}
-			root := migrationFiles(t, files)
+			root := contractFiles(t, files)
 			d, err := DiscoverCommands(root, "")
 			if err != nil {
 				t.Fatal(err)
@@ -81,7 +81,7 @@ func TestMigrationDiscovery(t *testing.T) {
 	}
 }
 
-func TestMigrationJVMWrapperAndAreas(t *testing.T) {
+func TestContractJVMWrapperAndAreas(t *testing.T) {
 	parent := t.TempDir()
 	if err := os.WriteFile(filepath.Join(parent, "build.gradle"), []byte("plugins { id 'java' }"), 0600); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestMigrationJVMWrapperAndAreas(t *testing.T) {
 		t.Fatal("outside-root build overshadowed root")
 	}
 
-	root := migrationFiles(t, map[string]string{"build.gradle": "plugins { id 'java' }", "api/build.gradle": "plugins { id 'java' }", "web/package.json": `{"scripts":{"test":"unit"}}`, "gradlew": "#!/bin/sh\nprintf 'wrapper invoked'\n"})
+	root := contractFiles(t, map[string]string{"build.gradle": "plugins { id 'java' }", "api/build.gradle": "plugins { id 'java' }", "web/package.json": `{"scripts":{"test":"unit"}}`, "gradlew": "#!/bin/sh\nprintf 'wrapper invoked'\n"})
 	if got := DetectAreas(root, 3); !reflect.DeepEqual(got, []string{".", "web"}) {
 		t.Fatal(got)
 	}
@@ -131,8 +131,8 @@ func TestMigrationJVMWrapperAndAreas(t *testing.T) {
 	}
 }
 
-func TestMigrationScopeBoundaries(t *testing.T) {
-	root := migrationFiles(t, map[string]string{"app/web/src/a.go": "package a", "README.md": "x"})
+func TestContractScopeBoundaries(t *testing.T) {
+	root := contractFiles(t, map[string]string{"app/web/src/a.go": "package a", "README.md": "x"})
 	if err := os.Symlink(t.TempDir(), filepath.Join(root, "escape")); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestMigrationScopeBoundaries(t *testing.T) {
 	}
 }
 
-func TestMigrationValidationSignatures(t *testing.T) {
+func TestContractValidationSignatures(t *testing.T) {
 	if !reflect.DeepEqual(ExtractSignature("testThing(pkg.Test) -- Time elapsed: 0.04 s <<< FAILURE!"), ExtractSignature("testThing(pkg.Test) -- Time elapsed: 99.99 s <<< FAILURE!")) {
 		t.Fatal("elapsed duration changed signature")
 	}
@@ -190,8 +190,8 @@ func TestMigrationValidationSignatures(t *testing.T) {
 	}
 }
 
-func TestMigrationDifferentialLadder(t *testing.T) {
-	root := migrationFiles(t, map[string]string{"check": "#!/bin/sh\necho src/a.go:1\nexit 1\n"})
+func TestContractDifferentialLadder(t *testing.T) {
+	root := contractFiles(t, map[string]string{"check": "#!/bin/sh\necho src/a.go:1\nexit 1\n"})
 	if err := os.Chmod(filepath.Join(root, "check"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestMigrationDifferentialLadder(t *testing.T) {
 	}
 }
 
-func TestMigrationGateContracts(t *testing.T) {
+func TestContractGateContracts(t *testing.T) {
 	clean := func() GateFacts {
 		return GateFacts{Changed: []string{"src/a.go"}, PerFile: map[string]FileStat{}, AddedByFile: map[string][]string{}, ProspectiveTree: "new"}
 	}
@@ -312,7 +312,7 @@ func TestMigrationGateContracts(t *testing.T) {
 	}
 }
 
-func TestMigrationWorktreeArtifacts(t *testing.T) {
+func TestContractWorktreeArtifacts(t *testing.T) {
 	root, wt, base, fp := fixtureRepo(t)
 	if head, err := HeadOID(wt); err != nil || head != base {
 		t.Fatal(head, err)
@@ -370,7 +370,7 @@ func TestMigrationWorktreeArtifacts(t *testing.T) {
 	}
 }
 
-func TestMigrationWorktreeSplitAndRollback(t *testing.T) {
+func TestContractWorktreeSplitAndRollback(t *testing.T) {
 	root, wt, base, fp := fixtureRepo(t)
 	// This source-only split catches numstat implementations that omit untracked files.
 	if err := os.WriteFile(filepath.Join(wt, "src/a.go"), []byte("package a\n"), 0600); err != nil {
@@ -416,7 +416,7 @@ func TestMigrationWorktreeSplitAndRollback(t *testing.T) {
 	}
 }
 
-func TestMigrationAuditDirectoriesAndSelfIgnore(t *testing.T) {
+func TestContractAuditDirectoriesAndSelfIgnore(t *testing.T) {
 	root, wt, _, _ := fixtureRepo(t)
 	dir, err := EnsureRefactorDir(root)
 	if err != nil {
@@ -438,7 +438,7 @@ func TestMigrationAuditDirectoriesAndSelfIgnore(t *testing.T) {
 	}
 }
 
-func TestMigrationNetSizeRules(t *testing.T) {
+func TestContractNetSizeRules(t *testing.T) {
 	for _, tc := range []struct {
 		category        string
 		ins, del, lines int
@@ -468,7 +468,7 @@ func TestMigrationNetSizeRules(t *testing.T) {
 	}
 }
 
-func TestMigrationIgnoredHydrationAndBaseline(t *testing.T) {
+func TestContractIgnoredHydrationAndBaseline(t *testing.T) {
 	root, wt, base, _ := fixtureRepo(t)
 	// Repository-local excludes apply to both worktrees without changing a tracked fixture file.
 	exclude, err := Git(root, "rev-parse", "--git-path", "info/exclude")
@@ -521,7 +521,7 @@ func TestMigrationIgnoredHydrationAndBaseline(t *testing.T) {
 	}
 }
 
-func TestMigrationRealGateRefusals(t *testing.T) {
+func TestContractRealGateRefusals(t *testing.T) {
 	root, wt, base, fp := fixtureRepo(t)
 	for _, tc := range []struct {
 		name, path, body, code string
@@ -567,7 +567,7 @@ func TestMigrationRealGateRefusals(t *testing.T) {
 	}
 }
 
-func TestMigrationAffectedAreaLadder(t *testing.T) {
+func TestContractAffectedAreaLadder(t *testing.T) {
 	root := t.TempDir()
 	for _, area := range []string{"app", "other"} {
 		if err := os.Mkdir(filepath.Join(root, area), 0700); err != nil {

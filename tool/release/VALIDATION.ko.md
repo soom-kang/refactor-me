@@ -2,7 +2,7 @@
 
 검증일: 2026-09-29, macOS Apple Silicon, Go 1.27.1, Homebrew 7.0.6.
 
-2026-09-29 추가 검증에서 **Codex·Claude 실제 실행이 모두 통과**했다. 사용자가 남은 검증과 최종 배포 진행을 승인했다. 검증한 구현 commit은 `f155cfee4bc298eaeaf519032ee73911e0f15987`이며, 이번 릴리스 준비 변경은 문서와 검증 결과 기록이다. 이 문서는 태그 생성 전의 검증 기록이고, 공개 asset의 정확한 commit·hash는 배포물의 BUILD-INFO와 SHA256SUMS를 기준으로 한다.
+2026-09-29 추가 검증에서 **Codex·Claude 실제 실행이 모두 통과**했다. 사용자가 남은 검증과 최종 배포 진행을 승인했다. 검증한 구현 commit은 `f155cfee4bc298eaeaf519032ee73911e0f15987`이며, 이번 릴리스 준비 변경은 문서와 검증 결과 기록이다. 릴리스 commit은 `cf31fdf797a68d6bf5cab8a0f22eff9b55766071`이다. 아래에는 태그 생성 전 검증과 게시 후 공개 설치 결과를 구분해서 기록한다. 공개 asset의 commit·hash는 배포물의 BUILD-INFO와 SHA256SUMS로도 확인할 수 있다.
 
 ## 확인한 결과
 
@@ -21,8 +21,8 @@
 | 문서 cold read | 보완 완료 | 별도 컨텍스트에서 EN/KO README·튜토리얼과 Homebrew 절차 검토. 개발 바이너리 경로 치환 안내 추가 |
 | 실제 사용자 환경의 비호출 doctor | PASS | 서로 다른 임시 Go fixture에서 Codex·Claude 각각 `--no-live-probe --json`, `ok: true` |
 | 실제 provider 세션 | PASS | Codex·Claude 각각 1 cycle·1 refactor commit, 원본 HEAD·index·추적 파일 불변, 결과 branch 확인 |
-| 원격 CI | PASS | 구현 commit `f155cfe`의 [Verify](https://github.com/soom-kang/refactor-me/actions/runs/36501246043) 통과. 새 릴리스 태그 CI는 게시 전 별도 확인 |
-| 공개 설치 | PENDING | 태그 CI 통과·prerelease와 tap 게시 후 공개 소스 설치를 확인 |
+| 원격 CI | PASS | [태그 Verify](https://github.com/soom-kang/refactor-me/actions/runs/36502201222) 통과 후 게시 |
+| 공개 설치 | PASS | 공개 URL 재다운로드·checksum 검증, 실제 brew install/test/audit, 두 저장소의 init/doctor/report 경로 분리 확인 |
 
 기본 검증은 JavaScript 예제를 생성하고 명령 탐지를 확인하지만 선택적 Node 실행 검증은 포함하지 않는다. 별도 Mac 검증은 합의에 따라 제외했다.
 
@@ -60,4 +60,17 @@ Codex는 선택한 전역 Skill 절대 경로를 읽었고 Claude는 전용 복�
 
 원격 `main`과 로컬 구현 commit이 일치하고 branch protection·ruleset은 없었다. 전용 tap은 404, 이번 버전 태그·릴리스는 미발견이었다. 이전 공개 태그와 자산은 수정하지 않는다.
 
-사용자의 배포 승인에 따라 릴리스 준비 commit, annotated tag, source archive·ZIP·SHA256SUMS, GitHub draft 및 tap을 준비한다. 태그 CI 통과 후 prerelease를 게시하고 공개 source에서 Homebrew install/test 및 저장소별 상태 경로를 확인한다. 실패하면 공개 완료로 기록하지 않는다.
+사용자의 배포 승인에 따라 릴리스 commit과 annotated tag를 반영하고, source archive·ZIP·SHA256SUMS를 draft에 첨부했다. GitHub digest와 로컬 SHA-256 일치를 확인한 뒤 태그 CI 통과 후 prerelease를 공개했다.
+
+## 게시 후 확인
+
+- [v0.10.0-beta.1 prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.1): 2026-09-29 공개, draft=false, prerelease=true.
+- [Homebrew tap](https://github.com/soom-kang/homebrew-refactor-me): 공개 저장소, formula commit `61500de`.
+- Source SHA-256: `9a2867a0d4ae652df27e05c952964e4dc0db155df53a813f8a6c2000a0ca80a7`.
+- ZIP SHA-256: `b556e0cef7966abcfcc86928070b79b84f1e3d84f4aa146efcbad82b6ab39990`.
+- 인증 없는 공개 다운로드로 두 자산을 다시 받고 SHA256SUMS와 일치를 확인했다.
+- `brew install soom-kang/refactor-me/refactor-me`, `brew test`, `brew audit --strict` 통과. 설치된 `/opt/homebrew/bin/refactor-me`가 버전 `0.10.0-beta.1`, commit `cf31fdf797a68d6bf5cab8a0f22eff9b55766071`, darwin/arm64를 보고했다.
+- 공백이 있는 두 임시 Git 저장소에서 반복 init, `doctor --no-live-probe --target src`, 서로 다른 report JSON 원문 출력을 확인했다. 설정·기록은 각 `.refactor`에 분리되고 `.refactor/bin`은 생성되지 않았으며 원본 HEAD·index·추적 파일은 그대로였다.
+- 공개 Homebrew 설치는 유지했다. 검증 도구가 활성화한 Homebrew 개발 모드는 원복했고, 사용자의 전역 Skill·설정 및 기존 공개 태그·자산은 변경하지 않았다.
+
+게시 후 CLI 검증에서는 모델을 추가 호출하지 않았다. 별도 Mac 검증과 선택적 JavaScript 실행 검증은 이번 범위에서 제외했다.

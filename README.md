@@ -10,6 +10,8 @@ Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and 
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
+<a id="quick-start"></a>
+
 ## Install
 
 Prepare macOS Apple Silicon, Homebrew, Git, an authenticated `codex` or `claude` CLI, and the target project's validation tools. The Homebrew formula builds from pinned source and installs Go as a build dependency. refactor-me has no Go or Node runtime dependency. The external Skill installer below requires Node.js.

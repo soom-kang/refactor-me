@@ -1,179 +1,165 @@
-# refactor-me 실행 가이드
+# 첫 리팩토링 실행하기
 
-[프로젝트](../docs/README.ko.md) · [English](TUTORIAL.md) · [상세 문서](README.ko.md) · [Workflow](WORKFLOW.ko.md)
+[프로젝트](../docs/README.ko.md) · [English](TUTORIAL.md) · [명령·설정](README.ko.md)
 
-대상 저장소를 준비한 뒤 아래 5단계를 진행하세요. 각 명령의 실행 위치를 확인하고 예시 경로를 실제 경로로 바꾸세요.
+macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-<a id="대상-저장소-준비"></a>
+<a id="prepare-the-target"></a>
 
-## 1. 대상 저장소 준비
+## 1. 저장소 준비
 
-macOS Apple Silicon과 Homebrew를 사용합니다. Formula는 Go를 빌드 의존성으로 관리하며 수동 소스 빌드에는 Go 1.27이 필요합니다. 리팩터링할 저장소에서 확인하세요.
+커밋이 하나 이상 있는 Git 저장소를 사용합니다. 추적하지 않는 파일까지 포함해 기존 작업을 마무리하거나 따로 보관하세요. 프로젝트 의존성을 설치하고 빌드·테스트도 한 번 실행합니다.
 
-```bash
+```sh
 cd /path/to/target-repo
 git rev-parse --show-toplevel
 git status --short
 ```
 
-기존 작업을 마치거나 별도로 보관하세요. 미추적 파일을 포함해 원본 checkout이 깨끗해야 합니다.
+`git status --short`의 출력이 없어야 합니다. refactor-me 실행 중에도 원본 checkout을 변경하지 마세요.
 
-프로젝트 의존성을 설치하고 빌드와 테스트를 한 번 실행하세요. 필요한 캐시를 준비하고 기존 실패를 확인하는 단계입니다.
+사용할 provider CLI의 안내에 따라 설치와 인증을 마친 뒤 상태를 확인합니다.
 
-사용할 프로바이더의 인증 상태를 확인합니다.
-
-```bash
+```sh
 codex login status
-# Claude Code를 사용하는 경우:
+# Claude Code를 쓴다면:
 claude auth status
 ```
 
-프로바이더 호출에는 네트워크가 필요하며 해당 계정의 사용량을 소비합니다.
+<a id="install-the-tool-and-skills"></a>
 
-<a id="도구와-skill-설치"></a>
+## 2. CLI와 Skills 설치
 
-## 2. 도구와 전역 Skill 설치
-
-`0.10.0-beta.1`은 전용 Homebrew tap을 통해 macOS Apple Silicon을 지원합니다. [개발 빌드](../docs/README.ko.md#설치)도 사용할 수 있습니다.
-
-개발 빌드를 사용한다면 아래 모든 명령의 `refactor-me`를 `/private/tmp/refactor-me`로 바꿔 실행하세요.
+Homebrew와 Skill 설치기에 필요한 Node.js를 준비합니다. Homebrew가 CLI 빌드에 필요한 Go를 관리합니다. 설치된 CLI 실행에는 Go나 Node가 필요하지 않습니다.
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
 refactor-me version --json
-npx skills add \
-  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
-refactor-me init --repo /path/to/target-repo
-refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-Homebrew는 Go로 CLI를 빌드하고 PATH에서 실행할 수 있게 설치합니다. 외부 `npx` 설치기에는 Node.js가 필요하지만 CLI 실행에는 필요하지 않습니다. Skill의 공통 원본은 `~/.agents/skills`입니다. 이 실행 흐름을 위해 대상 프로젝트에 Skill을 커밋하지 마세요. provider 탐색 경로에 이름이 같고 원본은 다른 Skill이 있으면 실행을 막고 경로를 알려줍니다. 같은 원본으로 해석되는 링크는 허용합니다.
+CLI 버전 `0.10.0-beta.1`, 플랫폼 `darwin`, 아키텍처 `arm64`를 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
-`init`은 선택 사항이며 기존 파일을 덮어쓰지 않고 `.refactor/config.json`을 만듭니다. 바이너리나 Skills를 복사하지 않습니다. 인자 없는 `refactor-me`는 도움말을 표시합니다.
-
-Codex는 선택한 전역 Skill 경로를 사용합니다. Claude에는 실행별 전용 복사본을 `--add-dir`로 전달하고 `--setting-sources project`로 사용자 설정을 계속 제외합니다. provider 호출 전후 Skill 내용이 예상과 다르게 바뀌면 결과 반영을 중단합니다.
-
-디스크 전용 doctor 검사는 진단 기록을 쓰지만 실제 세션의 Skill 로딩을 입증하지는 않습니다. 인증된 provider 세션까지 확인하려면 아래 명령을 별도로 실행하세요. 모델을 호출하고 계정 사용량을 소비합니다.
+설정을 만든 뒤 모델 호출 없이 Codex 실행 준비를 확인합니다.
 
 ```sh
-refactor-me doctor --repo /path/to/target-repo
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo \
+  --provider codex --fallback none --no-live-probe
 ```
 
-이 Beta는 Apple 서명·공증을 제공하지 않습니다. macOS가 다운로드한 실행 파일을 차단하면 [Apple의 개별 앱 열기 안내](https://support.apple.com/en-gb/102445)를 따르세요. 시스템 전체 보안 설정을 끄지 마세요.
+Claude Code를 쓰려면 doctor와 run 모두에 `--provider claude --fallback none`을 사용합니다. 실행을 막는 `FAIL` 항목을 해결한 뒤 다음 단계로 넘어가세요. `init`은 기존 설정을 덮어쓰지 않습니다. 이 안내에서는 다음 단계에서 설정 파일을 수정하므로 먼저 실행하세요. 초기화를 생략하면 내장 기본값을 사용하며, 인자 없는 `refactor-me`는 도움말을 표시합니다.
 
-<a id="한도-설정과-실행"></a>
+`--no-live-probe`는 모델 호출을 생략하지만 provider 실행 파일을 확인하고 임시 진단 환경을 만듭니다. 실제 세션의 Skill 인식을 확인하려면 이 옵션 없이 doctor를 실행하세요. 이때 provider 사용량이 발생합니다.
+
 <a id="set-limits-and-run"></a>
 
-## 3. 실행 한도 설정
+## 3. 첫 실행 제한 설정
 
-`init` 후 `/path/to/target-repo/.refactor/config.json`에서 첫 실행의 `policy.max_commits`를 `1`, `policy.max_wall_clock_min`을 적절한 값(예: `30`)으로 설정하세요. Characterization 테스트 커밋은 이 리팩터링 커밋 한도와 별도로 셉니다.
+대상 저장소의 `.refactor/config.json`을 엽니다. 기존 객체 안에서 아래 항목을 수정하세요. 전체 파일을 대체하는 예시가 아닙니다.
 
-**전체 금액 예산은 강제하지 않습니다.** Claude 예산 옵션도 실행 전체의 한도가 아닙니다. [설정과 기본값](README.ko.md#설정)을 확인하세요.
+```json
+{
+  "agents": {
+    "codex": {"timeout_sec": 300},
+    "claude": {"timeout_sec": 300}
+  },
+  "policy": {
+    "max_cycles": 1,
+    "max_commits": 1,
+    "max_wall_clock_min": 20
+  }
+}
+```
+
+첫 시도를 1 cycle과 리팩토링 커밋 1개로 제한하는 예시입니다. 기존 동작을 기록하는 characterization 테스트 커밋은 별도로 계산합니다. provider timeout은 호출마다 적용하며, 전체 시간은 작업 단위 사이에서 확인하므로 정확히 그 시각에 종료되지는 않습니다.
+
+**전체 금액 상한은 없습니다.** 모델 호출, 재시도, 실제 세션을 확인하는 doctor가 계정 사용량을 소비합니다. 제한을 늘리기 전에 [전체 설정](README.ko.md#configuration)을 확인하세요.
 
 ## 4. 실행
 
-Codex만 사용하려면 대상 저장소에서 실행하세요.
+어느 디렉터리에서든 Codex만 사용해 실행할 수 있습니다.
 
-```bash
-refactor-me run --provider codex --fallback none
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback none
 ```
 
-Claude만 사용하려면:
+Claude Code를 쓰려면 `codex`를 `claude`로 바꿉니다. Codex 실패 시 Claude로 전환하려면 `--provider codex --fallback claude`를 사용합니다. provider 옵션을 생략해도 이 순서로 실행합니다. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다.
 
-```bash
-refactor-me run --provider claude --fallback none
+특정 디렉터리에서 후보를 찾으려면 다음과 같이 실행합니다.
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --target app/web --target app/api \
+  --provider codex --fallback none
 ```
 
-Claude를 대체 프로바이더로 사용하려면:
+추적 중인 소스 파일이 있는 디렉터리를 지정하세요. 저장소 전체를 조사하려면 `--target`을 생략합니다.
 
-```bash
-refactor-me run --provider codex --fallback claude
-```
+| 경로 | 해석 기준 |
+| --- | --- |
+| 상대 경로 `--repo` | 호출한 디렉터리에서 경로를 찾은 뒤 Git 루트 선택 |
+| `--repo`와 함께 쓴 `--target` | 선택한 Git 루트 |
+| `--repo` 없이 쓴 `--target` | 호출한 디렉터리 |
 
-특정 폴더에서 후보를 찾으려면:
+실제 경로가 저장소 밖이면 거부합니다. **target은 후보 조사 범위입니다.** 호출부 수정이나 검증 명령은 저장소 안의 다른 디렉터리까지 포함할 수 있습니다.
 
-```bash
-refactor-me run --target app/web
-```
+![준비 상태를 확인하고 격리 worktree에서 실행한 뒤, 저장된 결과와 변경 사항을 검토합니다.](../docs/assets/workflow/execution.ko.png)
 
-`--repo`를 생략한 `--target`은 현재 디렉터리 기준입니다. 다른 위치에서 실행하려면 `refactor-me run --repo /path/to/target-repo --target app/web`을 사용하세요. 이때 target은 선택한 Git 루트 기준입니다. `--repo`에는 저장소나 그 안의 디렉터리를 지정할 수 있으며 상대 경로는 호출 디렉터리 기준입니다. 실제 경로가 선택한 저장소 밖이면 거부합니다. 호출부 수정과 검증은 저장소 안에서 target 밖까지 이어질 수 있습니다. 실행 중에는 원본 checkout을 수정하지 마세요.
-
-통과한 변경은 `refactor/auto-*` 로컬 브랜치에 반영합니다. 후보 소진, 실행 한도, 반복 실패, 프로바이더 사용 불가, 안전 규칙 위반이 종료 조건입니다.
-
-**종료 코드 `0`도 부분 완료일 수 있습니다.** 다음 단계에서 상태를 확인하세요.
-
-<a id="결과-확인"></a>
+<a id="read-the-result"></a>
 
 ## 5. 결과 확인
 
-```bash
-refactor-me report
-refactor-me report --lang ko
-refactor-me report --json
+명령이 성공으로 끝나도 보고서를 읽으세요.
+
+```sh
+refactor-me report --repo /path/to/target-repo
+refactor-me report --repo /path/to/target-repo --lang ko
+refactor-me report --repo /path/to/target-repo --json
 ```
 
-실행할 때부터 리포트와 종료 요약을 한국어로 저장하려면:
+보고서 조회는 모델을 호출하지 않습니다. 언어를 바꿔 조회해도 저장된 보고서는 그대로이며, `--json`은 지원하는 저장 JSON의 원문 바이트를 출력합니다.
 
-```bash
-refactor-me run --provider codex --fallback none --lang ko
-```
+1. 종료 상태와 중단 이유를 확인합니다. 종료 코드 `0`에는 부분 완료도 포함됩니다.
+2. 검증 결과, 생략한 검사, provider 사용량을 확인합니다. 비용이 없으면 0원이 아니라 미확인입니다.
+3. 로컬 결과 branch와 `.refactor/runs/<id>/changes.patch`를 읽습니다. 발행한 변경이 없으면 patch나 결과 branch가 없을 수 있습니다.
+4. diff를 검토하고 생략된 통합·브라우저 검사를 실행한 뒤 직접 병합합니다.
 
-언어를 바꿔 조회해도 저장된 `report.md`는 유지합니다. `--lang`은 `run`과 `report`에 적용하며 doctor와 진행 로그는 영어입니다. 번역 대상과 지원하는 JSON 형식은 [리포트와 언어](README.ko.md#리포트와-언어)를 확인하세요.
+결과 branch는 `refactor/auto-*` 형식입니다. CLI는 자동 병합, push, 배포를 하지 않습니다. `accepted.patch`는 중간 검토 자료이며, 최종 발행한 변경은 `changes.patch`로 확인합니다.
 
-리포트에서 커밋한 변경, 제외한 후보, 검증 결과, 사용량과 worktree 경로를 확인하세요. 미보고 비용은 0이 아니며 일부만 집계한 금액은 최소 금액입니다.
+## 중단했을 때
 
-파일 통계와 diff 미리보기를 읽고 `.refactor/runs/<id>/changes.patch`에서 전체 변경을 확인하세요. 비교는 시작·최종 반영 커밋의 고정 OID를 사용합니다. 비교 실패는 실행 결과와 별개이므로 사유를 확인하세요.
-
-Git에서 다시 확인하려면 `codeComparison`의 시작·최종 반영 커밋 전체 OID를 사용합니다.
-
-```bash
-git log --oneline <base-commit>..<published-commit>
-git diff <base-commit> <published-commit>
-```
-
-병합 전에는 diff를 검토하고 생략된 서비스, 브라우저, 통합 검사를 실행하세요. 후보 검증은 변경 영역을 선택하고 루트 영역이 있으면 함께 검사합니다. 모든 영역의 통과를 보장하지는 않습니다. 기준선과 같은 실패도 통과로 세지 않습니다.
-
-단계별 검사는 [Workflow](WORKFLOW.ko.md)를 참고하세요. `handoff.md`는 중간 기록이며 최종 결과는 리포트에서 확인합니다.
-
-## 중단된 실행 확인
-
-| 증상 | 다음 조치 |
+| 신호 | 다음 행동 |
 | --- | --- |
-| 전역 Skill 누락 | `~/.agents/skills` 아래 해당 경로를 확인하고 필요하면 전역 설치 명령 재실행 |
-| Skill 이름 충돌 | 표시된 provider·프로젝트 경로를 확인하고 사용할 원본 선택. CLI가 파일을 삭제하지 않음 |
-| 실행 중 Skill 변경 | 진단 기록 보존 후 카탈로그 수정을 마치고 새 실행 시작 |
-| 원본 checkout에 변경 있음 | 작업을 마치거나 별도 보관 후 doctor 재실행 |
-| 사용할 기준선 없음 | 명령 실패, 의존성과 빌드 캐시 확인, 탐색이 부족하면 검증 명령 직접 지정 |
-| 실행할 후보 없음 | 제외 사유 확인, 변경 없이 끝날 수 있음 |
-| 부분 완료 | 다시 실행하기 전에 커밋된 변경과 종료 사유 확인 |
-| 안전 정지, 종료 코드 `4` | Worktree와 진단 기록을 보존하고 위반한 불변식 조사 |
-| 리포트 JSON 누락 또는 형식 오류 | 원본 JSON이 있으면 복구, 기존 Markdown은 덮어쓰지 않음 |
+| Skill 누락·충돌·변경 | doctor가 표시한 경로를 확인하고 실행 사이에 전역 설치 수정 |
+| 원본 변경 또는 잘못된 target | 기존 작업을 마무리하거나 경로를 고친 뒤 doctor 재실행 |
+| 기준선 검증 실패 | 의존성과 [검증 명령](README.ko.md#validation-commands) 확인. 최소 한 명령은 통과해야 함 |
+| 변경 없음 또는 부분 완료 | 제외 이유와 실행 제한을 읽은 뒤 재실행 판단 |
+| 종료 코드 `4`, 안전 중단 | worktree와 진단 기록을 보존하고 원인 조사 |
 
-검증 명령을 직접 지정하는 방법은 [검증 명령](README.ko.md#검증-명령)을 참고하세요. 실행 기록에는 소스 일부와 명령 출력이 포함될 수 있으므로 공유 전에 검토하세요.
+종료 코드 `2`는 실행 중단 또는 CLI 오류입니다. stderr와 남아 있는 실행 기록을 확인하세요. 설정 schema `2`, 보고서 schema `3`을 지원하며 다른 형식은 파일을 바꾸지 않고 오류로 알립니다. 보고서가 없거나 잘못되었다고 해서 실행이 성공한 것은 아닙니다.
+
+기록에는 소스 일부와 명령 출력이 들어갈 수 있으므로 공유 전에 확인하세요. 복구와 결과 발행 조건은 [동작 방식](WORKFLOW.ko.md)에 설명되어 있습니다.
 
 ## 업데이트와 제거
+
+CLI를 업데이트한 뒤 모델 호출 없는 doctor 검사를 반복합니다.
 
 ```sh
 brew upgrade soom-kang/refactor-me/refactor-me
 refactor-me version --json
-refactor-me doctor --repo /path/to/target-repo --no-live-probe
+refactor-me doctor --repo /path/to/target-repo \
+  --provider codex --fallback none --no-live-probe
 ```
 
-업데이트는 모든 프로젝트가 사용하는 실행 파일을 바꿉니다. 먼저 릴리스 노트를 확인하세요. 전역 Skills는 별도로 관리합니다. 고정한 카탈로그를 업데이트하기 전에 로컬 수정 사항을 확인하고 실행 중에는 업데이트하지 마세요.
+업데이트는 이 실행 파일을 쓰는 모든 프로젝트에 적용됩니다. Skills는 로컬 수정 사항을 확인한 뒤 2단계 설치 명령으로 따로 갱신합니다. 실행 도중에는 Skills를 바꾸지 마세요.
 
-현재 설정에는 `schema_version: 2`, 리포트에는 `schemaVersion: 3`이 필요합니다. 이전 형식에는 오류를 내며 자동 변환·삭제하지 않습니다. 마이그레이션이나 Node rollback 명령은 없습니다. 이전 설정이 있다면 활성 `.refactor/config.json` 경로 밖에 보관한 뒤 `init`을 실행하고 검토한 설정값을 새 형식에 옮기세요. 과거 실행 기록은 별도로 보관할 수 있지만 현재 CLI로 렌더링할 수는 없습니다. `init` 자체는 기존 파일을 옮기거나 덮어쓰지 않습니다.
-
-정리 가능한 완료 worktree를 제거하려면:
-
-```sh
-refactor-me clean --repo /path/to/target-repo
-```
-
-부분 완료·미완료·안전 정지 worktree는 조사할 수 있도록 보존합니다. Homebrew 실행 파일을 제거하려면:
+`refactor-me clean --repo /path/to/target-repo`는 제거 조건을 충족한 완료 worktree를 정리합니다. 부분 완료나 안전 중단 worktree는 조사할 수 있도록 남깁니다.
 
 ```sh
 brew uninstall refactor-me
 ```
 
-제거해도 프로젝트의 설정·리포트·worktree·결과 브랜치와 전역 Skills는 남습니다. CLI의 프로젝트별 `install`·`uninstall` 명령은 더 이상 제공하지 않으며 이전 로컬 실행 파일도 자동 삭제하지 않습니다. `command -v refactor-me`와 `version --json`으로 사용하는 실행 파일을 확인하세요. 과거 프로젝트 파일은 내용을 확인한 뒤 직접 정리하세요.
+제거 후에도 프로젝트 설정, 보고서, worktree, 결과 branch, 전역 Skills는 남습니다. 이 Beta는 Apple 서명·공증을 제공하지 않습니다. 직접 다운로드와 경고 대응은 [설치 안내](release/INSTALL.ko.md)를 참고하세요.

@@ -1,43 +1,85 @@
-# 리팩터링 Workflow
+# 리팩토링 실행 과정
 
-[프로젝트](../docs/README.ko.md) · [English](WORKFLOW.md) · [상세 문서](README.ko.md) · [실행 가이드](TUTORIAL.ko.md)
+[프로젝트](../docs/README.ko.md) · [English](WORKFLOW.md) · [사용법](TUTORIAL.ko.md) · [명령·설정](README.ko.md)
 
-먼저 전체 흐름을 확인하고 필요한 단계의 JSON 예시를 펼쳐 보세요. 사용자가 설정과 실행을 시작하면 컨트롤러가 프로바이더의 JSON 응답을 검사해 진행 여부를 결정합니다. 단계마다 사용자 승인을 받지는 않습니다.
+실행 제한을 설정하고 `run`을 시작하면 단계마다 승인하지 않아도 컨트롤러가 검사와 실행을 이어갑니다. 코드는 격리된 Git worktree에서 수정하며, 통과한 커밋을 로컬 결과 branch에 발행합니다.
 
-기본 fixture는 Go이며, 아래 예시는 `--lang js`로 생성합니다. 예시는 [선택적 JavaScript fixture](fixtures/README.ko.md#javascript-예제선택)의 `src/legacy-parser.mjs` 삭제입니다. `parseLegacy`와 `legacyVersion`을 내보내지만 기존 진입점의 호출은 없습니다. 같은 fixture의 `plugin-x`는 레지스트리가 이름으로 불러오므로 정적 import 검색만으로는 참조를 찾을 수 없습니다.
+## 전역 설치와 프로젝트별 상태
 
-**JSON은 설명용 예시이며 실제 응답이나 실행 성공 기록이 아닙니다.** 한영판의 예시는 같고 현재 [응답 스키마](go/internal/engine/schemas.json)를 따릅니다. 질문은 [단계별 프롬프트](go/internal/engine/templates/)를 요약했습니다.
+![Homebrew와 전역 Skills는 공유하고, 설정과 보고서는 선택한 저장소에 따로 저장합니다.](../docs/assets/workflow/installation.ko.png)
 
-## 전체 흐름
+`--repo`는 실행 파일의 위치와 관계없이 대상 저장소를 선택합니다. 저장소마다 `.refactor` 설정, 잠금, 실행 기록이 따로 있습니다. worktree의 기본 상위 경로는 `~/.cache/refactor-me`입니다.
 
-![전체 흐름: 초기화, 기준선, 후보 조사, 실행 준비, 구현, 검증, 리뷰, 반영과 최종 리포트.](../docs/assets/workflow/overview.ko.png)
+Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude에는 실행별 `.claude/skills` 복사본을 `--add-dir`로 제공하며, 프로젝트 설정만 읽도록 하고 도구·MCP 접근을 제한합니다. provider 호출 전후 원본과 복사본의 hash를 확인하고, 예상하지 못한 변경이 있으면 결과 발행을 중단합니다. 자세한 내용은 [Skill 해석](README.ko.md#skill-availability)을 참고하세요.
 
-[HTML 원본](../docs/assets/workflow/overview.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
+## 검사부터 로컬 branch 발행까지
 
-컨트롤러는 작업 사이에 실행 한도와 프로바이더 상태도 확인합니다. 일반적인 후보 거절은 수정 직전 상태로 복원한 뒤 재조사하거나 종료합니다. 안전 정지는 worktree를 증거로 보존합니다.
+![실행 준비 후 격리된 리팩토링 과정을 거쳐 결과를 저장하고, 발행한 변경은 사람이 검토합니다.](../docs/assets/workflow/execution.ko.png)
 
-## 1. INIT, doctor와 기준선
+| 단계 | 통과 조건 | 저장하는 근거 |
+| --- | --- | --- |
+| 준비 | 깨끗한 원본, 유효한 전역 Skills, 사용 가능한 provider, 기준선 명령 하나 이상 통과 | doctor와 기준선 결과 |
+| 후보 선택 | 조사 범위·위험·시도 이력 확인, deep check에서 실행 가능한 작업 명세 확정 | `audits/`, `packet.json` |
+| 수정 | 필요하면 characterization 테스트 추가, preflight 통과, 명세 범위 안에서 실행 | `preflight.json`, `execution.json` |
+| 검증·검토 | diff 검사, 검증 결과 악화 없음, 별도 세션 검토 통과 | `gate.json`, `validation.json`, `review.json` |
+| 발행·반복 | 검토한 tree와 커밋 tree 일치, 원본 불변, 결과 ref의 이전 OID 일치 | `state.json`, 최종 보고서 |
 
-**입력:** `--repo` 또는 현재 디렉터리에서 대상 Git 저장소를 찾고 설정·provider와 `~/.agents/skills`의 전역 Skill 8개를 확인합니다. Codex에는 선택한 절대 경로, Claude에는 `--add-dir`로 전용 Skill 복사본을 제공하며 project 설정만 읽는 경계를 유지합니다. provider 호출 전후 hash 검사로 결과 반영 전에 카탈로그 변경을 감지합니다. Doctor는 audit JSON과 다른 진단 응답으로 세션의 Skill 로딩을 확인하기 위해 모델을 호출합니다. `doctor --no-live-probe`는 세션 확인을 생략합니다. 선택적 `init` 명령은 설정만 만들며 이 INIT 단계는 `run`의 일부입니다.
+characterization은 소스를 수정하기 전에 기존 동작을 테스트로 기록하는 단계입니다. 활성화하면 변경 전 소스에서 테스트를 통과해야 하며 별도 커밋을 만들 수 있습니다. 이후 리팩토링이 거부되어도 이 테스트 커밋은 결과 branch에 남을 수 있습니다. `max_commits`는 리팩토링 커밋만 계산합니다.
 
-**검사와 다음 단계:** 필수 조건을 충족하지 못하면 중단합니다. 초기화 후 별도 worktree에서 기준선 명령을 실행합니다. `.refactor/commands.json`에 고정한 목록이 없으면 명령을 자동 탐색합니다. 발견한 영역의 선택된 명령 중 하나 이상이 `GREEN`이어야 audit으로 진행합니다.
+preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없음이라는 세 조건을 충족해야 합니다. 실행 중 명세 범위를 넓힐 수 없습니다. 컨트롤러는 실제 diff에서 경로, 파일·줄 수 제한, 테스트 약화, 바이너리, 반복된 tree를 검사합니다.
 
-`src/broken.mjs`는 해석 가능한 typecheck 실패(`RED`)를 보여주는 fixture입니다. 다른 명령은 통과할 수 있습니다. 이는 설계 설명이며 이 문서에서 측정한 결과가 아닙니다.
+검토는 별도 세션에서 진행하며 설정에 따라 다른 가용 provider를 우선합니다. `FAIL`, `BLOCKER`, 또는 `PRESERVED` 이외의 평가는 변경을 거부합니다. `HIGH` 지적만으로는 `PASS`를 뒤집지 않으므로 병합 전에 지적 내용을 읽어야 합니다.
 
-이후 검증은 기존 통과를 유지하고 해석 가능한 실패에 새 오류 signature를 추가하지 않아야 합니다. 기준선의 `TIMEOUT`, `UNRUNNABLE`, `OPAQUE` 명령은 비교 근거가 없어 제외합니다.
+커밋 hook도 실행합니다. hook이 검토한 tree를 바꾸거나 작업 변경을 남기면 `HALTED_UNSAFE`로 발행을 중단합니다. 결과 branch 갱신 시 이전 OID를 확인하므로 다른 갱신과 충돌해도 발행하지 않습니다.
 
-## 2. Audit과 후보 정렬
+## 검증 범위
 
-**입력:** “범위가 제한된 동작 보존 리팩터링을 찾아라. 정적·동적 도달성, 외부 소비자, 관찰 가능한 동작과 위험도를 확인하고 추측에 의존한 후보는 제외하라.” 세션은 `sharpen-clarify`, `sharpen-review`, `sharpen-challenge`, `sharpen-assess`를 사용합니다.
+기준선은 탐지한 영역의 명령 또는 `.refactor/commands.json`에 고정한 명령으로 검사합니다. 명령 하나 이상이 통과해야 후보 조사를 시작합니다.
 
-**응답:** Legacy parser를 `DEAD_CODE`, `L0_LOW`, `READY`로 제안하고 참조 부재 근거를 반환합니다. `EXPORTED_UNUSED`만으로 외부 소비자가 없다고 판단할 수는 없습니다.
+수정 후에는 각 경로의 가장 깊은 대상 영역과 루트 영역이 있으면 함께 검사합니다. 통과하던 명령은 계속 통과해야 합니다. 오류 내용을 비교할 수 있는 기존 실패에는 새 오류가 추가되면 안 되며, 같은 오류가 남아 있어도 실패로 기록합니다. 기준선이 `TIMEOUT`, `UNRUNNABLE`, `OPAQUE`인 명령은 생략합니다.
 
-**검사와 다음 단계:** `rank`는 대상 범위, `UNKNOWN`과 허용하지 않은 위험도, `REJECT`, 처리 이력, 시도 횟수, 파일 수 한도를 검사합니다. 남은 후보는 위험도 → 준비 상태 → 파일 수 → 후보 ID 순서로 정렬합니다.
+`--target`은 후보 조사 범위입니다. 참조 관계는 저장소 전체를 확인하며 호출부 수정은 target 밖까지 이어질 수 있습니다. 생략한 브라우저·서비스·통합 테스트는 병합 전에 별도로 확인해야 합니다.
 
-Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한 후보의 시도 횟수를 기록하고 빈 audit이 설정 횟수만큼 반복되면 종료합니다. 기본값은 두 번입니다.
+## 거부, 재시도, 중단
+
+| 상황 | 컨트롤러 처리 |
+| --- | --- |
+| 위험 판단 불가 | 기본값은 보류. `unknown_risk: deep_check`는 `UNKNOWN` + `NEEDS_EVIDENCE`만 허용하며 최종 명세는 다시 위험 정책 검사 |
+| diff·검증·검토 거부 | 도구 소유 worktree에서 해당 후보의 수정을 되돌리고, 앞서 수락한 커밋은 보존 |
+| 잘못된 JSON 또는 응답 schema | 읽기 전용 복구 한 번 시도. 다시 `SCHEMA` 오류이면 다른 가용 provider 시도 |
+| timeout 또는 프로세스 실패 | 5초, 20초 뒤 재시도 후 다른 가용 provider 시도. timeout은 프로세스 그룹에 SIGTERM을 보내고 유예 후 SIGKILL |
+| 사용량 소진 또는 인증 실패 | provider 상태를 기록하고 handoff 시도 후 다른 가용 provider로 같은 단계 계속 |
+
+복구할 수 없는 provider 오류는 실행을 중단합니다. 가용 provider 소진, cycle·커밋·시간 제한, 연속 실패, 충분한 횟수의 빈 조사 결과도 종료 조건입니다. 안전 조건 위반 시에는 조사할 수 있도록 worktree를 보존합니다.
+
+provider를 바꾸면 단계 입력을 전달한 새 세션을 시작합니다. 이전 대화를 이어받지는 않습니다. 쓰기 단계의 재시도마다 worktree를 복구하는 것은 아니며, 후보 거부나 실패 처리에서 되돌립니다. `handoff.md`는 중간 기록으로, 다음 세션의 문맥이나 최종 보고서가 아닙니다.
+
+## 최종 근거 확인
+
+아래 경로는 `.refactor/runs/<id>/`를 기준으로 합니다.
+
+| 파일 | 용도 |
+| --- | --- |
+| `report.md`, `report.json` | 결과, 중단 이유, 검증, 사용량 |
+| `changes.patch` | 기록된 시작 커밋부터 마지막 발행 커밋까지의 순수 텍스트 변경 |
+| `state.json` | 카운터, 종료 상태, worktree, 발행 OID |
+| `audits/<cycle>/`, `cycles/*/` | 프롬프트, 응답, 작업 명세, 단계별 검사 |
+| `cycles/*/accepted.patch` | 검토에 제출한 diff. 거부된 후보의 자료일 수도 있음 |
+
+비교 자료를 만들지 못하면 `UNAVAILABLE`로 이유를 기록하며 실행 종료 코드는 바꾸지 않습니다. 보고서 조회도 diff를 다시 수집하지 않습니다. 종료 코드 `0`에는 부분 완료가 포함되므로 병합 전에 [결과를 확인](TUTORIAL.ko.md#read-the-result)하세요.
+
+worktree에는 로컬 환경 파일 등 Git이 무시하는 빌드 입력을 복사할 수 있습니다. 원본 저장소와 같은 접근 통제를 worktree와 실행 기록에도 적용하세요.
+
+## Provider 응답 예시
+
+부록은 [선택적 JavaScript fixture](fixtures/README.ko.md#optional-javascript-example)에서 참조되지 않는 모듈을 삭제하는 예시입니다. 현재 지원하는 대상 언어의 예제이며 CLI의 Node 구현이 아닙니다. 실제 모델 응답이나 성공 기록으로 제시한 자료도 아닙니다.
+
+Go 테스트는 예시 10개를 [응답 schema](go/internal/engine/schemas.json)로 검사합니다. 단계별 지침은 [프롬프트 template](go/internal/engine/templates/)에 있습니다. 두 언어의 JSON은 동일하며, 여기의 `schema_version: "1"`은 설정 schema 2, 보고서 schema 3과 별개입니다.
 
 <details>
-<summary>전체 JSON 응답</summary>
+<summary>schema 검사를 받는 예시 펼치기</summary>
+
+### audit-success
 
 <!-- example: audit-success schema: audit -->
 ```json
@@ -96,18 +138,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 }
 ```
 
-</details>
-
-## 3. Deep check와 작업 명세
-
-**입력:** “현재 저장소의 근거로 후보를 검증하라. 최소 allowlist, 보존할 동작, 중단 조건과 필요한 characterization 테스트를 명시하라.” 세션은 `sharpen-review`와 `sharpen-challenge`를 사용합니다. 중복 제거 후보에는 `sharpen-dedupe`도 추가합니다.
-
-**응답:** `READY`, 삭제할 파일 하나, 계약 `C1`, `characterization_needed: false`를 반환합니다.
-
-**검사와 다음 단계:** `fp`와 `original_lines`를 추가해 `packet.json`을 저장합니다. `READY`이고 allowlist가 비어 있지 않아야 진행합니다. 예시는 preflight로 넘어갑니다. 테스트가 필요한 경우는 [characterization 분기](#characterization만-반영되는-경우)를 확인하세요.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### deepcheck-success
 
 <!-- example: deepcheck-success schema: deepcheck -->
 ```json
@@ -149,22 +180,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 }
 ```
 
-</details>
-
-## 4. Preflight
-
-![실행 전 조건: deep check, 필요한 characterization 테스트, 별도 테스트 커밋과 preflight 판정.](../docs/assets/workflow/preparation.ko.png)
-
-[HTML 원본](../docs/assets/workflow/preparation.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
-
-**입력:** “이 작업 명세가 실패할 수 있는 구체적인 가설을 하나 세우고, 그 가설을 반증해 보라.” 세션은 `sharpen-challenge`를 사용하며 코드 수정 없이 작업 명세, 저장소 정보와 기준선 요약을 읽습니다.
-
-**응답:** 문자열 로더 가설은 `FALSIFIED`, 판정은 `READY_TO_EXECUTE`이며 차단 사유는 없습니다.
-
-**검사와 다음 단계:** `preflight.json`을 저장하고 세 조건을 확인한 뒤 구현으로 진행합니다. 판정이 `READY_TO_EXECUTE`여도 가설이 `SURVIVED`나 `INCONCLUSIVE`이면 차단합니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### preflight-success
 
 <!-- example: preflight-success schema: preflight -->
 ```json
@@ -180,18 +196,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 }
 ```
 
-</details>
-
-## 5. 구현
-
-**입력:** “확정한 작업 명세만 적용하라. Hunk별 성격을 분류하고 범위 확대가 필요하면 명시하라.” 세션은 `sharpen-refine`을 사용합니다. 중복 제거에서는 `sharpen-dedupe`도 허용합니다.
-
-**응답:** `deleted_files`와 계약 `C1`을 연결하고 범위 확대 없이 `PASS`를 반환합니다. 파일 삭제, Git 작업과 검증 명령은 컨트롤러가 담당합니다.
-
-**검사와 다음 단계:** `execution.json`을 저장합니다. `UNEXPLAINED`나 `CONTRACT_CHANGING` hunk, 범위 확대, 범위 밖 경로 선언은 `PASS`여도 거절 사유가 됩니다. 컨트롤러는 allowlist를 확인해 파일을 삭제한 뒤 gate에서 실제 diff를 검사합니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### execute-success
 
 <!-- example: execute-success schema: execute -->
 ```json
@@ -221,31 +226,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 }
 ```
 
-</details>
-
-## 6. Diff gate와 검증
-
-**검사:** 모델 호출 없이 실제 diff를 작업 명세와 비교합니다. 허용·금지 경로, 바이너리 변경, 변경량, 유형별 규칙, 테스트 약화, 이전 tree와 원본 checkout 상태를 검사해 `gate.json`을 저장합니다.
-
-**다음 단계:** `NO_OP`이면 건너뛰고 gate 위반이면 수정을 되돌립니다. 안전 불변식 위반 시에는 실행을 멈추고 증거를 보존합니다. 통과하면 검증 명령을 실행해 `validation.json`을 저장합니다. 회귀나 판단 불가 결과가 나오면 리뷰 전에 거절합니다.
-
-후보 검증은 변경 경로별로 가장 깊은 프로젝트 영역을 선택하고 루트 영역이 있으면 함께 검사합니다. 모든 영역을 매번 검증하지는 않습니다. 기준선은 탐색한 명령을 실행하고 도달성은 저장소 전체에서 확인합니다. `--target` 밖의 호출부 수정이나 선택한 폴더보다 넓은 루트 검증이 필요할 수 있습니다.
-
-`accepted.patch`는 검증 후 **리뷰 전에** 저장합니다. 거절한 후보에도 남는 리뷰 입력입니다. 최종 반영 여부는 `review.json`, 반영한 커밋과 `changes.patch`로 확인하세요.
-
-
-## 7. 독립 리뷰
-
-**입력:** “작업 명세와 diff를 보고 동작을 보존했는지 판단하라.” 세션은 `sharpen-cold-review`를 사용합니다. 구현 이유는 받지만 구현 모델의 판정과 hunk 분류는 받지 않습니다. 별도 세션에서 리뷰하며, cross-provider review를 켰고 다른 프로바이더를 사용할 수 있으면 그 프로바이더를 우선합니다.
-
-**응답:** `PASS`, `PRESERVED`, 빈 findings와 unreviewable_hunks를 반환합니다.
-
-**검사와 다음 단계:** `review.json`을 저장합니다. `BLOCKER`, `PRESERVED`가 아닌 평가, 모델의 `FAIL`은 거절 사유입니다. 거절하면 구현 직전 커밋으로 복원합니다.
-
-**`HIGH`만으로 `PASS`가 바뀌지는 않습니다.** 판정과 함께 findings를 확인하세요.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### review-success
 
 <!-- example: review-success schema: review -->
 ```json
@@ -260,34 +241,7 @@ Audit의 `NEEDS_EVIDENCE`도 deep check로 진행할 수 있습니다. 선택한
 }
 ```
 
-</details>
-
-## 8. 커밋, 재조사와 리포트
-
-**반영:** 리뷰한 tree와 커밋할 tree가 같아야 합니다. 로컬 커밋을 만들고 결과 브랜치의 이전 OID가 예상값과 같을 때 갱신합니다. `state.publishedOid`와 커밋을 기록한 뒤 한도 안에서 재조사합니다. 원본 checkout이나 승인한 tree가 바뀌면 반영을 중단할 수 있습니다.
-
-**결과:** 종료 시 `report.json`과 선택한 언어의 `report.md`를 저장합니다. 원본 저장소의 `state.baseOid`와 `state.publishedOid`를 비교하며 characterization 커밋도 포함합니다. Worktree 보존 여부나 현재 브랜치 위치는 비교에 영향을 주지 않습니다.
-
-리포트는 파일 통계와 diff 미리보기, 전체 텍스트 `changes.patch`를 제공합니다. 같은 파일을 여러 커밋에서 수정하면 최종 비교와 개별 커밋 내역이 다를 수 있습니다. 미리보기 크기와 바이너리 처리는 [코드 비교](README.ko.md#코드-비교)를 확인하세요.
-
-`codeComparison.status`는 `AVAILABLE`, `NO_CHANGES`, `UNAVAILABLE`입니다. 반영한 커밋이 없으면 변경 없음으로 표시합니다. 비교 수집이나 patch 저장 실패는 사유만 기록하고 실행 결과와 종료 코드는 유지합니다.
-
-저장 리포트에는 `schemaVersion: 3`이 필요합니다. 지원하지 않는 과거 형식은 오류를 내고 보존합니다. `report --lang ko`는 새 diff 수집·파일 변경·모델 호출 없이 지원하는 저장 JSON을 렌더링합니다. 아래 provider 응답 예시의 `schema_version: "1"`은 설정·저장 리포트와 별도인 프로토콜 버전입니다.
-
-## 실패와 복구 분기
-
-![거절하면 후보 수정을 복원한 뒤 재조사하며 안전 정지 시 worktree를 보존하고 리포트를 작성합니다.](../docs/assets/workflow/outcomes.ko.png)
-
-[HTML 원본](../docs/assets/workflow/outcomes.ko.html) · [원본 흐름과 대응 기록](../docs/assets/workflow/README.md)
-
-### 근거 부족과 알 수 없는 위험도
-
-Audit의 `risk_level: "UNKNOWN"`은 기본값 `policy.unknown_risk: set_aside`에서 `READY`여도 `RISK_UNKNOWN`으로 제외합니다. 확인이 하나 더 필요한 모델은 위험도도 매길 수 없으므로, 이 검사는 `NEEDS_EVIDENCE` 후보가 deep check에 닿기 전에 모두 제외해 왔습니다. `policy.unknown_risk`를 `deep_check`로 두면 `UNKNOWN` 위험도와 `NEEDS_EVIDENCE` 준비 상태가 함께인 경우만 통과하고, 그 밖의 `UNKNOWN`은 계속 제외합니다. `allowed_risks`를 넓혀도 `UNKNOWN`은 켜지지 않습니다.
-
-Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수정 전에 후보를 멈춥니다. `READY` 명세는 그 자신의 `risk_level`을 `allowed_risks`에 대조합니다. `UNKNOWN`을 반환하면 `RISK_UNKNOWN`, 허용 범위를 넘으면 `RISK_EXCLUDED`를 기록합니다. 이 검사는 모든 후보에 적용되며 `policy.unknown_risk`로 완화되지 않습니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### deepcheck-evidence
 
 <!-- example: deepcheck-evidence schema: deepcheck -->
 ```json
@@ -329,14 +283,7 @@ Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수�
 }
 ```
 
-</details>
-
-### Preflight 차단
-
-가설이 반증되지 않거나 판단할 수 없으면 구현을 차단합니다. 예시는 오래된 근거로 로더 가설을 `INCONCLUSIVE`로 판단하고 `PREFLIGHT_BLOCKED`를 기록합니다. 앞서 반영한 characterization 커밋은 남을 수 있습니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### preflight-blocked
 
 <!-- example: preflight-blocked schema: preflight -->
 ```json
@@ -358,16 +305,7 @@ Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수�
 }
 ```
 
-</details>
-
-### Characterization만 반영되는 경우
-
-작업 명세가 characterization을 요청하고 `policy.auto_characterization`이 켜져 있으면 기존 계약을 확인할 테스트를 추가합니다. 모델은 `sharpen-clarify`와 `sharpen-challenge`를 사용하고 `characterization_files`만 수정합니다.
-
-아래 시나리오는 진입점 테스트를 요청합니다. 사용하지 않는 모듈을 관찰하려고 새 호출부를 만들면 안 됩니다.
-
-<details>
-<summary>전체 작업 명세 JSON</summary>
+### characterization-packet
 
 <!-- example: characterization-packet schema: deepcheck -->
 ```json
@@ -411,14 +349,7 @@ Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수�
 }
 ```
 
-</details>
-
-응답은 테스트 경로와 확인한 계약을 담습니다. 컨트롤러는 `PASS`여도 운영 코드 수정, assertion 약화와 범위 밖 변경을 거절합니다.
-
-운영 코드를 유지한 채 테스트를 실행하고 별도 characterization 커밋을 만듭니다. 빈 diff는 커밋하지 않으며 테스트 경로 누락이나 검증 실패는 후보를 중단합니다. 자동 characterization을 끄면 테스트 작성 없이 preflight로 진행합니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### characterization-success
 
 <!-- example: characterization-success schema: characterization -->
 ```json
@@ -438,18 +369,7 @@ Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수�
 }
 ```
 
-</details>
-
-이후 preflight 차단, 검증 회귀나 리뷰 거절 시에는 **characterization 이후 커밋**으로 복원합니다. 테스트 커밋은 결과 브랜치에 남으므로 리팩터링 커밋이 0개여도 최종 비교에 테스트가 포함될 수 있습니다. `policy.max_commits`는 리팩터링 커밋만 셉니다.
-
-### 검증 회귀와 리뷰 거절
-
-기존에 통과한 명령은 계속 통과해야 합니다. 해석 가능한 기존 실패에 새 오류 signature가 생기거나 타임아웃, 실행 불가가 발생하면 후보를 거절합니다. 같은 실패도 통과로 세지 않습니다. 컨트롤러는 결과와 실패를 기록하고 수정 직전 커밋으로 복원합니다.
-
-아래 리뷰 예시는 동작 보존을 확인하지 못해 리팩터링을 되돌립니다. 저장한 `accepted.patch`는 입력 스냅샷으로 남으며 승인을 뜻하지 않습니다.
-
-<details>
-<summary>전체 JSON 응답</summary>
+### review-rejected
 
 <!-- example: review-rejected schema: review -->
 ```json
@@ -477,35 +397,3 @@ Deep check가 `READY`를 반환하지 않으면 `NOT_READY`를 기록하고 수�
 ```
 
 </details>
-
-### 스키마 복구, 타임아웃과 프로바이더 전환
-
-| 상황 | 컨트롤러 처리 | 다음 단계 |
-| --- | --- | --- |
-| JSON 형식이나 스키마 오류 | 검증 오류와 이전 응답을 넣어 읽기 전용 복구를 한 번 요청 | 다시 검사하고 `SCHEMA`가 남으면 사용 가능한 다른 프로바이더에 요청 |
-| `TIMEOUT` 또는 `PROCESS` 실패 | 같은 프로바이더에 5초, 그다음 20초 뒤 재시도 | 재시도를 소진하면 사용 가능한 다른 프로바이더에 요청 |
-| `QUOTA` 또는 `AUTH` | 프로바이더 상태를 갱신하고 handoff 스냅샷 작성 시도 | 같은 단계에서 다른 프로바이더에 요청 |
-| 치명적인 프로바이더 오류 | 복구나 전환 없이 중단 | 진단 기록을 보존하고 종료 사유 표시 |
-| 해당 단계를 완료한 프로바이더 없음 | 단계별 실패 또는 프로바이더 소진 처리 | 컨트롤러 상태와 한도에 따라 실패를 기록하거나 종료 |
-
-복구는 원래 응답 스키마를 사용하며 별도 JSON 형식이 없습니다. 복구 세션에서는 코드 수정을 이어갈 수 없습니다. 프로세스가 성공해도 스키마 검사를 통과해야 진행합니다. 실패와 복구 프로세스도 사용량에 포함합니다.
-
-전환 시 해당 단계의 입력으로 새 세션을 시작하며 이전 세션을 재개하지 않습니다. 쓰기 단계의 `callPhase`는 재시도나 전환 직전에 매번 복원하지 않습니다. 실행 실패나 검사 거절에 따른 복원은 후보 처리 코드가 담당합니다.
-
-`handoff.md`는 사람이 읽는 중간 기록입니다. 다음 프로바이더의 대화 문맥이나 최종 리포트로 사용하지 않습니다.
-
-## 확인할 기록
-
-| 파일 | 의미 |
-| --- | --- |
-| `audits/*.json` | Audit이 반환한 후보 목록 |
-| `audits/<cycle>/provider/` | 해당 사이클 audit의 프롬프트와 원본 기록 |
-| `cycles/*/packet.json` | 작업 명세와 컨트롤러 메타데이터 |
-| `cycles/*/preflight.json` | 실패 가설과 반증 결과 |
-| `cycles/*/execution.json` | 구현 응답과 프로바이더 |
-| `cycles/*/gate.json`, `validation.json`, `review.json` | 해당 사이클의 범위 검사, 실행한 검증과 리뷰 근거 |
-| `cycles/*/accepted.patch` | 리뷰에 제출한 diff. 나중에 거절한 후보에도 남을 수 있음 |
-| `state.json` | 종료 상태, 카운터와 최종 반영 커밋 OID |
-| `report.json`, `report.md`, `changes.patch` | 최종 리포트와 커밋된 텍스트 비교. 비교 불가 시 사유 기록 |
-
-경로는 `.refactor/runs/<id>/` 기준이며 사이클 디렉터리명에 유형과 fingerprint가 포함됩니다. [상태·비용·종료 코드](README.ko.md#사용량과-종료-코드)와 [병합 전 검토](TUTORIAL.ko.md#결과-확인)를 확인하세요. 로컬 테스트는 스키마와 컨트롤러 동작을 검사하며 실제 모델의 판단 품질은 측정하지 않습니다.

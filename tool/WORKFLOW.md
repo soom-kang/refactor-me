@@ -1,43 +1,85 @@
-# Refactoring workflow
+# How a run works
 
-[Project](../README.md) · [한국어](WORKFLOW.ko.md) · [Reference](README.md) · [Guide](TUTORIAL.md)
+[Project](../README.md) · [한국어](WORKFLOW.ko.md) · [Usage](TUTORIAL.md) · [Reference](README.md)
 
-Start with the flow, then expand the JSON examples for the phase you need. You choose the configuration and start the run; the controller checks provider JSON responses and decides whether to proceed. It does not ask you to approve each phase.
+You set the limits and start `run`. The controller then checks each phase without asking for approval between steps. Changes happen in an isolated Git worktree; accepted commits appear on a local result branch.
 
-The default fixture uses Go; generate the example below with `--lang js`. The example removes `src/legacy-parser.mjs` from the [optional JavaScript fixture](fixtures/README.md#optional-javascript-example). It exports `parseLegacy` and `legacyVersion` without a reachable caller. The same fixture loads `plugin-x` by name through a registry, so static import searches alone would miss that reference.
+## Global installation, separate project state
 
-**JSON examples are illustrative, not captured responses or proof of a successful run.** Both languages use the same examples and current [response schemas](go/internal/engine/schemas.json). Questions summarize the [phase prompts](go/internal/engine/templates/).
+![Homebrew and global Skills are shared; configuration and reports belong to the selected repository.](../docs/assets/workflow/installation.en.png)
 
-## Flow
+`--repo` selects the repository independently of the executable's location. Each repository has its own `.refactor` configuration, lock and run records. Worktrees default to `~/.cache/refactor-me`.
 
-![Workflow overview: initialization, baseline, audit, preparation, execution, checks, review, publication and final report.](../docs/assets/workflow/overview.en.png)
+Codex receives the absolute paths of the selected global Skills. Claude receives a per-run `.claude/skills` copy through `--add-dir`, with project-only settings and restricted tools/MCP. Source and snapshot hashes are checked around provider calls; unexpected changes stop result publication. See [Skill resolution](README.md#skill-availability).
 
-[HTML source](../docs/assets/workflow/overview.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
+## From checks to a local branch
 
-The controller checks run limits and provider availability between steps. Ordinary rejection restores the pre-write state, then leads to another audit or a configured stop. A safety halt preserves the worktree as evidence.
+![Run preparation leads to an isolated refactoring cycle, a saved outcome and manual review of published changes.](../docs/assets/workflow/execution.en.png)
 
-## 1. INIT, doctor and baseline
+| Stage | Required check | Saved evidence |
+| --- | --- | --- |
+| Prepare | Clean source, valid global Skills and available provider; at least one passing baseline command | Doctor and baseline results |
+| Choose | Audit scope, risk and candidate history; deep check produces a ready task packet | `audits/`, `packet.json` |
+| Refine | Optional characterization tests; preflight rejects unresolved failure hypotheses; execution stays within the packet | `preflight.json`, `execution.json` |
+| Validate and review | Diff gate, no validation regression, separate review session | `gate.json`, `validation.json`, `review.json` |
+| Publish and repeat | Commit tree matches the reviewed tree, source unchanged and result ref matches the expected OID | `state.json`, final reports |
 
-**Input:** Resolve the target Git repository from `--repo` or the current directory. Check configuration, providers and the eight global Skills from `~/.agents/skills`. Codex receives the selected absolute paths; Claude receives a dedicated Skill copy through `--add-dir` while retaining project-only settings. Hash checks around provider calls detect catalog changes before result publication. Doctor calls models to check session Skill visibility, using a diagnostic response distinct from audit JSON. `doctor --no-live-probe` skips the session check. The optional `init` command only creates configuration; this INIT phase is part of `run`.
+Characterization records existing behavior in tests before production edits. When enabled, these tests must pass against unchanged production code and may form a separate commit. A later rejected refactor can leave that test commit on the result branch. `max_commits` counts refactor commits only.
 
-**Check and next step:** Missing prerequisites abort the run. After initialization, run baseline commands in the detached worktree. Use discovered commands unless `.refactor/commands.json` locks a list. At least one selected command across discovered areas must be `GREEN` to reach audit.
+Preflight must report `READY_TO_EXECUTE`, a `FALSIFIED` failure hypothesis and no blocking reasons. Execution cannot expand the packet's scope. The controller checks paths, file and line limits, test weakening, binaries and repeated trees against the actual diff.
 
-`src/broken.mjs` illustrates a readable typecheck failure (`RED`); other commands can pass. This describes the fixture design, not a measured baseline for this document.
+Review uses a separate session, preferring the other available provider when configured. `FAIL`, `BLOCKER`, or an assessment other than `PRESERVED` rejects the change. A `HIGH` finding alone does not override `PASS`; read the findings before merging.
 
-Later validation must preserve passing checks and add no error signatures to readable failures. Baseline `TIMEOUT`, `UNRUNNABLE`, and `OPAQUE` commands provide no comparison signal and are excluded.
+Commit hooks run. Hook changes to the reviewed tree or residual working changes stop publication with `HALTED_UNSAFE`. Updating the result branch checks its previous OID, so a conflicting update also stops publication.
 
-## 2. Audit and candidate ranking
+## Validation scope
 
-**Input:** “Find a bounded behavior-preserving refactor. Check static and dynamic reachability, external consumers, observable contracts and risk. Reject speculative candidates.” The session uses `sharpen-clarify`, `sharpen-review`, `sharpen-challenge` and `sharpen-assess`.
+Baseline checks cover discovered areas, or the locked list in `.refactor/commands.json`. At least one command must pass before audit starts.
 
-**Response:** Propose the legacy parser as `DEAD_CODE`, `L0_LOW`, and `READY`, with absent-reference evidence. `EXPORTED_UNUSED` alone does not rule out external consumers.
+After an edit, checks select the deepest affected area for each path and the root area when present. Passing commands must keep passing. Readable baseline failures must gain no new error signatures; an unchanged failure still counts as a failure. Baseline `TIMEOUT`, `UNRUNNABLE` and `OPAQUE` commands are skipped.
 
-**Check and next step:** `rank` checks scope, `UNKNOWN` and disallowed risk, `REJECT`, candidate history, attempt limits, and file limits. Eligible candidates sort by risk → readiness → file count → candidate ID.
+`--target` limits discovery. Reachability checks cover the repository, and caller edits may extend beyond the target. Omitted browser, service and integration tests remain your responsibility before merging.
 
-Audit `NEEDS_EVIDENCE` can reach deep check. Record the selected candidate’s attempt; empty audits stop at the configured count, which defaults to two.
+## Rejection, retries and stopping
+
+| Event | Controller action |
+| --- | --- |
+| Unknown risk | Set aside by default. `unknown_risk: deep_check` admits only `UNKNOWN` + `NEEDS_EVIDENCE`; the resulting packet must still pass the risk policy |
+| Gate, validation or review rejection | Restore candidate edits in the owned worktree; preserve any earlier accepted commits |
+| Invalid JSON or response schema | Try one read-only repair; if it still fails with `SCHEMA`, try another available provider |
+| Timeout or process failure | Retry after 5 and 20 seconds, then try another available provider; timeouts terminate the process group with SIGTERM then SIGKILL after a grace period |
+| Quota or authentication failure | Mark provider availability and attempt a handoff; continue the phase with another available provider |
+
+Fatal provider errors abort. Exhausted providers, cycle/commit/time limits, repeated failures or enough empty audits stop the loop. Safety violations preserve the worktree for investigation.
+
+A provider switch starts a new session with phase inputs; it does not resume the old conversation. Write-phase retries do not each restore the worktree: candidate rejection or failure handles rollback. `handoff.md` is an intermediate record, not the next session's context or the final outcome.
+
+## Read the final evidence
+
+All paths below are relative to `.refactor/runs/<id>/`.
+
+| File | Use |
+| --- | --- |
+| `report.md`, `report.json` | Outcome, stop reason, validation and usage |
+| `changes.patch` | Net published text changes from the recorded base to final published commit |
+| `state.json` | Counters, terminal status, worktree and published OID |
+| `audits/<cycle>/`, `cycles/*/` | Prompts, responses, task packets and phase checks |
+| `cycles/*/accepted.patch` | Diff sent to review; it may belong to a rejected candidate |
+
+A missing comparison is recorded as `UNAVAILABLE` and does not change the run's exit code. Viewing a report does not regenerate a diff. Exit `0` includes partial completion; [inspect the result](TUTORIAL.md#read-the-result) before merging.
+
+The worktree can contain copied gitignored build inputs, including local environment files. Apply the source repository's access controls to it and the run records.
+
+## Provider response examples
+
+The appendix uses the [optional JavaScript fixture](fixtures/README.md#optional-javascript-example) to illustrate deleting an unreachable module. It is current target-language support, not a Node implementation of the CLI. These are illustrative responses, not captured model results.
+
+The Go tests validate all ten examples against [response schemas](go/internal/engine/schemas.json). Phase instructions live in [prompt templates](go/internal/engine/templates/). Both language editions retain identical JSON; `schema_version: "1"` here is independent of configuration schema 2 and report schema 3.
 
 <details>
-<summary>Full JSON response</summary>
+<summary>Expand schema-checked examples</summary>
+
+### audit-success
 
 <!-- example: audit-success schema: audit -->
 ```json
@@ -96,18 +138,7 @@ Audit `NEEDS_EVIDENCE` can reach deep check. Record the selected candidate’s a
 }
 ```
 
-</details>
-
-## 3. Deep check and the task packet
-
-**Input:** “Verify the candidate against current repository evidence. Name the smallest allowlist, preserved contracts, stop conditions and any characterization tests needed.” The session uses `sharpen-review` and `sharpen-challenge`; deduplication candidates also use `sharpen-dedupe`.
-
-**Response:** `READY`, one allowed deletion, contract `C1`, and `characterization_needed: false`.
-
-**Check and next step:** Add `fp` and `original_lines` and save `packet.json`. Require `READY` and a nonempty allowlist. This example proceeds to preflight; see the [characterization branch](#characterization-can-be-the-only-published-change) when tests are needed.
-
-<details>
-<summary>Full JSON response</summary>
+### deepcheck-success
 
 <!-- example: deepcheck-success schema: deepcheck -->
 ```json
@@ -149,22 +180,7 @@ Audit `NEEDS_EVIDENCE` can reach deep check. Record the selected candidate’s a
 }
 ```
 
-</details>
-
-## 4. Preflight
-
-![Execution preparation: deep check, optional characterization tests, separate test commit and preflight decisions.](../docs/assets/workflow/preparation.en.png)
-
-[HTML source](../docs/assets/workflow/preparation.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
-
-**Input:** “State the strongest concrete failure hypothesis for this packet and try to falsify it.” The session uses `sharpen-challenge` and reads the packet, repository facts and baseline summary without editing code.
-
-**Response:** The string-loader hypothesis is `FALSIFIED`, the verdict is `READY_TO_EXECUTE`, and there are no blocking reasons.
-
-**Check and next step:** Save `preflight.json` and require all three conditions before execution. `SURVIVED` or `INCONCLUSIVE` blocks execution even with a `READY_TO_EXECUTE` verdict.
-
-<details>
-<summary>Full JSON response</summary>
+### preflight-success
 
 <!-- example: preflight-success schema: preflight -->
 ```json
@@ -180,18 +196,7 @@ Audit `NEEDS_EVIDENCE` can reach deep check. Record the selected candidate’s a
 }
 ```
 
-</details>
-
-## 5. Execute
-
-**Input:** “Apply only the frozen packet. Classify each hunk and declare any required scope expansion.” The session uses `sharpen-refine`; deduplication also allows `sharpen-dedupe`.
-
-**Response:** Declare `deleted_files` with contract `C1` and return `PASS` without scope expansion. The controller handles file deletion, Git operations, and validation commands.
-
-**Check and next step:** Save `execution.json`. `UNEXPLAINED` or `CONTRACT_CHANGING` hunks, scope expansion, and out-of-scope path claims can override `PASS`. The controller checks the allowlist, deletes the file, and inspects the actual diff at the gate.
-
-<details>
-<summary>Full JSON response</summary>
+### execute-success
 
 <!-- example: execute-success schema: execute -->
 ```json
@@ -221,31 +226,7 @@ Audit `NEEDS_EVIDENCE` can reach deep check. Record the selected candidate’s a
 }
 ```
 
-</details>
-
-## 6. Diff gate and validation
-
-**Check:** Without calling a model, compare the diff with the packet. Check allowed and forbidden paths, binaries, change size, category rules, test weakening, seen trees, and source-checkout integrity. Save `gate.json`.
-
-**Next step:** Skip `NO_OP`; roll back gate violations. An unsafe invariant stops the run and preserves evidence. A passing gate leads to validation and `validation.json`. Reject regressions or unusable new validation results before review.
-
-Validation selects the deepest affected area for each path and the root area when present, rather than every area. The baseline runs discovered commands; reachability checks cover the repository. Caller changes may extend beyond `--target`, and root commands may check more than the selected directories.
-
-Save `accepted.patch` after validation and **before review**. It is review input and can remain after rejection. Check `review.json`, published commits, and final `changes.patch` for retained changes.
-
-
-## 7. Independent review
-
-**Input:** “Judge behavior preservation from the task packet and diff.” The session uses `sharpen-cold-review`. It receives the implementation rationale, but not the implementer's verdict or hunk classifications. It runs in a separate session; cross-provider review prefers another available provider when enabled.
-
-**Response:** `PASS`, `PRESERVED`, no findings and no unreviewable hunks.
-
-**Check and next step:** Save `review.json`. A `BLOCKER`, an assessment other than `PRESERVED`, or the model’s `FAIL` rejects the change and restores the pre-execution commit.
-
-**A `HIGH` finding alone does not override `PASS`.** Read findings as well as the verdict.
-
-<details>
-<summary>Full JSON response</summary>
+### review-success
 
 <!-- example: review-success schema: review -->
 ```json
@@ -260,34 +241,7 @@ Save `accepted.patch` after validation and **before review**. It is review input
 }
 ```
 
-</details>
-
-## 8. Commit, re-audit and report
-
-**Publish:** Require the commit tree to match the reviewed tree. Create a local commit and update the result branch only if its previous OID matches the expected value. Record `state.publishedOid` and the commit, then re-audit within limits. Unexpected source or approved-tree changes can stop publication.
-
-**Result:** At termination, save `report.json` and the selected-language `report.md`. Compare the source repository’s `state.baseOid` and `state.publishedOid`, including characterization commits. Worktree retention and the branch’s current position do not affect this comparison.
-
-The report provides file statistics, a diff preview, and the full text `changes.patch`. Net changes may differ from individual commit contents when multiple commits edit a file. See [code comparison](README.md#code-comparison) for preview limits and binary handling.
-
-`codeComparison.status` is `AVAILABLE`, `NO_CHANGES`, or `UNAVAILABLE`. No publication means no committed changes. Collection or patch-storage failures record a reason while preserving the run outcome and exit code.
-
-Saved reports require `schemaVersion: 3`; unsupported older formats produce an error and remain unchanged. `report --lang ko` renders supported saved JSON without new diffs, file changes or model calls. Provider response examples below retain their own `schema_version: "1"`, independently of saved report and configuration versions.
-
-## Failure and recovery branches
-
-![Rejection restores candidate edits before re-audit; a safety halt retains the worktree and produces a report.](../docs/assets/workflow/outcomes.en.png)
-
-[HTML source](../docs/assets/workflow/outcomes.en.html) · [Source and fidelity record](../docs/assets/workflow/README.md)
-
-### Insufficient evidence and unknown risk
-
-Audit `risk_level: "UNKNOWN"` is excluded as `RISK_UNKNOWN` under the default `policy.unknown_risk: set_aside`, even with `READY`. Because a model that needs one more check cannot also state a risk level, this used to exclude every `NEEDS_EVIDENCE` candidate before it could reach deep check. Setting `policy.unknown_risk` to `deep_check` passes exactly one shape through — `UNKNOWN` risk with `NEEDS_EVIDENCE` readiness — and leaves every other `UNKNOWN` set aside. Widening `allowed_risks` never enables `UNKNOWN`.
-
-Deep check responses other than `READY` record `NOT_READY` and stop the candidate before edits. A `READY` packet is then checked against `allowed_risks` on its own `risk_level`: a packet that returns `UNKNOWN` records `RISK_UNKNOWN`, and one above the allowed range records `RISK_EXCLUDED`. This check runs for every candidate and is not relaxed by `policy.unknown_risk`.
-
-<details>
-<summary>Full JSON response</summary>
+### deepcheck-evidence
 
 <!-- example: deepcheck-evidence schema: deepcheck -->
 ```json
@@ -329,14 +283,7 @@ Deep check responses other than `READY` record `NOT_READY` and stop the candidat
 }
 ```
 
-</details>
-
-### Preflight blocks execution
-
-A surviving or inconclusive hypothesis blocks implementation. The example uses stale evidence to return `INCONCLUSIVE` for the loader hypothesis and records `PREFLIGHT_BLOCKED`. Earlier characterization commits may remain.
-
-<details>
-<summary>Full JSON response</summary>
+### preflight-blocked
 
 <!-- example: preflight-blocked schema: preflight -->
 ```json
@@ -358,16 +305,7 @@ A surviving or inconclusive hypothesis blocks implementation. The example uses s
 }
 ```
 
-</details>
-
-### Characterization can be the only published change
-
-When the packet requests characterization and `policy.auto_characterization` is enabled, add tests for existing contracts. The model uses `sharpen-clarify` and `sharpen-challenge` and may edit only `characterization_files`.
-
-The scenario below requests an entrypoint test. Do not create a caller just to make a dead module observable.
-
-<details>
-<summary>Full task packet JSON</summary>
+### characterization-packet
 
 <!-- example: characterization-packet schema: deepcheck -->
 ```json
@@ -411,14 +349,7 @@ The scenario below requests an entrypoint test. Do not create a caller just to m
 }
 ```
 
-</details>
-
-The response reports test paths and preserved contracts. The controller rejects production edits, weakened assertions, and out-of-scope changes even with `PASS`.
-
-Run tests against unchanged production code before a separate characterization commit. An empty diff makes no commit; missing paths or failing tests stop the candidate. Disabling automatic characterization skips test writing and proceeds to preflight.
-
-<details>
-<summary>Full JSON response</summary>
+### characterization-success
 
 <!-- example: characterization-success schema: characterization -->
 ```json
@@ -438,18 +369,7 @@ Run tests against unchanged production code before a separate characterization c
 }
 ```
 
-</details>
-
-Later preflight blocks, validation regressions, or review rejections restore the commit **after characterization**. Test commits remain on the result branch, so the final comparison can include tests with zero refactor commits. `policy.max_commits` counts refactor commits only.
-
-### Validation regression and review rejection
-
-Previously passing commands must keep passing. New signatures in readable baseline failures, timeouts, or unrunnable commands reject the candidate. Matching failures still count as failures. Save results and the failure, then restore the pre-write commit.
-
-The review below cannot establish behavior preservation, so the controller rolls back the refactor. Saved `accepted.patch` remains an input snapshot, not approval.
-
-<details>
-<summary>Full JSON response</summary>
+### review-rejected
 
 <!-- example: review-rejected schema: review -->
 ```json
@@ -477,35 +397,3 @@ The review below cannot establish behavior preservation, so the controller rolls
 ```
 
 </details>
-
-### Schema repair, timeout and provider switching
-
-| Event | Controller action | Next step |
-| --- | --- | --- |
-| Invalid response JSON or schema | One read-only repair request includes the validation errors and prior response | Revalidate; if it still fails with `SCHEMA`, try the other available provider |
-| `TIMEOUT` or `PROCESS` failure | Retry the same provider after 5 seconds, then 20 seconds | After those retries, try the other available provider |
-| `QUOTA` or `AUTH` | Update provider availability and attempt a handoff snapshot | Try the other provider within the same phase |
-| Fatal provider error | Abort without repair or switching | Preserve diagnostics and report the stop reason |
-| No provider completes the phase | Apply the phase's failure or provider-exhaustion handling | Record failure or terminate according to the controller state and limits |
-
-Repair uses the original response schema, with no separate JSON contract. The repair session cannot continue editing. Process success still requires a valid response schema. Failed and repair processes count toward usage.
-
-Switching starts a new session with the phase’s inputs; it does not resume the old one. In write phases, `callPhase` does not roll back before every retry or switch. Candidate handling performs rollback after execution failure or rejection.
-
-`handoff.md` is a mid-run record for the reader, not the next provider’s conversation context or the final report.
-
-## Evidence to inspect
-
-| File | Meaning |
-| --- | --- |
-| `audits/*.json` | Candidate lists returned by audit |
-| `audits/<cycle>/provider/` | That cycle's audit prompt and raw transcript |
-| `cycles/*/packet.json` | Task packet plus controller metadata |
-| `cycles/*/preflight.json` | Failure hypothesis and falsification result |
-| `cycles/*/execution.json` | Implementation response and provider |
-| `cycles/*/gate.json`, `validation.json`, `review.json` | Scope checks, executed validation and review evidence in that cycle |
-| `cycles/*/accepted.patch` | Diff submitted for review, including candidates later rejected |
-| `state.json` | Terminal state, counters and published commit OID |
-| `report.json`, `report.md`, `changes.patch` | Final report and committed text comparison; unavailable comparisons record their reason |
-
-Paths are relative to `.refactor/runs/<id>/`; cycle directories include category and fingerprint. Check [status, cost, and exit codes](README.md#usage-and-exit-codes) and [review before merging](TUTORIAL.md#read-the-result). Local tests check schemas and controller behavior, not live model decisions.

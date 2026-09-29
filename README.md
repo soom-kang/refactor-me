@@ -2,105 +2,64 @@
 
 # refactor-me
 
-[![Verify](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml/badge.svg)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Automate behavior-preserving refactoring with Codex or Claude Code. The CLI works in an isolated Git worktree, validates each candidate, and saves accepted commits on a local branch for your review.
 
-Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and validates in a separate worktree and saves results on a local `refactor/auto-*` branch. Review the diff and report before merging.
-
-**Public Beta:** `0.10.0-beta.1` for macOS Apple Silicon, distributed through the dedicated Homebrew tap. Development builds report `dev`.
-
-[한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
-
-<a id="quick-start"></a>
+[한국어](docs/README.ko.md) · [Usage guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md)
 
 ## Install
 
-Prepare macOS Apple Silicon, Homebrew, Git, an authenticated `codex` or `claude` CLI, and the target project's validation tools. The Homebrew formula builds from pinned source and installs Go as a build dependency. refactor-me has no Go or Node runtime dependency. The external Skill installer below requires Node.js.
+Public Beta **0.10.0-beta.1** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
+
+<a id="quick-start"></a>
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
 refactor-me version --json
-npx skills add \
-  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+```
+
+Install sharpen-me Skills globally. This separate installer requires Node.js; running refactor-me does not.
+
+```sh
+npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-The eight required Skills use `~/.agents/skills` as their shared source. No Skill commit or executable copy is required in a target project. `doctor` reports missing files and conflicting same-name installations; it never removes them. A provider alias resolving to the same canonical Skill is permitted.
+Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`. Each target repository keeps its own configuration and run records.
 
-For development, build from a source checkout with Go 1.27:
+![One global CLI and Skill catalog serve separate Git repositories, each with its own .refactor state.](docs/assets/workflow/installation.en.png)
 
-```sh
-git clone https://github.com/soom-kang/refactor-me.git
-cd refactor-me/tool/go
-go build -o /private/tmp/refactor-me ./cmd/refactor-me
-/private/tmp/refactor-me version --json
-/private/tmp/refactor-me doctor --repo /path/to/target-repo --no-live-probe
-```
+## First run
 
-When using the development build, replace `refactor-me` in subsequent commands with `/private/tmp/refactor-me`.
-
-This Beta does not claim Apple signing or notarization. For downloaded binaries, checksum verification detects changed bytes but does not authenticate the publisher. Follow [Apple's instructions for opening an individual app](https://support.apple.com/en-gb/102445) if macOS blocks a download; do not disable system-wide protections.
-
-## Run
-
-Use a clean target checkout. Set limits using the [guide](tool/TUTORIAL.md#set-limits-and-run) before your first run:
+Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; replace `codex` with `claude` for Claude Code.
 
 ```sh
 refactor-me init --repo /path/to/target-repo
-refactor-me doctor --repo /path/to/target-repo --no-live-probe
-refactor-me run --repo /path/to/target-repo --provider codex --fallback none
+refactor-me doctor --repo /path/to/target-repo \
+  --provider codex --fallback none --no-live-probe
 ```
 
-For Claude only, use `--provider claude --fallback none` with both `doctor` and `run`. With neither flag, the default is Codex with Claude fallback.
-
-`init` is optional: it creates configuration without overwriting existing settings. `run` also works with built-in defaults. Running `refactor-me` without arguments displays help. `doctor` without `--no-live-probe` calls models and consumes account usage; the disk-only check does not establish that a live session can load Skills.
-
-From inside a target repository, omit `--repo`:
+`init` preserves existing configuration. Run it before setting first-run limits in the configuration file; otherwise initialization is optional. This doctor check makes no model calls. **Set [first-run limits](tool/TUTORIAL.md#set-limits-and-run) before starting:**
 
 ```sh
-refactor-me run --target app/web
-refactor-me run --target app/web --target app/api --fallback claude
-```
-
-With `--repo`, relative targets start at the selected Git root. Without it, they start at your current directory. `--target` limits candidate discovery; caller checks, edits and validation can extend beyond that directory within the repository. See [scope and validation rules](tool/README.md#candidate-selection).
-
-The CLI creates local commits and a result branch. It does not merge, push, or deploy. Keep the source checkout unchanged during execution.
-
-## Reports
-
-```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback none
 refactor-me report --repo /path/to/target-repo
-refactor-me report --repo /path/to/target-repo --lang ko
-refactor-me report --repo /path/to/target-repo --json
 ```
 
-Reports include file statistics, a diff preview and `changes.patch`. Viewing a report does not call a model or overwrite files. Use `run --lang ko` to write a new Korean report. Current configuration uses schema 2 and reports use schema 3; unsupported older formats produce an error and are not migrated or deleted. See [report formats and limits](tool/README.md#reports-and-language).
+`run` and doctor without `--no-live-probe` consume provider usage. Exit `0` can mean partial completion: inspect the report and diff before merging. The CLI does not merge, push or deploy results.
 
-## Update and remove
+## Read next
 
-```sh
-brew upgrade soom-kang/refactor-me/refactor-me
-brew uninstall refactor-me
-```
+| Task | Document |
+| --- | --- |
+| Install, choose a target, run and inspect results | [Usage guide](tool/TUTORIAL.md) |
+| Look up commands, settings and exit codes | [Reference](tool/README.md) |
+| Understand isolation, validation and review | [Workflow](tool/WORKFLOW.md) |
+| Build, test or prepare a release | [Development](tool/DEVELOPMENT.md) · [Homebrew release](tool/release/HOMEBREW.md) |
+| Check changes between versions | [Changelog](tool/CHANGELOG.md) |
 
-An upgrade changes the CLI used by all projects. Removal leaves project configuration, runs, result branches, worktrees and global Skills in place. Project-local `install` and `uninstall` commands are no longer available. Existing local binaries are not removed automatically; use `command -v refactor-me` and `version --json` to confirm which executable you invoke.
-
-## Verify
-
-From this repository root:
-
-```sh
-cd tool/go
-go test -race -count=1 ./...
-go vet ./...
-go build -o /private/tmp/refactor-me ./cmd/refactor-me
-/private/tmp/refactor-me version --json
-```
-
-The [fixture guide](tool/fixtures/README.md) covers Go examples and optional JavaScript validation. Default development checks do not need Node. Live provider loading and model decisions require separate runs. See [validation boundaries](tool/README.md#local-development-checks).
-
-
-For maintainers, the [Homebrew release guide](tool/release/HOMEBREW.md) covers source archives, formula generation and publication gates.
+This Beta has no Apple signing or notarization. See [installation details](tool/release/INSTALL.md) for standalone downloads and macOS warnings.
 
 ## License
 
-The CLI and documentation use the [MIT License](LICENSE), copyright 2026 soom-kang. Required sharpen-me Skills retain their MIT license files. Codex and Claude Code are external prerequisites governed by their providers' terms.
+[MIT](LICENSE), copyright 2026 soom-kang. Keep the copyright and license notice when redistributing the CLI or documentation. The software comes without warranty. sharpen-me retains its own license; Codex and Claude Code follow their providers' terms.

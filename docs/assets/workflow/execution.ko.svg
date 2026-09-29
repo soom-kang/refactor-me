@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" role="img" aria-labelledby="execution-ko-title execution-ko-desc">
+<title id="execution-ko-title">실행한 뒤, 결과를 확인하세요</title>
+<desc id="execution-ko-desc">준비 확인과 격리 실행 후 종료 코드 0이면 발행한 변경을 검토하고, 2나 4이면 중단 원인과 남은 기록을 확인합니다.</desc>
+<defs>
+<marker id="execution-ko-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M 0 0 L 10 5 L 0 10 z" fill="#625B52"/>
+</marker>
+<style>@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Noto+Sans+KR:wght@400;500;600&amp;display=swap");</style>
+</defs>
+<rect width="960" height="760" fill="#FDF7EC"/>
+<text x="48" y="47" font-family="'Geist Mono',monospace" font-size="13" font-weight="500" fill="#625B52" text-anchor="start">REFACTOR-ME / EXECUTION</text>
+<text x="48" y="98" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="32" font-weight="600" fill="#050505" text-anchor="start">실행한 뒤, 결과를 확인하세요</text>
+<path d="M 304 244 V 279" fill="none" stroke="#625B52" stroke-width="1.8" marker-end="url(#execution-ko-arrow)"/>
+<path d="M 304 385 V 418" fill="none" stroke="#625B52" stroke-width="1.8" marker-end="url(#execution-ko-arrow)"/>
+<path d="M 424 480 H 594" fill="none" stroke="#625B52" stroke-width="1.8" marker-end="url(#execution-ko-arrow)"/>
+<path d="M 304 542 V 596" fill="none" stroke="#625B52" stroke-width="1.8" marker-end="url(#execution-ko-arrow)"/>
+<rect x="48" y="145" width="512" height="99" rx="8" fill="#FDF7EC" stroke="#CFC7BB" stroke-width="1.2"/>
+<text x="70" y="180" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="22" font-weight="600" fill="#050505" text-anchor="start">1  준비 확인</text>
+<text x="70" y="210" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="17" font-weight="400" fill="#625B52" text-anchor="start">doctor · 저장소 / Skills / provider</text>
+<rect x="48" y="285" width="512" height="100" rx="8" fill="#FAE8DB" stroke="#DE5C20" stroke-width="2"/>
+<text x="70" y="320" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="22" font-weight="600" fill="#050505" text-anchor="start">2  격리된 worktree에서 실행</text>
+<text x="70" y="350" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="17" font-weight="400" fill="#625B52" text-anchor="start">run · 조사 → 수정 → 검증 → 독립 검토</text>
+<path d="M 304 420 L 424 480 L 304 540 L 184 480 Z" fill="#FDF7EC" stroke="#CFC7BB" stroke-width="1.4"/>
+<text x="304" y="475" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="20" font-weight="500" fill="#050505" text-anchor="middle">종료 코드</text>
+<text x="304" y="501" font-family="'Geist Mono',monospace" font-size="17" font-weight="400" fill="#625B52" text-anchor="middle">0 / 2 / 4</text>
+<text x="477" y="465" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="18" font-weight="500" fill="#625B52" text-anchor="start">0</text>
+<text x="321" y="580" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="18" font-weight="500" fill="#625B52" text-anchor="start">2 / 4</text>
+<rect x="600" y="418" width="312" height="142" rx="8" fill="#FDF7EC" stroke="#CFC7BB" stroke-width="1.2"/>
+<text x="622" y="453" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="22" font-weight="600" fill="#050505" text-anchor="start">변경 검토</text>
+<text x="622" y="483" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="17" font-weight="400" fill="#625B52" text-anchor="start">보고서 · diff · 로컬 branch</text>
+<text x="622" y="509" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="17" font-weight="400" fill="#625B52" text-anchor="start">0에는 부분 완료도 포함</text>
+<rect x="48" y="602" width="512" height="101" rx="8" fill="#FDF7EC" stroke="#CFC7BB" stroke-width="1.2"/>
+<text x="70" y="637" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="22" font-weight="600" fill="#050505" text-anchor="start">중단 원인 확인</text>
+<text x="70" y="667" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="17" font-weight="400" fill="#625B52" text-anchor="start">stderr / 남은 기록 · 4는 worktree 보존</text>
+<text x="600" y="603" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="18" font-weight="500" fill="#050505" text-anchor="start">병합은 직접 진행합니다.</text>
+<text x="600" y="634" font-family="'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif" font-size="16" font-weight="400" fill="#625B52" text-anchor="start">자동 push·배포는 하지 않습니다.</text>
+</svg>

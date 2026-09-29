@@ -18,9 +18,9 @@ Follow the [guide](TUTORIAL.md) for installation.
 | `report [--json] [--lang en\|ko]` | Read the latest supported saved report |
 | `clean` | Remove eligible finished worktrees |
 
-`init`, `doctor`, `run`, `report` and `clean` accept `--repo <path>`. A relative path starts at the calling directory; the CLI finds its Git root. Without `--repo`, it finds the current directory's Git root. `help` and `version` work outside Git. Installation belongs to Homebrew; there are no project-local `install` or `uninstall` commands.
+`init`, `doctor`, `run`, `report` and `clean` accept `--repo <path>`. A relative path starts at the calling directory; the CLI finds its Git root. Without `--repo`, it finds the current directory's Git root. `help` and `version` work outside Git. Homebrew manages installation.
 
-Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path. A fresh installation does not need files in `.refactor/bin` or `.refactor/lib`.
+Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
 ## Configuration
 
@@ -85,21 +85,13 @@ Preserve return values, side effects, ordering, errors, rendered output, and per
 
 ## Execution and safety checks
 
-Audit → deep check → optional characterization → preflight → execution → validation → independent review. Accepted commits trigger another audit.
+The [workflow](WORKFLOW.md) describes worktree isolation, diff gates, validation, independent review and commit checks. Results stay on a local branch until you review and merge them.
 
-The tool creates a detached worktree outside the source repository. It can copy gitignored build inputs, including dependencies and local environment files. **Apply the source repository’s access controls to the worktree and run records.**
-
-The controller compares the diff with the frozen task packet: forbidden paths, allowed files, change size and category-specific limits, test integrity, and seen tree hashes. It checks for changes to the source checkout and approved worktree state. Rejected edits are rolled back inside the run worktree.
-
-The CLI creates local commits and a result branch. It does not merge, push, deploy, or install application dependencies as a separate step. Existing validation commands and build tools may use the network and populate caches.
-
-`sharpen-cold-review` runs in a separate session. When both providers are available and cross-provider review is enabled, it prefers the provider that did not implement the change.
-
-Quota or authentication failure can switch providers within the same phase. The new session receives that phase’s inputs and frozen task packet where needed. `handoff.md` records the transition; the report contains the final result.
+The worktree may contain gitignored build inputs, including local environment files. Protect worktrees and run records as you would the source repository. Validation commands may use the network and populate caches.
 
 ## Skill availability
 
-Install all eight required Skills globally from the pinned sharpen-me catalog in the [guide](TUTORIAL.md#install-the-tool-and-skills). The shared source is `~/.agents/skills`; a project-local copy does not replace a missing global Skill.
+Install all eight required Skills globally from sharpen-me in the [guide](TUTORIAL.md#install-the-tool-and-skills). The shared source is `~/.agents/skills`; a project-local copy does not replace a missing global Skill.
 
 The CLI resolves each Skill directory, validates `SKILL.md` and its supporting files, and records the real path and SHA-256 of the full content. A Skill directory may be a symlink, but links inside it must not escape the resolved directory. Broken links and unsupported file structures are errors. Distinct same-name Skills in project/provider discovery paths block execution; aliases to the same canonical source are permitted and no user files are removed.
 
@@ -108,9 +100,9 @@ The CLI resolves each Skill directory, validates `SKILL.md` and its supporting f
 | Codex | Native global discovery with the selected absolute Skill paths in phase prompts |
 | Claude Code | A dedicated per-run `.claude/skills` copy passed through `--add-dir`; `--setting-sources project` continues to exclude user settings |
 
-Required Skill files do not have to be in the target's base commit. The Claude directory contains only the selected Skills and supporting files; the CLI does not grant access to the whole home directory through `--add-dir`. Content hashes are checked around provider calls. Unexpected drift halts the run before publishing that result.
+The Claude directory contains only the selected Skills and supporting files; the CLI does not grant access to the whole home directory through `--add-dir`. Content hashes are checked around provider calls. Unexpected drift halts the run before publishing that result.
 
-Doctor validates the global source and delivery paths. By default it also calls models, consumes account usage and writes diagnostics. `--no-live-probe` checks files and configuration only; it does not prove live session loading. Local fixture tests and live provider checks are separate evidence. The live probe requires the provider to report all eight visible Skill names; this is session self-report, not independent proof of every file read. File paths and hashes are measured separately.
+Doctor validates the global source and delivery paths. By default it also calls models, consumes account usage and writes diagnostics. `--no-live-probe` checks local prerequisites and provider executables without model calls; it does not prove live session loading. Local fixture tests and live provider checks are separate evidence. The live probe requires the provider to report all eight visible Skill names; this is session self-report, not independent proof of every file read. File paths and hashes are measured separately.
 
 | Skill | Used when | Result |
 | --- | --- | --- |
@@ -152,11 +144,11 @@ To supply explicit commands, create `.refactor/commands.json` in the target repo
   "locked": true,
   "commands": [
     {
-      "id": ".:T2:node:test",
+      "id": ".:T2:go:test",
       "area": ".",
       "tier": "T2",
       "name": "test",
-      "argv": ["node", "--test"],
+      "argv": ["go", "test", "-count=1", "./..."],
       "cwd": ".",
       "timeoutMs": 180000,
       "source": "operator-defined"
@@ -229,20 +221,4 @@ Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation e
 
 ## Local development checks
 
-These checks target macOS Apple Silicon and require Go 1.27 and Git. From the repository root:
-
-```bash
-cd tool/go
-go test -race ./...
-go vet ./...
-go build -o /private/tmp/refactor-me ./cmd/refactor-me
-/private/tmp/refactor-me version --json
-```
-
-Go uses `gofmt`, `go vet`, `go test -race`, and `go build`. The default development and verification flow does not require Node. The historical [contract migration map](../docs/node-test-contracts.ko.md) records the Node-removal baseline; its legacy installation and report contracts no longer describe this release. Use the [local fixture guide](fixtures/README.md) to generate Go examples or optional JavaScript examples. **Live model decision quality and CLI Skill loading require separate provider runs.**
-
-To verify that project checks do not invoke Node, run this guard from the repository root. It checks project tooling; GitHub Actions may still use its own JavaScript action runtime.
-
-```bash
-bash tool/check-no-node.sh sh -c 'cd tool/go && go test -race -count=1 ./... && go vet ./...'
-```
+Build and test with Go using the [development guide](DEVELOPMENT.md). Generate disposable repositories with the [fixture guide](fixtures/README.md). Live provider loading and model decisions require separate checks.

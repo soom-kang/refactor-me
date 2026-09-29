@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Consolidate English and Korean installation, first-run, reference and workflow documentation.
+- Use the unpinned global sharpen-me installation command and add project-state and execution diagrams.
+- Remove retired migration documents and historical validation reports; retain version history here.
+- Add bilingual Homebrew guidance, title artwork and license explanations.
+
 ## 0.10.0-beta.1
 
 macOS Apple Silicon Beta with a source-build Homebrew formula and global sharpen-me Skills.

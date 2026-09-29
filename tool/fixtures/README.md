@@ -1,6 +1,6 @@
 # Local refactoring fixtures
 
-[한국어](README.ko.md) · [Development checks](../README.md#local-development-checks) · [Workflow](../WORKFLOW.md)
+[한국어](README.ko.md) · [Development checks](../DEVELOPMENT.md) · [Workflow](../WORKFLOW.md)
 
 Generate a disposable Git repository to inspect candidate discovery, command detection, and baseline handling. The generator uses Go 1.27 and Git. It creates an initial commit, prints the repository path, and does not call Codex or Claude.
 
@@ -35,13 +35,13 @@ Run these examples from `tool/go`. Explicit destinations must not already exist,
 go run ./cmd/make-fixture /tmp/my-new-refactor-fixture --lang go --multi
 ```
 
-`--multi` adds independent `app/api` and `app/worker` areas in the selected language. Each has its own manifest. The generator does not install or copy Skills. Actual provider runs resolve global Skills from `~/.agents/skills`, independently of the fixture base commit. The removed `--skills` option is rejected.
+`--multi` adds independent `app/api` and `app/worker` areas in the selected language. Each has its own manifest. The generator does not install or copy Skills. Actual provider runs resolve global Skills from `~/.agents/skills`, independently of the fixture base commit.
 
 An invalid option or an existing destination is an error. Inspect the diagnostic and choose a new destination; do not delete an existing repository to retry.
 
 ## Optional JavaScript example
 
-Generating the files still uses Go. Executing their checks requires Node.js 24+; no npm dependencies need installation. The Workflow document uses this example's `.mjs` paths.
+Generating the files still uses Go. Executing their checks requires Node.js 24+; no npm dependencies need installation. The Workflow appendix uses this example's `.mjs` paths.
 
 ```bash
 # From tool/go

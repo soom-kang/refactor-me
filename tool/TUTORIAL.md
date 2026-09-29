@@ -1,178 +1,165 @@
-# refactor-me guide
+# Run your first refactoring
 
-[Project](../README.md) · [한국어](TUTORIAL.ko.md) · [Reference](README.md) · [Workflow](WORKFLOW.md)
+[Project](../README.md) · [한국어](TUTORIAL.ko.md) · [Reference](README.md)
 
-Prepare the target repository, then follow these five steps. Check each command’s working directory and replace the example paths.
+Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
 <a id="prepare-the-target"></a>
 
-## 1. Prepare the target
+## 1. Prepare the repository
 
-Use macOS Apple Silicon and Homebrew. The formula manages Go as a build dependency; a manual source build requires Go 1.27. From the repository you want to refactor:
+Use a Git repository with at least one commit. Finish or set aside changes, including untracked files, then prepare the project's dependencies and run its checks once.
 
-```bash
+```sh
 cd /path/to/target-repo
 git rev-parse --show-toplevel
 git status --short
 ```
 
-Finish or set aside existing changes. The source checkout must be clean, including untracked files.
+`git status --short` should print nothing. Keep the source checkout unchanged while refactor-me runs.
 
-Install project dependencies and run its build and tests once to prepare caches and identify baseline failures.
+Install and authenticate one provider CLI using its own instructions. Check the provider you will use:
 
-Check the provider you intend to use:
-
-```bash
+```sh
 codex login status
-# If using Claude Code:
+# For Claude Code instead:
 claude auth status
 ```
 
-Provider calls require network access and consume the provider account's available usage.
-
 <a id="install-the-tool-and-skills"></a>
 
-## 2. Install the tool and global Skills
+## 2. Install the CLI and Skills
 
-`0.10.0-beta.1` supports macOS Apple Silicon through the dedicated Homebrew tap. A [development build](../README.md#install) is also available.
+You need Homebrew and Node.js for the separate Skill installer. Homebrew supplies Go to build the CLI; the installed CLI needs neither Go nor Node at runtime.
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
 refactor-me version --json
-npx skills add \
-  https://github.com/soom-kang/sharpen-me/tree/v0.9.0-beta.2 \
+npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
-refactor-me init --repo /path/to/target-repo
-refactor-me doctor --repo /path/to/target-repo --no-live-probe
 ```
 
-Homebrew builds the CLI using Go and places it on PATH. The external `npx` installer needs Node.js; CLI execution does not. The shared Skill source is `~/.agents/skills`. Do not commit Skills to target repositories for this workflow. Distinct same-name Skills in provider search paths block execution; doctor reports the paths for you to inspect. Aliases resolving to the same source are allowed.
+Expect CLI version `0.10.0-beta.1`, platform `darwin` and architecture `arm64`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
-`init` is optional and creates `.refactor/config.json` without overwriting an existing file. It copies neither the binary nor Skills. Running `refactor-me` without arguments shows help.
-
-Codex uses the selected global Skill paths. Claude receives a dedicated per-run copy through `--add-dir`, while `--setting-sources project` continues to exclude user settings. Skill contents are checked around provider calls; an unexpected change stops publication.
-
-For a development build, replace `refactor-me` in every command below with `/private/tmp/refactor-me`.
-
-The disk-only doctor check writes diagnostics but does not establish live Skill loading. To test the authenticated provider sessions, run the following separately; it calls models and consumes account usage:
+Create configuration and check Codex without calling a model:
 
 ```sh
-refactor-me doctor --repo /path/to/target-repo
+refactor-me init --repo /path/to/target-repo
+refactor-me doctor --repo /path/to/target-repo \
+  --provider codex --fallback none --no-live-probe
 ```
 
-This Beta is not Apple-signed or notarized. If macOS blocks a downloaded executable, follow [Apple's individual-app instructions](https://support.apple.com/en-gb/102445). Do not disable system-wide protections.
+For Claude Code, use `--provider claude --fallback none` in both doctor and run. Resolve blocking `FAIL` checks before continuing. `init` never overwrites an existing configuration. Run it for this guide so the next step has a file to edit. Without initialization, the CLI uses built-in defaults. Running `refactor-me` alone displays help.
+
+`--no-live-probe` skips model calls but still checks provider executables and prepares temporary diagnostics. To check live session Skill visibility, repeat doctor without that flag; this consumes provider usage.
 
 <a id="set-limits-and-run"></a>
 
-## 3. Set limits
+## 3. Set first-run limits
 
-After `init`, edit `/path/to/target-repo/.refactor/config.json`: set `policy.max_commits` to `1` and `policy.max_wall_clock_min` to a suitable limit (for example `30`) for a first run. Characterization test commits are counted apart from this refactor-commit limit.
+Open `.refactor/config.json` in the target repository. Change these fields inside the existing objects; this is a partial example, not a replacement file:
 
-**The loop does not enforce a total monetary budget.** Claude’s budget option is not a total run limit either. See [configuration and defaults](README.md#configuration).
-
-## 4. Run
-
-From the target repository, use Codex only:
-
-```bash
-refactor-me run --provider codex --fallback none
+```json
+{
+  "agents": {
+    "codex": {"timeout_sec": 300},
+    "claude": {"timeout_sec": 300}
+  },
+  "policy": {
+    "max_cycles": 1,
+    "max_commits": 1,
+    "max_wall_clock_min": 20
+  }
+}
 ```
 
-For Claude only:
+These values limit a first trial to one cycle and one refactor commit. Characterization test commits count separately. Provider timeouts apply per call; the elapsed-time limit is checked between work units and is not a hard deadline.
 
-```bash
-refactor-me run --provider claude --fallback none
+**There is no total monetary cap.** Model calls, retries and live doctor checks consume account usage. See [all settings](README.md#configuration) before increasing limits.
+
+## 4. Start the run
+
+Run Codex without fallback from any directory:
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback none
 ```
 
-With Claude available as a fallback:
+For Claude Code, replace `codex` with `claude`. To allow Claude fallback, use `--provider codex --fallback claude`; this is also the default when provider flags are omitted. Add `--lang ko` for a Korean report and final summary.
 
-```bash
-refactor-me run --provider codex --fallback claude
+To search for candidates in selected directories:
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --target app/web --target app/api \
+  --provider codex --fallback none
 ```
 
-To find candidates in one directory:
+Choose existing directories with tracked source files. Omit `--target` to survey the whole repository.
 
-```bash
-refactor-me run --target app/web
-```
+| Path | Resolution |
+| --- | --- |
+| Relative `--repo` | From the calling directory, then locate its Git root |
+| `--target` with `--repo` | From the selected Git root |
+| `--target` without `--repo` | From the calling directory |
 
-`--target` is relative to your current directory when `--repo` is omitted. To run from any directory, use `refactor-me run --repo /path/to/target-repo --target app/web`; targets then start at the selected Git root. `--repo` accepts a repository or a directory within it, and relative repository paths start at your calling directory. Paths resolving outside the selected repository are rejected. Caller changes and validation can extend beyond the target within the repository. Keep the source checkout unchanged during a run.
+Paths resolving outside the repository are rejected. **Targets limit candidate discovery, not every edit or validation command.** Caller changes may reach elsewhere inside the repository.
 
-Accepted changes remain on a local `refactor/auto-*` branch. The loop stops for no eligible candidates, run limits, repeated failures, unavailable providers, or safety violations.
-
-**Exit code `0` can mean partial completion.** Check the status in the next step.
+![Check prerequisites, run in an isolated worktree, inspect the saved outcome, then review published changes before merging.](../docs/assets/workflow/execution.en.png)
 
 <a id="read-the-result"></a>
 
-## 5. Read the result
+## 5. Inspect the result
 
-```bash
-refactor-me report
-refactor-me report --lang ko
-refactor-me report --json
+Read the report even when the command exits successfully:
+
+```sh
+refactor-me report --repo /path/to/target-repo
+refactor-me report --repo /path/to/target-repo --lang ko
+refactor-me report --repo /path/to/target-repo --json
 ```
 
-To write the report and final summary in Korean when running:
+Report viewing makes no model calls. Language selection does not rewrite the saved report; `--json` prints the supported saved JSON bytes.
 
-```bash
-refactor-me run --provider codex --fallback none --lang ko
-```
+1. Check the terminal status and stop reason. Exit `0` includes partial completion.
+2. Check validation, skipped checks and provider usage. Missing cost is unknown, not zero.
+3. Inspect the local result branch and `.refactor/runs/<id>/changes.patch`. No published changes means there may be no patch or result branch.
+4. Review the diff and run any omitted integration or browser checks before merging yourself.
 
-Viewing another language preserves the saved `report.md`. `--lang` applies to `run` and `report`; doctor and progress logs remain in English. See [reports and language](README.md#reports-and-language) for translated fields and supported JSON format.
+Results use local `refactor/auto-*` branches. The CLI does not merge, push or deploy. `accepted.patch` is intermediate review input; use `changes.patch` for the final published comparison.
 
-Check committed changes, skipped candidates, validation, usage, and the worktree path. Missing cost is not zero; a partial total is a lower bound.
+## When a run stops
 
-Read the file statistics and diff preview, then open `.refactor/runs/<id>/changes.patch` for the full comparison. It uses fixed start and final published commit OIDs. A comparison failure is separate from the run result; inspect its reason.
-
-Use the full start and final published OIDs from `codeComparison` for another Git view:
-
-```bash
-git log --oneline <base-commit>..<published-commit>
-git diff <base-commit> <published-commit>
-```
-
-Before merging, review the diff and run omitted service, browser, or integration checks. Candidate validation selects changed areas and the root area when present; it does not establish that all areas passed. Unchanged baseline failures are still failures.
-
-See [Workflow](WORKFLOW.md) for phase checks. `handoff.md` is an intermediate record; use the final report for the outcome.
-
-## Handle a stopped run
-
-| Symptom | Next action |
+| Signal | Next action |
 | --- | --- |
-| Missing global Skill | Check the named directory under `~/.agents/skills` and rerun the global installer if needed |
-| Skill name conflict | Inspect the reported provider/project paths and choose one canonical source; the CLI does not delete them |
-| Skill changed during a run | Preserve diagnostics, finish catalog maintenance, then start a new run |
-| Dirty source checkout | Finish or set aside your work, then rerun doctor |
-| No usable baseline | Inspect command failures, dependencies, and build caches; define commands if discovery is insufficient |
-| No eligible candidates | Read the exclusion reasons; a run can finish without changes |
-| Partial completion | Inspect accepted commits and the stop reason before starting another run |
-| Safety halt, exit `4` | Keep the worktree and diagnostics; investigate the violated invariant |
-| Report JSON missing or invalid | Restore the recorded JSON if available; existing Markdown is not overwritten |
+| Missing, conflicting or changed Skill | Inspect the paths in doctor; repair the global installation between runs |
+| Dirty checkout or invalid target | Finish existing work or correct the path, then rerun doctor |
+| Baseline failure | Inspect dependencies and [validation commands](README.md#validation-commands); at least one command must pass |
+| No changes or partial completion | Read exclusions and limits before starting another run |
+| Exit `4`, safety halt | Preserve the worktree and diagnostics; investigate before retrying |
 
-For explicit validation commands, see [Validation commands](README.md#validation-commands). Run records may contain source excerpts and command output; review them before sharing.
+Exit `2` means an abort or CLI error. Check stderr and the available run records. Configuration schema `2` and report schema `3` are required; unsupported formats produce an error without changing the file. A missing or invalid report is not proof that a run succeeded.
 
-## Update and remove
+Records can contain source excerpts and command output. Review them before sharing. See [Workflow](WORKFLOW.md) for rollback and publication checks.
+
+## Update or remove
+
+Upgrade the CLI, then repeat the non-live doctor check:
 
 ```sh
 brew upgrade soom-kang/refactor-me/refactor-me
 refactor-me version --json
-refactor-me doctor --repo /path/to/target-repo --no-live-probe
+refactor-me doctor --repo /path/to/target-repo \
+  --provider codex --fallback none --no-live-probe
 ```
 
-An upgrade changes the executable used by every project. Review the release notes before upgrading. Global Skills are maintained separately; inspect local modifications before updating the pinned catalog and do not update it while a run is active.
+An upgrade affects every project using this executable. Update Skills separately with the installation command in step 2, after checking local changes. Do not update Skills during a run.
 
-Current configuration requires `schema_version: 2`; reports require `schemaVersion: 3`. Earlier formats are rejected without rewriting or deleting them. There is no migration or Node rollback command. If an old configuration exists, preserve it outside the active `.refactor/config.json` path, run `init`, and transfer reviewed settings into the generated schema. Keep old run records as archives; the current CLI cannot render them. `init` itself never moves or overwrites existing files.
-
-To remove eligible finished worktrees:
-
-```sh
-refactor-me clean --repo /path/to/target-repo
-```
-
-Partial, unfinished and safety-halted worktrees remain available for investigation. To remove the Homebrew executable:
+Remove eligible finished worktrees with `refactor-me clean --repo /path/to/target-repo`. Partial and safety-halted worktrees remain available for investigation.
 
 ```sh
 brew uninstall refactor-me
 ```
 
-Removal leaves project configuration, reports, worktrees, result branches and global Skills in place. The CLI no longer implements project-local `install` or `uninstall`. It does not remove older local executables. Use `command -v refactor-me` and `version --json` to identify the executable in use; inspect any old project files before removing them yourself.
+Uninstalling keeps project settings, reports, worktrees, result branches and global Skills. This Beta is unsigned and not notarized; see [standalone installation and macOS warnings](release/INSTALL.md).

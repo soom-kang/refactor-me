@@ -1,6 +1,6 @@
-# 로컬 리팩터링 fixture
+# 로컬 리팩토링 fixture
 
-[English](README.md) · [개발 검사](../README.ko.md#로컬-개발-검사) · [Workflow](../WORKFLOW.ko.md)
+[English](README.md) · [개발 검사](../DEVELOPMENT.md) · [Workflow](../WORKFLOW.ko.md)
 
 후보 탐색, 검증 명령 발견과 기준선 처리를 확인할 임시 Git 저장소를 만듭니다. 생성기에는 Go 1.27과 Git이 필요합니다. 최초 커밋을 만든 뒤 저장소 경로를 출력하며 Codex나 Claude를 호출하지 않습니다.
 
@@ -25,7 +25,7 @@ printf '%s\n' "$FIXTURE"
 (cd "$FIXTURE" && go test -count=1 ./...)
 ```
 
-이 실패는 생성기 오류가 아니라 검증에 사용할 입력입니다. 리팩터링 후보는 기존 통과를 유지하고 실패 signature를 추가하지 않아야 합니다. fixture를 통과시키려고 의도된 실패를 고치지 마세요. 통과한 명령이 하나도 없는 기준선은 audit으로 진행할 수 없습니다.
+이 실패는 생성기 오류가 아니라 검증에 사용할 입력입니다. 리팩토링 후보는 기존 통과를 유지하고 실패 signature를 추가하지 않아야 합니다. fixture를 통과시키려고 의도된 실패를 고치지 마세요. 통과한 명령이 하나도 없는 기준선은 audit으로 진행할 수 없습니다.
 
 ## 옵션과 목적지 보호
 
@@ -35,13 +35,15 @@ printf '%s\n' "$FIXTURE"
 go run ./cmd/make-fixture /tmp/my-new-refactor-fixture --lang go --multi
 ```
 
-`--multi`는 선택한 언어로 `app/api`와 `app/worker` 영역을 추가합니다. 두 영역은 각각 manifest를 가집니다. 생성기는 Skills를 설치하거나 복사하지 않습니다. 실제 provider 실행은 fixture의 기준 커밋과 독립적으로 `~/.agents/skills`에서 전역 Skills를 찾습니다. 제거된 `--skills` 옵션은 거부합니다.
+`--multi`는 선택한 언어로 `app/api`와 `app/worker` 영역을 추가합니다. 두 영역은 각각 manifest를 가집니다. 생성기는 Skills를 설치하거나 복사하지 않습니다. 실제 provider 실행은 fixture의 기준 커밋과 독립적으로 `~/.agents/skills`에서 전역 Skills를 찾습니다.
 
 잘못된 옵션이나 기존 목적지는 오류입니다. 진단을 확인하고 새 목적지를 선택하세요. 재시도하기 위해 기존 저장소를 지우지 마세요.
 
+<a id="optional-javascript-example"></a>
+
 ## JavaScript 예제(선택)
 
-파일 생성에는 Go를 사용하며, 생성한 검사를 실행할 때 Node.js 24+가 필요합니다. npm 의존성 설치는 필요하지 않습니다. Workflow 문서의 `.mjs` 경로는 이 예제를 기준으로 합니다.
+파일 생성에는 Go를 사용하며, 생성한 검사를 실행할 때 Node.js 24+가 필요합니다. npm 의존성 설치는 필요하지 않습니다. 동작 방식 부록의 `.mjs` 경로는 이 예제를 기준으로 합니다.
 
 ```bash
 # tool/go에서 실행

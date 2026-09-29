@@ -1,72 +1,70 @@
-# Homebrew source release
+# Prepare a Homebrew release
 
-This procedure prepares `0.10.0-beta.1` for `soom-kang/homebrew-refactor-me`.
-The source asset is published as a GitHub prerelease and its formula is maintained in the dedicated tap. The formula supports macOS ARM only, builds with Homebrew Go, and never installs Skills or modifies project state during installation.
+[한국어](HOMEBREW.ko.md) · [Development checks](../DEVELOPMENT.md) · [User installation](INSTALL.md)
 
-## Local candidate
+Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-Requirements: macOS Apple Silicon, Git, Go 1.27+, Homebrew, Python 3. No provider call is made by these commands.
+## 1. Build a local candidate
 
-From the repository root:
+Use macOS Apple Silicon, Git, Go 1.27+, Homebrew and Python 3. From the repository root, choose a fresh output directory:
 
 ```sh
 python3 -m unittest discover -s tool/release -p 'test_*.py'
-python3 tool/release/prepare-homebrew.py /tmp/refactor-homebrew-candidate --candidate
-cd /tmp/refactor-homebrew-candidate
-shasum -a 256 -c SHA256SUMS
+python3 tool/release/prepare-homebrew.py \
+  /tmp/refactor-homebrew-candidate --candidate
+(cd /tmp/refactor-homebrew-candidate && shasum -a 256 -c SHA256SUMS)
 ```
 
-Choose a fresh output directory each time. Candidate mode includes local source changes, records the base commit and `dirty` status in `BUILD-INFO.json`, and produces a local `file://` formula. It is not publishable. The source archive includes the Go module, embedded schemas and fixture templates, license, release version and build metadata; it contains no `.git` or user Skill directory.
+Candidate mode includes local source changes and records the base commit and dirty state. Its `file://` formula is for local testing only. The archive includes source, embedded schemas and templates, LICENSE and build metadata; it excludes `.git` and user Skills.
 
-To test the formula, create a disposable **local** tap (this changes the local Homebrew installation):
+## 2. Check the formula
+
+Use a disposable local tap. These commands change your local Homebrew installation. Check an existing `refactor-me` installation first; do not replace it as part of an unrelated test.
 
 ```sh
 brew tap-new local/refactor-me-check
 cp /tmp/refactor-homebrew-candidate/refactor-me.rb \
   "$(brew --repository local/refactor-me-check)/Formula/refactor-me.rb"
 brew style local/refactor-me-check/refactor-me
+brew audit --strict local/refactor-me-check/refactor-me
 brew install --build-from-source local/refactor-me-check/refactor-me
 brew test local/refactor-me-check/refactor-me
 refactor-me version --json
 ```
 
-Do not replace an existing installation without checking its provenance. For cleanup after testing a newly installed candidate:
+`brew test` checks version, commit and initialization without provider calls. Review the final HTTPS formula again before publication. To remove only the candidate installation and disposable tap after testing:
 
 ```sh
 brew uninstall local/refactor-me-check/refactor-me
 brew untap local/refactor-me-check
 ```
 
-`brew audit --strict` can additionally inspect formula metadata; online checks require network access. Candidate file URLs are intentionally local. Check the final HTTPS formula again before publishing. `brew test` verifies version/commit and state initialization without authenticating or invoking providers.
+## 3. Complete release checks
 
-## Release gates
+Run the [development checks](../DEVELOPMENT.md), lint and vulnerability scan. Review code changes independently and cold-read English and Korean installation instructions.
 
-From `tool/go`:
+Run separately approved bounded Codex and Claude fixtures. Record source checkout integrity, Skill paths/hashes, session-loading results, limits, outcomes and usage. File validation and provider self-report are different evidence. A failing required provider check blocks publication.
 
-```sh
-go test -race -count=1 ./...
-go vet ./...
-golangci-lint run --config ../../.golangci.yml
-govulncheck ./...
-```
+Record the candidate commit, local results, CI status, source hash, formula and release notes for approval. Keep raw provider logs private; they may contain source or account information.
 
-Use golangci-lint `v2.14.0` and govulncheck `v1.8.0`, installed separately as development tools. Run default checks through `tool/check-no-node.sh`. Database access is required for govulncheck; a failed download is not a passed scan. CI installs fixed tool versions outside the module. No production dependency is added.
+## 4. Publish an approved version
 
-Complete independent code review, EN/KO installation cold read, and separately approved bounded Codex/Claude fixture runs. Record provider Skill loading separately from file/hash verification. Preserve source checkout, provider usage and run reports. One provider failing the required gate blocks publication.
+Check remote refs and tap access. Set a new release version in `tool/RELEASE_VERSION` and add the matching CHANGELOG entry before the approved commit. Do not reuse or move an existing tag.
 
-## Publication boundary
-
-Commit, push, tag, GitHub release and remote tap changes require the user's release approval. Existing tags/assets must not be replaced. First confirm remote state, release version, test evidence and tap access. Commit the approved source and create annotated `v0.10.0-beta.1` at that exact commit. On its clean checkout:
+After commit/push approval, tag that commit as `v<release-version>`. On its clean checkout:
 
 ```sh
 python3 tool/release/prepare-homebrew.py /tmp/refactor-homebrew-release
-cd /tmp/refactor-homebrew-release
-shasum -a 256 -c SHA256SUMS
+(cd /tmp/refactor-homebrew-release && shasum -a 256 -c SHA256SUMS)
 ```
 
-Release mode refuses a dirty checkout or a tag not identifying HEAD. The generated formula uses a fixed GitHub release asset URL, SHA-256 and commit. Upload `refactor-me_0.10.0-beta.1_source.tar.gz` and its checksum to the draft prerelease. Review the formula and publish it as `Formula/refactor-me.rb` in the dedicated tap only after its URL is available. No bottle or automatic tap publishing is configured.
+Release mode refuses dirty source or a tag that does not identify HEAD. Upload the generated source archive and checksums to a draft prerelease. Write version-specific release notes from verified changes and known limits. Wait for tag CI to pass, confirm asset names/hashes, then publish.
 
-Record the final source hash after the approved commit; a dirty candidate hash cannot serve as release evidence. Publish the prerelease after CI passes and verify the public source again:
+Publish the generated `Formula/refactor-me.rb` to the tap after its public source URL is available. Keep the fixed hash and injected commit. No bottle or automatic tap publishing is configured. Do not claim Apple signing or notarization; checksums verify bytes, not publisher identity.
+
+## 5. Verify the public installation
+
+On a machine without refactor-me installed:
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
@@ -74,4 +72,4 @@ brew test soom-kang/refactor-me/refactor-me
 refactor-me version --json
 ```
 
-Confirm the reported commit, target selection and `.refactor` paths in a temporary Git repository. `brew upgrade` changes the shared executable for every project. `brew uninstall` removes the executable and leaves each project's settings, records and result branches intact. This release does not claim Apple signing or notarization. A checksum verifies file integrity, not publisher identity.
+For an existing installation, review and use `brew upgrade` instead. Confirm version and commit, then test repository selection, repeated `init` and report paths in a temporary Git repository. Preserve the source HEAD, index and tracked files. Updating docs alone does not require a new tag, asset or formula version.

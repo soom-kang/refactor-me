@@ -1,7 +1,7 @@
 # Homebrew source release
 
 This procedure prepares `0.10.0-beta.1` for `soom-kang/homebrew-refactor-me`.
-The tap and public source asset are pending publication. The formula supports macOS ARM only, builds with Homebrew Go, and never installs Skills or modifies project state during installation.
+The source asset is published as a GitHub prerelease and its formula is maintained in the dedicated tap. The formula supports macOS ARM only, builds with Homebrew Go, and never installs Skills or modifies project state during installation.
 
 ## Local candidate
 

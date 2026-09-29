@@ -1,10 +1,8 @@
 # refactor-me 0.10.0-beta.1 — Homebrew and global Skills
 
-Release candidate; publication is pending verification and approval. This Beta targets macOS Apple Silicon and introduces a shared Homebrew executable and global sharpen-me Skills.
+This Beta targets macOS Apple Silicon and introduces a shared Homebrew executable and global sharpen-me Skills.
 
 ## Installation and execution
-
-After publication:
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
@@ -13,10 +11,17 @@ npx skills add \
   --global --skill '*' --agent codex claude-code
 refactor-me init --repo /path/to/target-repo
 refactor-me doctor --repo /path/to/target-repo --no-live-probe
-refactor-me run --repo /path/to/target-repo
 ```
 
 The formula builds pinned source with Go as a build dependency. Runtime prerequisites remain Git, authenticated provider CLIs and the target's validation tools. The external Skills installer requires Node.js; refactor-me does not. Configure run limits before the first model run. Doctor's default live checks and `run` consume provider usage.
+
+After configuring the [first-run limits](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md#set-limits-and-run), start the selected provider:
+
+```sh
+refactor-me run --repo /path/to/target-repo --provider codex --fallback none
+```
+
+For Claude only, replace `codex` with `claude`; use the same provider flags for `doctor`. The default without provider flags is Codex with Claude fallback.
 
 ## Changes to existing usage
 
@@ -29,6 +34,8 @@ The formula builds pinned source with Go as a build dependency. Runtime prerequi
 
 ## Distribution and validation
 
-The Beta is unsigned and not notarized. macOS can warn or block downloaded binaries. Checksums verify download integrity and do not authenticate the publisher. Read the [installation guide](INSTALL.md) and [Apple's individual-app opening instructions](https://support.apple.com/en-gb/102445).
+The Beta is unsigned and not notarized. macOS can warn or block downloaded binaries. Checksums verify download integrity and do not authenticate the publisher. Read the [installation guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/release/INSTALL.md) and [Apple's individual-app opening instructions](https://support.apple.com/en-gb/102445).
 
-The release review must record local Go and formula checks, source archive hash, commit, CI results and separate Codex/Claude live checks. Those checks are not established by this candidate document. Existing published tags and assets remain unchanged.
+Local Go and Homebrew checks, independent code review and installation documentation review are recorded in [VALIDATION.ko.md](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/release/VALIDATION.ko.md). Existing published tags and assets remain unchanged.
+
+Live Codex and Claude validation each completed one refactor commit in one cycle while preserving the original checkout, index and HEAD. Both stopped at the configured cycle limit (`DONE_PARTIAL`). Total reported Claude usage was $1.5212012; Codex did not report monetary cost. These fixture checks do not establish behavior on every target project.

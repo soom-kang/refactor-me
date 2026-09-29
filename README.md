@@ -6,15 +6,13 @@
 
 Run behavior-preserving refactors with Codex and Claude Code. The CLI edits and validates in a separate worktree and saves results on a local `refactor/auto-*` branch. Review the diff and report before merging.
 
-**Release candidate:** `0.10.0-beta.1` for macOS Apple Silicon. Homebrew publication is pending release approval and verification; the installation command below is the intended published interface. Source builds report `dev`.
+**Public Beta:** `0.10.0-beta.1` for macOS Apple Silicon, distributed through the dedicated Homebrew tap. Development builds report `dev`.
 
 [한국어](docs/README.ko.md) · [Guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md) · [Changelog](tool/CHANGELOG.md)
 
 ## Install
 
 Prepare macOS Apple Silicon, Homebrew, Git, an authenticated `codex` or `claude` CLI, and the target project's validation tools. The Homebrew formula builds from pinned source and installs Go as a build dependency. refactor-me has no Go or Node runtime dependency. The external Skill installer below requires Node.js.
-
-Once the tap and release are published:
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
@@ -49,6 +47,8 @@ refactor-me init --repo /path/to/target-repo
 refactor-me doctor --repo /path/to/target-repo --no-live-probe
 refactor-me run --repo /path/to/target-repo --provider codex --fallback none
 ```
+
+For Claude only, use `--provider claude --fallback none` with both `doctor` and `run`. With neither flag, the default is Codex with Claude fallback.
 
 `init` is optional: it creates configuration without overwriting existing settings. `run` also works with built-in defaults. Running `refactor-me` without arguments displays help. `doctor` without `--no-live-probe` calls models and consumes account usage; the disk-only check does not establish that a live session can load Skills.
 

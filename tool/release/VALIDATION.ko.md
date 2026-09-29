@@ -2,7 +2,7 @@
 
 검증일: 2026-09-29, macOS Apple Silicon, Go 1.27.1, Homebrew 7.0.6.
 
-현재 상태는 **로컬 구현·패키지 검증 완료, 실제 provider 호출 승인 대기**다. 공개 배포 완료 기록이 아니다. 작업 시작 시 저장소는 깨끗했으며 기준 HEAD는 `c19b4e212563a774b532239af6ff774f6e1ae00c`였다. 아직 변경 사항을 commit하지 않았으므로 이 SHA를 새 릴리스 commit으로 사용해서는 안 된다.
+2026-09-29 추가 검증에서 **Codex·Claude 실제 실행이 모두 통과**했다. 사용자가 남은 검증과 최종 배포 진행을 승인했다. 검증한 구현 commit은 `f155cfee4bc298eaeaf519032ee73911e0f15987`이며, 이번 릴리스 준비 변경은 문서와 검증 결과 기록이다. 이 문서는 태그 생성 전의 검증 기록이고, 공개 asset의 정확한 commit·hash는 배포물의 BUILD-INFO와 SHA256SUMS를 기준으로 한다.
 
 ## 확인한 결과
 
@@ -20,9 +20,9 @@
 | 독립 구현 리뷰 | PASS | 발견한 3개 결함 수정 후 추가 finding 없음 |
 | 문서 cold read | 보완 완료 | 별도 컨텍스트에서 EN/KO README·튜토리얼과 Homebrew 절차 검토. 개발 바이너리 경로 치환 안내 추가 |
 | 실제 사용자 환경의 비호출 doctor | PASS | 서로 다른 임시 Go fixture에서 Codex·Claude 각각 `--no-live-probe --json`, `ok: true` |
-| 실제 provider 세션 | NOT_RUN | 별도 호출 승인을 요청했으며 유료 모델 호출은 시작하지 않음 |
-| 원격 CI | NOT_RUN | 변경을 push하지 않음 |
-| 공개 설치 | NOT_RUN | prerelease와 전용 tap을 게시하지 않음 |
+| 실제 provider 세션 | PASS | Codex·Claude 각각 1 cycle·1 refactor commit, 원본 HEAD·index·추적 파일 불변, 결과 branch 확인 |
+| 원격 CI | PASS | 구현 commit `f155cfe`의 [Verify](https://github.com/soom-kang/refactor-me/actions/runs/36501246043) 통과. 새 릴리스 태그 CI는 게시 전 별도 확인 |
+| 공개 설치 | PENDING | 태그 CI 통과·prerelease와 tap 게시 후 공개 소스 설치를 확인 |
 
 기본 검증은 JavaScript 예제를 생성하고 명령 탐지를 확인하지만 선택적 Node 실행 검증은 포함하지 않는다. 별도 Mac 검증은 합의에 따라 제외했다.
 
@@ -45,12 +45,19 @@
 
 이 hash는 로컬 검사 대상의 식별자다. 공개 승인 후 clean commit에서 다시 생성한 source archive의 hash와 바꿔 쓸 수 없다. formula 템플릿과 생성 절차는 [HOMEBREW.md](HOMEBREW.md)에 있다.
 
-## 원격 확인과 남은 승인
+## 실제 provider 검증
 
-읽기 전용 GitHub 확인에서 본 저장소의 기본 branch는 `main`, 현재 인증 주체의 관리 권한은 확인됐다. `soom-kang/homebrew-refactor-me`는 HTTP 404, `v0.10.0-beta.1` release는 미발견이다. 404만으로 저장소 생성 권한까지 확인했다고 판단하지 않는다.
+| Provider | 버전 | 전체 소요 시간 | 결과 | Input / output tokens | 보고된 비용 |
+| --- | --- | ---: | --- | ---: | ---: |
+| Codex | 0.157.1 | 393.2초 | 1 cycle·1 commit, DONE_PARTIAL | 878,653 / 9,946 | 미보고 |
+| Claude | 2.1.283 | 239.3초 | 1 cycle·1 commit, DONE_PARTIAL | 456,140 / 18,657 | $1.5212012 |
 
-1. **실제 호출 승인:** `/private/tmp/refactor-live-codex-010`, `/private/tmp/refactor-live-claude-010`에서 각각 doctor와 run. 최대 1 cycle·1 refactor commit, 호출당 300초·provider별 전체 20분. 전역 Skill은 읽기만 하고 fixture의 원본 HEAD·index·파일을 비교한다. 시간 제한은 금액 상한이 아니다.
-2. **공개 변경 승인:** 실제 호출 결과가 통과한 뒤 변경 내용, 최종 commit, source hash, formula와 release notes를 검토한다. 승인 전에는 commit·push·tag·GitHub release·원격 tap 생성/수정을 진행하지 않는다.
-3. **게시 후 확인:** 공개 소스로 Homebrew install/test를 실행하고 버전·commit·대상 상태 경로를 다시 확인한다.
+소요 시간과 사용량은 별도 doctor 및 run을 합한 값이다. `DONE_PARTIAL`은 설정한 cycle 한도 1에 도달한 정상 중단이며 timeout이나 안전 규칙 위반이 아니다. 각 provider의 원본 checkout은 그대로이고 결과 branch의 OID가 보고서와 일치한다. 의도된 Go 테스트 실패 기준선은 성공으로 계산하지 않고 기존 실패가 유지되는지 비교했다.
 
-Live probe의 Skill 목록은 provider의 세션 자기보고다. 측정한 파일/hash와 구분해서 평가하고 기록한다. 어느 provider든 필수 검증에 실패하면 공개를 보류한다.
+Codex는 선택한 전역 Skill 절대 경로를 읽었고 Claude는 전용 복사본의 Skill을 호출했다. 파일 hash와 세션 자기보고는 별도 근거이며, 모든 참조 파일을 읽었다는 독립 증명으로 해석하지 않는다. 여덟 SKILL.md의 Git blob hash가 설치 안내의 sharpen-me `v0.9.0-beta.2`와 일치함을 확인했다. 자세한 식별자·hash·사용량은 [LIVE_RESULTS.json](LIVE_RESULTS.json)에 있다. 원시 모델 대화나 인증 정보는 공개 기록에 포함하지 않았다.
+
+## 공개 절차
+
+원격 `main`과 로컬 구현 commit이 일치하고 branch protection·ruleset은 없었다. 전용 tap은 404, 이번 버전 태그·릴리스는 미발견이었다. 이전 공개 태그와 자산은 수정하지 않는다.
+
+사용자의 배포 승인에 따라 릴리스 준비 commit, annotated tag, source archive·ZIP·SHA256SUMS, GitHub draft 및 tap을 준비한다. 태그 CI 통과 후 prerelease를 게시하고 공개 source에서 Homebrew install/test 및 저장소별 상태 경로를 확인한다. 실패하면 공개 완료로 기록하지 않는다.

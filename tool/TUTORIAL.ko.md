@@ -34,7 +34,7 @@ claude auth status
 
 ## 2. 도구와 전역 Skill 설치
 
-`0.10.0-beta.1`은 릴리스 후보입니다. Homebrew 명령은 tap과 소스 릴리스 게시 후 사용할 수 있습니다. 게시 전에는 [개발 빌드](../docs/README.ko.md#설치)를 사용하세요.
+`0.10.0-beta.1`은 전용 Homebrew tap을 통해 macOS Apple Silicon을 지원합니다. [개발 빌드](../docs/README.ko.md#설치)도 사용할 수 있습니다.
 
 개발 빌드를 사용한다면 아래 모든 명령의 `refactor-me`를 `/private/tmp/refactor-me`로 바꿔 실행하세요.
 
@@ -77,6 +77,12 @@ Codex만 사용하려면 대상 저장소에서 실행하세요.
 
 ```bash
 refactor-me run --provider codex --fallback none
+```
+
+Claude만 사용하려면:
+
+```bash
+refactor-me run --provider claude --fallback none
 ```
 
 Claude를 대체 프로바이더로 사용하려면:

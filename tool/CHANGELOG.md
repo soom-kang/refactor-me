@@ -2,7 +2,7 @@
 
 ## 0.10.0-beta.1
 
-**Unreleased.** This candidate prepares a macOS Apple Silicon source-build Homebrew formula. Publication and live-provider verification are separate release gates.
+macOS Apple Silicon Beta with a source-build Homebrew formula and global sharpen-me Skills.
 
 - Install the CLI globally with Homebrew; add `--repo` to select a target Git repository from any directory. No arguments now show help; use explicit `run` to start refactoring.
 - Add optional, non-overwriting `init`. Remove project-local `install` and `uninstall`, legacy Node ownership data and migration/rollback functionality.

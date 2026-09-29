@@ -34,7 +34,7 @@ Provider calls require network access and consume the provider account's availab
 
 ## 2. Install the tool and global Skills
 
-`0.10.0-beta.1` is a release candidate. The Homebrew instructions require the tap and source release to be published; use the [development build](../README.md#install) until then.
+`0.10.0-beta.1` supports macOS Apple Silicon through the dedicated Homebrew tap. A [development build](../README.md#install) is also available.
 
 ```sh
 brew install soom-kang/refactor-me/refactor-me
@@ -76,6 +76,12 @@ From the target repository, use Codex only:
 
 ```bash
 refactor-me run --provider codex --fallback none
+```
+
+For Claude only:
+
+```bash
+refactor-me run --provider claude --fallback none
 ```
 
 With Claude available as a fallback:

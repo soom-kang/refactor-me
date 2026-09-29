@@ -1,6 +1,6 @@
 # Install refactor-me `0.10.0-beta.1`
 
-This document describes the macOS Apple Silicon release candidate. The tap and source release must be published before the Homebrew command is available.
+This document describes the macOS Apple Silicon public Beta distributed through the dedicated Homebrew tap.
 
 ## Homebrew
 
@@ -18,7 +18,7 @@ Replace the target path with an existing Git repository. Homebrew builds from fi
 
 The eight global Skills use `~/.agents/skills` as the canonical source. `init` creates optional configuration without overwriting an existing file. No executable or Skill commit is needed in the target project. The disk-only check does not verify live provider loading; `doctor` without `--no-live-probe` calls models and consumes usage.
 
-After setting run limits, start explicitly:
+After [setting run limits](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md#set-limits-and-run), start explicitly. The default is Codex with Claude fallback. For Claude only, add `--provider claude --fallback none` to both `doctor` and `run`:
 
 ```sh
 refactor-me run --repo /path/to/target-repo

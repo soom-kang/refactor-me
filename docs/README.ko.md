@@ -6,7 +6,7 @@
 
 Codex와 Claude Code로 동작을 보존하는 리팩터링을 실행합니다. CLI는 별도 worktree에서 수정·검증하고 결과를 로컬 `refactor/auto-*` 브랜치에 저장합니다. 병합 전에 diff와 리포트를 검토하세요.
 
-**릴리스 후보:** macOS Apple Silicon용 `0.10.0-beta.1`. Homebrew 공개는 릴리스 검증과 승인을 기다리고 있으며, 아래 설치 명령은 게시 후 사용할 인터페이스입니다. 소스 개발 빌드는 `dev`로 표시합니다.
+**공개 Beta:** macOS Apple Silicon용 `0.10.0-beta.1`을 전용 Homebrew tap으로 배포합니다. 개발 빌드는 `dev`로 표시합니다.
 
 [English](../README.md) · [실행 가이드](../tool/TUTORIAL.ko.md) · [참조](../tool/README.ko.md) · [Workflow](../tool/WORKFLOW.ko.md) · [변경 기록](../tool/CHANGELOG.md)
 
@@ -49,6 +49,8 @@ refactor-me init --repo /path/to/target-repo
 refactor-me doctor --repo /path/to/target-repo --no-live-probe
 refactor-me run --repo /path/to/target-repo --provider codex --fallback none
 ```
+
+Claude만 사용한다면 `doctor`와 `run`에 `--provider claude --fallback none`을 지정하세요. 두 옵션을 생략하면 Codex를 우선하고 Claude를 대체 provider로 사용합니다.
 
 `init`은 선택 사항이며 기존 설정을 덮어쓰지 않습니다. 설정 파일이 없어도 `run`은 내장 기본값으로 실행됩니다. 인자 없는 `refactor-me`는 도움말을 표시합니다. `doctor`에서 `--no-live-probe`를 생략하면 모델을 호출해 계정 사용량을 소비합니다. 디스크 검사만으로 실제 세션의 Skill 로딩을 입증할 수는 없습니다.
 

@@ -4,7 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-**Candidate guide for `0.10.0-beta.2`.** The new model and effort options are not in the current public `0.10.0-beta.1`. Homebrew still installs that public version until this candidate is published.
+This guide covers public Beta `0.10.0-beta.2` for macOS Apple Silicon. Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983) verifies the published tag and Homebrew formula.
 
 <a id="prepare-the-target"></a>
 
@@ -43,9 +43,9 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect public CLI version `0.10.0-beta.1`, platform `darwin` and architecture `arm64` until the candidate is published. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.2`, platform `darwin`, architecture `arm64` and commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
-If the version output is `0.10.0-beta.1`, stop this candidate guide here and use the [tagged public guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md). Continue only with a verified `0.10.0-beta.2` candidate. When using a locally extracted candidate, replace `refactor-me` in the commands below with that executable's absolute path; preserve the installed public CLI.
+Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
 Create configuration and check Codex without calling a model:
 
@@ -80,6 +80,8 @@ Open `.refactor/config.json` in the target repository. Change these fields insid
 ```
 
 These values limit a first trial to one cycle and one refactor commit. Characterization test commits count separately. Provider timeouts apply per call; the elapsed-time limit is checked between work units and is not a hard deadline.
+
+The Beta.2 Codex release fixture used a 900-second timeout per call. Its earlier 300-second audit attempts timed out. The 300-second values above are shorter trial limits; see the [bounded verification record](release/HOMEBREW.md#beta2-verification-record) when choosing your timeout.
 
 **There is no total monetary cap.** Model calls, retries and live doctor checks consume account usage. See [all settings](README.md#configuration) before increasing limits.
 

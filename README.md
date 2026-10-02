@@ -2,15 +2,17 @@
 
 # refactor-me
 
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.2-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
+
 Automate behavior-preserving refactoring with Codex or Claude Code. The CLI works in an isolated Git worktree, validates each candidate, and saves accepted commits on a local branch for your review.
 
 [한국어](docs/README.ko.md) · [Usage guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md)
 
 ## Install
 
-Public Beta **0.10.0-beta.1** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
+Public Beta **0.10.0-beta.2** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
 
-**Release candidate: `0.10.0-beta.2`.** The model and effort options below apply to this candidate. It has not been published; Homebrew currently installs `0.10.0-beta.1`.
+Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`. See the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983) for the published tag and Homebrew formula. The Verify badge follows the CLI workflow on `main`.
 
 <a id="quick-start"></a>
 
@@ -36,7 +38,7 @@ Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`
 
 ## First run
 
-If `refactor-me version --json` reports `0.10.0-beta.1`, stop before the candidate commands below and follow the [public `0.10.0-beta.1` guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md). Continue below only with a verified `0.10.0-beta.2` candidate executable.
+Confirm `refactor-me version --json` reports `0.10.0-beta.2` before following these commands. If an older version is installed, run `brew upgrade refactor-me` first.
 
 Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; a Claude Code check uses `--provider claude --fallback none`.
 

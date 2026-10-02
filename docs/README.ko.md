@@ -2,15 +2,17 @@
 
 # refactor-me
 
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.2-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
+
 Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동화합니다. 격리된 Git worktree에서 후보를 수정하고 검증한 뒤, 통과한 커밋을 검토용 로컬 branch에 저장합니다.
 
 [English](../README.md) · [사용법](../tool/TUTORIAL.ko.md) · [명령·설정](../tool/README.ko.md) · [동작 방식](../tool/WORKFLOW.ko.md)
 
 ## 설치
 
-공개 Beta **0.10.0-beta.1**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
+공개 Beta **0.10.0-beta.2**는 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
-**릴리스 후보: `0.10.0-beta.2`.** 아래 모델과 추론 수준 옵션은 후보 버전에 적용됩니다. 아직 게시하지 않았으며 Homebrew는 현재 `0.10.0-beta.1`을 설치합니다.
+릴리스 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. 공개 태그와 Homebrew formula의 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36956289983)을 확인할 수 있습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
 
 <a id="quick-start"></a>
 
@@ -36,7 +38,7 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-`refactor-me version --json`이 `0.10.0-beta.1`을 표시하면 아래 후보 명령을 실행하지 말고 [공개 `0.10.0-beta.1` 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. 검증한 `0.10.0-beta.2` 후보 실행 파일을 사용할 때만 아래 단계로 넘어갑니다.
+아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.2`를 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
 
 아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 

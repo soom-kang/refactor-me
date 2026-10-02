@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-다음 후보는 `0.10.0-beta.2`이며 게시 전까지 공개 버전은 `0.10.0-beta.1`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다.
+현재 공개 버전은 [`0.10.0-beta.2`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2)이며 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 로컬 후보 생성
 
@@ -69,10 +69,11 @@ bash tool/release/build-macos-arm64.sh /tmp/refactor-binary-release
 
 ## 5. 공개 설치 확인
 
-릴리스 자산을 공개하고 tap formula를 갱신한 뒤, 이 저장소에서 게시한 후보 태그를 지정해 workflow를 실행합니다.
+릴리스 자산을 공개하고 tap formula를 갱신한 뒤, 이 저장소에서 게시한 릴리스 태그를 지정해 workflow를 실행합니다.
 
 ```sh
-gh workflow run verify.yml --ref v0.10.0-beta.2 -f public_install=true
+release_tag="v$(cat tool/RELEASE_VERSION)"
+gh workflow run verify.yml --ref "$release_tag" -f public_install=true
 ```
 
 해당 dispatch의 `go`, `public-install`, 집계 `verify`가 모두 성공했는지 확인하세요. 요청하지 않은 선택 항목 `js-fixture`는 생략할 수 있습니다. `public-install`에서 설치된 JSON 버전은 선택한 태그 checkout의 `tool/RELEASE_VERSION`, commit은 해당 checkout의 HEAD와 같아야 합니다. 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 합니다. 다른 ref의 성공이나 `public_install=true`가 없는 실행은 이 릴리스 검사를 충족하지 않습니다. public-install 로그를 읽고 실행 URL을 근거로 남기세요.
@@ -82,6 +83,8 @@ refactor-me와 해당 tap이 없는 깨끗한 임시 runner를 사용합니다. 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
+brew style refactor-me
+brew audit --strict refactor-me
 brew install refactor-me
 brew test refactor-me
 refactor-me version --json
@@ -90,3 +93,13 @@ refactor-me version --json
 공개 버전과 릴리스 commit을 확인한 뒤 임시 Git 저장소에서 대상 선택, 반복 `init`, 모델 호출 없는 doctor를 검사합니다. 보고서 조회는 저장된 fixture 보고서로 확인하며 설치 검사를 위해 provider 실행을 시작하지 않습니다. 원본 HEAD, index, 추적 파일은 유지되어야 합니다. 이 근거를 얻기 위해 사용자의 기존 설치를 교체하거나 관련 없는 Homebrew trust를 바꾸지 않습니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
+
+## Beta.2 검증 기록
+
+릴리스 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. [선택한 태그의 공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36956289983)을 확인하세요. 아래 근거는 이번 릴리스와 제한된 fixture에 해당하며 모든 대상 저장소나 provider 계정을 보증하지 않습니다.
+
+- main과 태그 CI는 Go 구현과 집계 `verify`를 검사합니다. 선택한 태그의 공개 설치 실행은 `public-install`도 성공해야 합니다. 공개 formula의 `brew style`, `brew audit --strict`, 설치, 테스트를 실행하고 버전과 commit을 선택한 checkout과 비교합니다. 선택 항목 `js-fixture`는 생략할 수 있으며 설치 검사는 provider를 호출하지 않습니다.
+- Codex: `PASS; 검토된 커밋 1개, 호출 6회, 재시도 없음; 1,049.1초; cycle 제한에 따른 DONE_PARTIAL`. 새 Go fixture에서 추가 run 1회를 실행했습니다. 요청 설정은 `gpt-6.1-sol`/`xhigh`, fallback 없음이며 호출 제한은 900초, 기존 최대 시도 횟수는 3회입니다. 이전 300초 audit 시도 3회는 사용할 수 있는 응답 없이 시간 초과했으며 그 실패 기록을 유지합니다. 별도 standalone doctor는 추가하지 않았습니다. 검증 실행 파일은 clean commit `265d3547b2541ce695f2ee8cedfab7225916cc18`에서 빌드했으며 `tool/go`의 모든 runtime 파일이 릴리스 commit과 같습니다.
+- Claude: `tool/go`의 파일 85개와 Skill 8개의 `name/path/sha256` 기록이 릴리스 소스 및 catalog와 모두 같은지 확인한 뒤 기존 통과 fixture를 재사용했습니다. 요청 설정은 `claude-sonnet-5-5`/`xhigh`, fallback 없음이었으며 검토를 통과한 리팩토링 커밋 1개를 만들었습니다.
+- 각 fixture는 1 cycle, 리팩토링 커밋 최대 1개로 제한합니다. 20분 제한은 작업 단위 사이에서 확인하며 전체 프로세스의 강제 마감 시간이나 금액 상한이 아닙니다. 통과하려면 검토된 리팩토링 커밋 1개가 있어야 합니다. `go vet ./...`와 `go build ./...`는 GREEN을 유지하고, `go test -count=1 ./...`에는 의도된 RED인 `GOFAIL:TestKnownBaseline`, `contract_test.go:7`만 허용합니다. 원본 HEAD, index, 추적 파일과 설정은 보존해야 합니다.
+- `providerSettings`는 요청한 모델과 추론 수준이며 실제 실행을 관측한 값이 아닙니다. live Skill 로딩 응답은 provider의 자기보고이며 파일 hash 측정은 별도 근거입니다. 원본 provider 로그는 비공개로 보관합니다. 제한된 fixture의 성공이 모델 품질이나 모든 환경의 호환성을 입증하지는 않습니다.

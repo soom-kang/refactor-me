@@ -26,7 +26,7 @@
 
 ## 모델과 추론 수준 선택
 
-이 옵션은 아직 게시하지 않은 `0.10.0-beta.2` 후보 기능입니다. 현재 공개 버전은 `0.10.0-beta.1`입니다.
+공개 Beta `0.10.0-beta.2`에서 사용할 수 있는 옵션입니다.
 
 `run`과 모델을 호출하는 `doctor`는 선택한 provider마다 모델이 필요합니다. 고정 기본 모델은 없습니다. 명령 옵션이 `agents.<provider>.model`보다 우선하며 둘 다 비어 있으면 provider를 호출하기 전에 오류로 종료합니다. `doctor --no-live-probe`에는 모델이 필요하지 않습니다.
 
@@ -153,7 +153,7 @@ Doctor는 전역 원본과 전달 경로를 검사합니다. 기본적으로 모
 
 실행 보고서에는 Skill의 실제 경로·내용 hash, CLI·provider 버전과 provider별 전달 경로를 기록합니다. 전역 카탈로그 업데이트 전후의 실행을 비교할 때 이 기록을 사용하세요.
 
-후보 버전의 보고서와 doctor 진단은 provider별 `providerSettings`도 기록합니다. `requestedModel`은 CLI나 설정에서 정한 모델이며, 선택 필드 `cliEffort`는 명령에서 지정한 추론 수준입니다. 요청한 설정을 기록한 것이며 provider가 그 모델과 추론 수준으로 실행했다는 증거는 아닙니다. 모델을 호출하지 않는 doctor에는 빈 모델을 기록할 수 있습니다. 보고서 schema는 `3`을 유지합니다.
+실행 보고서와 doctor 진단은 provider별 `providerSettings`도 기록합니다. `requestedModel`은 CLI나 설정에서 정한 모델이며, 선택 필드 `cliEffort`는 명령에서 지정한 추론 수준입니다. 요청한 설정을 기록한 것이며 provider가 그 모델과 추론 수준으로 실행했다는 증거는 아닙니다. 모델을 호출하지 않는 doctor에는 빈 모델을 기록할 수 있습니다. 보고서 schema는 `3`을 유지합니다.
 
 보고서의 단계별 `기본 추론 수준` 열은 정책이며 관측한 provider 추론 수준이 아닙니다. 요청한 provider 설정은 별도로 읽으세요. 어느 필드도 provider의 실제 실행을 입증하지 않습니다.
 

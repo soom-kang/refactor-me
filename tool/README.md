@@ -24,7 +24,7 @@ Configuration, locks and runs belong to the selected repository, independently o
 
 ## Model and effort selection
 
-These options are part of the unpublished `0.10.0-beta.2` candidate. The current public release is `0.10.0-beta.1`.
+These options are available in public Beta `0.10.0-beta.2`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -147,7 +147,7 @@ The loop defines each phase's allowed skills, output schema, and permissions. Mo
 
 Run reports record the resolved Skill paths and content hashes, CLI/provider versions and the delivery path used for each provider. Keep these records when comparing runs after a global catalog update.
 
-Candidate reports and doctor diagnostics also record `providerSettings` by provider: `requestedModel` is the model resolved from CLI/configuration, and optional `cliEffort` records an explicit command override. These are requested settings, not proof that a provider ran that model or effort. Offline doctor may record an empty requested model. Report schema remains `3`.
+Run reports and doctor diagnostics also record `providerSettings` by provider: `requestedModel` is the model resolved from CLI/configuration, and optional `cliEffort` records an explicit command override. These are requested settings, not proof that a provider ran that model or effort. Offline doctor may record an empty requested model. Report schema remains `3`.
 
 The report's `Default effort` phase column shows policy, not observed provider effort. Read the requested provider settings separately; neither field verifies provider execution.
 

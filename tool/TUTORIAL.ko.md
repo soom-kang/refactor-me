@@ -4,7 +4,7 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-**`0.10.0-beta.2` 후보 사용법입니다.** 새 모델과 추론 수준 옵션은 현재 공개 버전인 `0.10.0-beta.1`에 없습니다. 후보를 게시하기 전까지 Homebrew는 기존 공개 버전을 설치합니다.
+macOS Apple Silicon용 공개 Beta `0.10.0-beta.2` 사용법입니다. 릴리스 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. 공개 태그와 Homebrew formula는 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36956289983)에서 확인합니다.
 
 <a id="prepare-the-target"></a>
 
@@ -43,9 +43,9 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 후보를 게시하기 전에는 공개 CLI 버전 `0.10.0-beta.1`, 플랫폼 `darwin`, 아키텍처 `arm64`를 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.2`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
-버전 출력이 `0.10.0-beta.1`이면 여기서 후보 안내를 중단하고 [태그에 고정한 공개 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. 검증한 `0.10.0-beta.2` 후보에서만 계속합니다. 로컬에서 압축을 푼 후보를 사용한다면 아래 명령의 `refactor-me`를 그 실행 파일의 절대 경로로 바꾸고 기존 공개 CLI는 보존하세요.
+이전 버전이라면 먼저 업데이트하세요. 독립 실행 파일 압축파일은 [설치 검사](release/INSTALL.ko.md)를 마친 뒤 아래 명령의 `refactor-me`를 해당 실행 파일의 절대 경로로 바꿉니다. 실행 파일은 대상 저장소 밖에 보관하세요.
 
 설정을 만든 뒤 모델 호출 없이 Codex 실행 준비를 확인합니다.
 
@@ -80,6 +80,8 @@ Claude Code를 쓰려면 doctor와 run 모두에 `--provider claude --fallback n
 ```
 
 첫 시도를 1 cycle과 리팩토링 커밋 1개로 제한하는 예시입니다. 기존 동작을 기록하는 characterization 테스트 커밋은 별도로 계산합니다. provider timeout은 호출마다 적용하며, 전체 시간은 작업 단위 사이에서 확인하므로 정확히 그 시각에 종료되지는 않습니다.
+
+Beta.2 Codex 릴리스 fixture는 호출마다 900초 제한을 사용했습니다. 이전 300초 audit 시도는 시간 초과했습니다. 위 300초는 더 짧은 첫 시도 제한입니다. timeout을 정할 때 [제한된 검증 기록](release/HOMEBREW.ko.md#beta2-검증-기록)을 참고하세요.
 
 **전체 금액 상한은 없습니다.** 모델 호출, 재시도, 실제 세션을 확인하는 doctor가 계정 사용량을 소비합니다. 제한을 늘리기 전에 [전체 설정](README.ko.md#configuration)을 확인하세요.
 

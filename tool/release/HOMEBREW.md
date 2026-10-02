@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The next candidate is `0.10.0-beta.2`; the current public release remains `0.10.0-beta.1` until publication. A version change in the working tree is preparation, not a published release.
+The current public release is [`0.10.0-beta.2`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2), commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Build a local candidate
 
@@ -69,10 +69,11 @@ Publish the generated `Formula/refactor-me.rb` to the tap after its public sourc
 
 ## 5. Verify the public installation
 
-After the release assets are public and the tap formula is updated, dispatch the workflow from this repository against the published candidate tag:
+After the release assets are public and the tap formula is updated, dispatch the workflow from this repository against the published release tag:
 
 ```sh
-gh workflow run verify.yml --ref v0.10.0-beta.2 -f public_install=true
+release_tag="v$(cat tool/RELEASE_VERSION)"
+gh workflow run verify.yml --ref "$release_tag" -f public_install=true
 ```
 
 Check that this dispatch completes with `go`, `public-install` and aggregate `verify` all successful. The optional `js-fixture` job may be skipped unless requested. In `public-install`, the installed JSON version must equal the selected tag checkout's `tool/RELEASE_VERSION`; the commit must equal that checkout's HEAD, with platform `darwin` and architecture `arm64`. A passing run on another ref, or a run without `public_install=true`, does not satisfy this release check. Inspect the public-install logs and preserve the run URL as evidence.
@@ -82,6 +83,8 @@ Use a clean disposable runner without refactor-me or its tap. Register the tap, 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
+brew style refactor-me
+brew audit --strict refactor-me
 brew install refactor-me
 brew test refactor-me
 refactor-me version --json
@@ -90,3 +93,13 @@ refactor-me version --json
 Confirm the published version and release commit, then test repository selection, repeated `init` and offline doctor in a temporary Git repository. Check report viewing with a saved fixture report; do not start a provider run for an installation check. Preserve the source HEAD, index and tracked files. Do not replace the user's installed package or change unrelated Homebrew trust to obtain this evidence.
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
+
+## Beta.2 verification record
+
+Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`. [Selected-tag public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983). The following evidence covers this release and the bounded fixtures, not every target repository or provider account.
+
+- Main and tag CI check the Go implementation and aggregate `verify`. The selected-tag public-install run also requires `public-install`, verifies the public formula with `brew style`, `brew audit --strict`, install and test, and compares version/commit with the selected checkout. Optional `js-fixture` may be skipped. Installation checks make no provider calls.
+- Codex: `PASS; 1 reviewed commit, 6 calls, no retries; 1,049.1 seconds; DONE_PARTIAL at cycle limit`. One additional run used a fresh Go fixture, requested `gpt-6.1-sol`/`xhigh`, no fallback, a 900-second call timeout and the existing maximum of three attempts. Earlier audit attempts at 300 seconds timed out three times without a usable response; that failure remains part of the record. No extra standalone doctor was added. The clean test binary was built from `265d3547b2541ce695f2ee8cedfab7225916cc18`; all runtime files under `tool/go` match the release commit.
+- Claude: the earlier passing fixture was reused after all 85 files under `tool/go` and all eight Skill `name/path/sha256` records matched the release source and catalog. Its requested settings were `claude-sonnet-5-5`/`xhigh`, with no fallback, and it produced one reviewed refactor commit.
+- Each fixture is limited to one cycle and at most one refactor commit. The 20-minute elapsed-time limit is checked between work units; it is not a hard whole-process deadline or a monetary cap. Acceptance requires one reviewed refactor commit, `go vet ./...` and `go build ./...` remaining GREEN, and only the known `go test -count=1 ./...` RED signature `GOFAIL:TestKnownBaseline`, `contract_test.go:7`. Source HEAD, index, tracked files and configuration must remain unchanged.
+- `providerSettings` records requested model/effort, not observed execution. Live Skill-loading responses are provider self-report; measured file hashes are separate evidence. Keep raw provider logs private. A successful bounded fixture does not certify model quality or unrestricted compatibility.

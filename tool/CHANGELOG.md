@@ -2,6 +2,8 @@
 
 ## 0.10.0-beta.2
 
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983). Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`.
+
 - Consolidate English and Korean installation, first-run, reference and workflow documentation.
 - Use the unpinned global sharpen-me installation command and add project-state and execution diagrams.
 - Remove retired migration documents and historical validation reports; retain version history here.
@@ -10,7 +12,7 @@
 - Add `--model`, `--fallback-model`, `--effort` and `--fallback-effort` to `run` and `doctor`. Resolve each role against the selected provider order and keep overrides in memory without rewriting project configuration.
 - Require an explicit effective model for every selected provider before `run` or live doctor starts. Offline doctor and non-model commands still work without configured models; existing phase effort defaults remain unchanged.
 - Document one-time Homebrew tap and formula trust, followed by short-name `brew install refactor-me` and `brew upgrade refactor-me` commands.
-- Add optional public-install verification to the existing Verify workflow. The requested check uses a fresh Apple Silicon runner and compares the public installation's version and commit with the selected checkout; it does not call provider models or publish releases.
+- Add optional public-install verification to the existing Verify workflow. The requested check uses a fresh Apple Silicon runner, runs formula style/audit checks, and compares the public installation's version and commit with the selected checkout; it does not call provider models or publish releases.
 
 ## 0.10.0-beta.1
 

@@ -196,7 +196,7 @@ OPTIONS
   --effort <level>          leading provider effort for every call, including doctor
   --fallback-effort <level> fallback provider effort for every call
   --json                    machine-readable stdout
-  --lang en|ko              report and summary language (run/report)
+  --lang en|ko              progress, summary and report language (run/report; default: en)
   --no-live-probe           skip live provider checks
 
 The source checkout, index, and HEAD are not edited. Accepted commits are
@@ -386,9 +386,13 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprint(stdout, out)
 		return ExitOK
 	}
-	fmt.Fprintf(stderr, "refactor-me  repo=%s  providers=%s", repo, strings.Join(providers, "+"))
+	if args.Command == "run" {
+		fmt.Fprintf(stderr, label(args.Language, "Starting refactoring in %s. Providers: %s", "%s 저장소에서 리팩토링을 시작합니다. provider: %s"), DisplayText(repo), DisplayText(strings.Join(providers, "+")))
+	} else {
+		fmt.Fprintf(stderr, "refactor-me  repo=%s  providers=%s", repo, strings.Join(providers, "+"))
+	}
 	if len(targets) > 0 {
-		fmt.Fprintf(stderr, "  target=%s", strings.Join(targets, ","))
+		fmt.Fprintf(stderr, "  target=%s", DisplayText(strings.Join(targets, ",")))
 	}
 	fmt.Fprintln(stderr)
 	if args.Command == "doctor" {

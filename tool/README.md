@@ -14,7 +14,7 @@ Follow the [guide](TUTORIAL.md) for installation.
 | `version [--json]` | Show build version, Go runtime, platform, architecture, executable source path and commit provenance |
 | `init` | Create optional project configuration without overwriting existing settings |
 | `doctor [--no-live-probe]` | Check repository, providers and global Skills; the default includes model calls |
-| `run` | Start the automated refactoring loop |
+| `run [--json] [--lang en\|ko]` | Start the automated refactoring loop |
 | `report [--json] [--lang en\|ko]` | Read the latest supported saved report |
 | `clean` | Remove eligible finished worktrees |
 
@@ -205,9 +205,21 @@ After a change, validation selects the deepest affected area for each path and t
 
 ### Language and saved files
 
-`--lang en|ko` applies to `run` and `report`; the default is `en`. It translates the final summary, `report.md`, and fixed handoff header. Progress logs and doctor output remain in English. Model explanations, errors, paths, and commit subjects keep their original wording.
+`--lang en|ko` applies to `run` and `report`; the default is `en`. It translates the final summary, `report.md`, and fixed handoff header. Development builds for the next release also apply it to run progress logs; public Beta `0.10.0-beta.2` keeps the earlier logs. The standalone `doctor` command remains in English. Model explanations, stored errors, paths, identifiers and commit subjects keep their original wording.
 
 Each run writes one `report.md` and one `report.json`. `report --lang ko` renders the latest JSON without changing files. Current reports use `schemaVersion: 3`. Missing, invalid or unsupported older JSON produces an error and preserves existing files. Reports are not automatically migrated. `--json` prints the stored JSON bytes for a supported report and is independent of language.
+
+### Progress logs
+
+The following behavior is available in development builds for the next release. It is not part of public Beta `0.10.0-beta.2`; use a [development binary](DEVELOPMENT.md#1-build-a-development-binary) to try it.
+
+- `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
+- Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.
+- Messages distinguish policy exclusions, rejected execution, no changes, validation regression, timeout and commands that cannot run. A rollback is confirmed only after restoration succeeds. A local commit is confirmed only after the result branch and state are saved.
+- Long stages report the current stage and elapsed time every 30 seconds. These updates give no ETA or invented progress. Provider recovery messages describe schema repair, permission denial, retries and switching providers without displaying raw provider notes or tool commands.
+- Progress always goes to `stderr`, including with `run --json`; `stdout` then contains only report JSON. Failure guidance points to a successfully saved `state.json` or an existing phase/doctor record. If no relevant record was created, it says so.
+
+Dynamic display values are reduced to one line, stripped of terminal control sequences and limited to 160 Unicode characters. If this formatting would change an absolute diagnostic path, the CLI shows a path relative to the selected repository and labels it accordingly. Original provider transcripts, tool-call accounting and validation output remain in the local run records; this display limit does not truncate those saved originals. Protect and inspect records before sharing them.
 
 ### Code comparison
 

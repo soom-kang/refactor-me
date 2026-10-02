@@ -34,15 +34,17 @@ type runner struct {
 	forcedQuota                   bool
 	handoffWritten                bool
 	gateFacts                     workspace.GateFacts
+	progress                      *progressLogger
+	candidateLabel                string
 }
-
-func (r *runner) Info(message string)  { fmt.Fprintln(r.surface.Stderr, message) }
-func (r *runner) Warn(message string)  { fmt.Fprintln(r.surface.Stderr, "warning:", message) }
-func (r *runner) Retry(message string) { fmt.Fprintln(r.surface.Stderr, "retry:", message) }
 
 func (r *runner) phase(next string) error {
 	r.state.State = next
-	return r.save()
+	if err := r.save(); err != nil {
+		return err
+	}
+	r.startPhase(next)
+	return nil
 }
 
 func (r *runner) save() error { return writeJSONAtomic(filepath.Join(r.runDir, "state.json"), r.state) }
@@ -54,7 +56,23 @@ func Run(c surface.Context) (surface.RunResult, error) {
 	}
 	r := &runner{ctx: context.Background(), surface: c, policy: p,
 		engineConfig: engineConfigForContext(c), started: time.Now()}
+	r.progressLog()
+	defer r.endProgress()
 	if err := r.init(); err != nil {
+		r.endProgress()
+		r.notice("Could not prepare the run.", "실행 준비를 완료하지 못했습니다.")
+		if r.state != nil {
+			r.state.finish("ABORTED", "initialization failed: "+err.Error())
+			if saveErr := r.save(); saveErr == nil {
+				r.diagnostic("state.json")
+			} else {
+				r.diagnostic()
+			}
+		} else if !r.doctor.OK {
+			r.diagnostic("doctor.json")
+		} else {
+			r.diagnostic()
+		}
 		if r.lock != nil {
 			_ = r.lock.Release()
 		}
@@ -67,7 +85,7 @@ func Run(c surface.Context) (surface.RunResult, error) {
 		if r.state != nil && r.state.Terminal != nil && (r.state.Terminal.Status == "DONE" || r.state.Terminal.Status == "NO_CHANGES") &&
 			!boolValue(obj(c.Config["workspace"])["keep_worktree"], true) {
 			if err := workspace.WorktreeRemove(c.Repo, r.wt); err != nil {
-				r.Warn("worktree retained: " + err.Error())
+				r.notice("Could not remove the finished worktree; retained at %s.", "완료된 worktree를 삭제하지 못해 보존했습니다. 위치: %s", surface.DisplayText(r.wt))
 			}
 		}
 	}()
@@ -82,13 +100,21 @@ func Run(c surface.Context) (surface.RunResult, error) {
 		}
 		r.state.finish(status, noCandidatesReason(r.emptyKinds))
 	}
+	r.endProgress()
 	if err := r.save(); err != nil {
+		r.notice("Could not save the final run state.", "최종 실행 상태를 저장하지 못했습니다.")
 		return surface.RunResult{}, err
+	}
+	r.notice("The refactoring loop stopped. Status: %s", "리팩토링 반복 작업을 종료했습니다. 상태: %s", r.state.Terminal.Status)
+	r.notice("Stop reason: %s", "종료 사유: %s", surface.StopReason(r.state.Terminal.Reason, r.surface.Args.Language))
+	if r.state.Terminal.Status != "DONE" && r.state.Terminal.Status != "NO_CHANGES" {
+		r.diagnostic("state.json")
 	}
 	return r.result()
 }
 
 func (r *runner) init() error {
+	r.begin("Checking the repository, providers and required Skills.", "저장소, provider와 필수 Skill을 확인하고 있습니다.")
 	id, err := workspace.RunID(time.Now())
 	if err != nil {
 		return err
@@ -109,11 +135,17 @@ func (r *runner) init() error {
 	if err != nil {
 		return err
 	}
-	r.Info(renderDoctor(r.doctor))
+	r.endProgress()
+	for _, item := range r.doctor.Checks {
+		if item.Status != "PASS" {
+			r.notice("Precondition %s: %s", "실행 조건 %s: %s", surface.DisplayText(item.ID), surface.DisplayText(item.Status))
+		}
+	}
 	r.engineConfig.Skills = r.doctor.Skills
 	if !r.doctor.OK {
 		return errors.New("doctor found a blocking problem")
 	}
+	r.notice("Preconditions checked. Available providers: %s", "실행 조건을 확인했습니다. 사용 가능한 provider: %s", surface.DisplayText(strings.Join(r.doctor.Healthy, ", ")))
 	base, err := workspace.HeadOID(r.surface.Repo)
 	if err != nil {
 		return err
@@ -138,11 +170,13 @@ func (r *runner) init() error {
 	if err := r.save(); err != nil {
 		return err
 	}
+	r.begin("Preparing an isolated worktree.", "독립된 worktree를 준비하고 있습니다.")
 	if err := workspace.WorktreeAdd(r.surface.Repo, r.wt, base); err != nil {
 		return err
 	}
-	r.Info("worktree " + r.wt)
 	r.hydrate()
+	r.endProgress()
+	r.notice("Worktree ready: %s", "worktree를 준비했습니다. 위치: %s", surface.DisplayText(r.wt))
 	return nil
 }
 
@@ -170,7 +204,7 @@ func (r *runner) hydrate() {
 				cmd := exec.Command("cp", "-c", "-R", src, dst)
 				if err := cmd.Run(); err != nil {
 					if err := exec.Command("cp", "-R", src, dst).Run(); err != nil {
-						r.Warn("could not hydrate " + child)
+						r.notice("Could not copy an ignored build input into the worktree: %s", "worktree에 빌드 입력 파일을 복사하지 못했습니다. 경로: %s", surface.DisplayText(child))
 					}
 				}
 				continue
@@ -196,7 +230,7 @@ func (r *runner) baselinePhase() error {
 	if len(r.commands) == 0 {
 		return halt{"ABORTED", "no deterministic validation command could be discovered"}
 	}
-	r.baseline = workspace.RunBaseline(r.ctx, r.commands, r.wt)
+	r.baseline = workspace.RunBaseline(r.ctx, r.commands, r.wt, r.observeCommand)
 	noEvidence := map[string]bool{}
 	for _, item := range r.baseline.Unrunnable {
 		noEvidence[item.ID] = true
@@ -222,7 +256,8 @@ func (r *runner) baselinePhase() error {
 	if !r.baseline.Usable {
 		return halt{"ABORTED", "no usable GREEN validation command at baseline"}
 	}
-	r.Info(r.baseline.Describe + " → proceeding")
+	r.endProgress()
+	r.notice("Baseline recorded: %d passing, %d with existing failures, %d total checks.", "변경 전 검증을 기록했습니다. 통과 %d개, 기존 실패 %d개, 전체 검사 %d개입니다.", r.baseline.Green, r.baseline.Red, len(r.baseline.Results))
 	return nil
 }
 
@@ -233,7 +268,7 @@ func (r *runner) stopFromError(err error) {
 	} else {
 		r.state.finish("HALTED_UNSAFE", "internal error: "+err.Error())
 	}
-	r.Warn(r.state.Terminal.Status + ": " + r.state.Terminal.Reason)
+	r.endProgress()
 }
 
 func noCandidatesReason(kinds []string) string {
@@ -306,7 +341,7 @@ func (r *runner) result() (surface.RunResult, error) {
 	if err := os.WriteFile(filepath.Join(r.runDir, "report.md"), []byte(md), 0o600); err != nil {
 		return surface.RunResult{}, err
 	}
-	summary := fmt.Sprintf("refactor-me %s · %s\n  cycles      %d\n  commits     %d\n  branch      %v\n  report      %s\n  worktree    %s", surface.Version, status, state.Counters.Cycles, state.Counters.Commits, branch, filepath.Join(r.runDir, "report.md"), r.wt)
+	summary := r.runSummary(status, branch)
 	branchName := ""
 	if state.PublishedOID != "" {
 		branchName = state.BranchName

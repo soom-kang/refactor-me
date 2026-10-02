@@ -61,6 +61,12 @@ Choose a model for every selected provider, either with command options or in pr
 
 `run` and doctor without `--no-live-probe` consume provider usage. Exit `0` can mean partial completion: inspect the report and diff before merging. The CLI does not merge, push or deploy results.
 
+## Development: readable progress logs
+
+Development builds for the next release show the current stage, candidate and confirmed result instead of shell commands. The existing `--lang en|ko` selects progress logs, the final summary and report language; English remains the default. Add `--lang ko` for Korean progress. This change is not included in public Beta `0.10.0-beta.2`.
+
+Progress goes to `stderr`, so `run --json` keeps report JSON alone on `stdout`. Each audit reports its own proposed and eligible candidate counts; long stages report elapsed time every 30 seconds. Original provider transcripts and validation output remain in local run records. See [progress logs](tool/README.md#progress-logs) and [building a development binary](tool/DEVELOPMENT.md#1-build-a-development-binary).
+
 ## Read next
 
 | Task | Document |

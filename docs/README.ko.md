@@ -61,6 +61,12 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 `run`과 `--no-live-probe` 없는 doctor는 provider 사용량을 소비합니다. 종료 코드가 `0`이어도 부분 완료일 수 있으므로 보고서와 diff를 확인한 뒤 병합하세요. CLI는 결과를 자동으로 병합하거나 push·배포하지 않습니다.
 
+## 개발 버전: 읽기 쉬운 진행 로그
+
+다음 릴리스를 위한 개발 버전은 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요. 공개 Beta `0.10.0-beta.2`에는 이 변경이 포함되지 않습니다.
+
+진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)와 [개발 실행 파일 빌드](../tool/DEVELOPMENT.md#1-build-a-development-binary)를 참고하세요.
+
 ## 상세 문서
 
 | 할 일 | 문서 |

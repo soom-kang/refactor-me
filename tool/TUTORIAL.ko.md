@@ -112,7 +112,7 @@ refactor-me run --repo /path/to/target-repo \
   --effort xhigh --fallback-effort xhigh
 ```
 
-모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다.
+모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다. 개발 버전에서는 아래 설명처럼 진행 로그에도 적용합니다.
 
 특정 디렉터리에서 후보를 찾으려면 다음과 같이 실행합니다.
 
@@ -134,6 +134,20 @@ refactor-me run --repo /path/to/target-repo \
 실제 경로가 저장소 밖이면 거부합니다. **target은 후보 조사 범위입니다.** 호출부 수정이나 검증 명령은 저장소 안의 다른 디렉터리까지 포함할 수 있습니다.
 
 ![준비 상태를 확인하고 격리 worktree에서 실행한 뒤, 저장된 결과와 변경 사항을 검토합니다.](../docs/assets/workflow/execution.ko.png)
+
+### 개발 버전의 진행 로그 확인
+
+공개 Beta `0.10.0-beta.2`에는 새 진행 로그가 포함되지 않습니다. 먼저 [개발 실행 파일을 빌드](DEVELOPMENT.md#1-build-a-development-binary)하고, 저장소 준비와 실행 제한을 그대로 적용한 뒤 절대 경로로 실행하세요.
+
+```sh
+/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh --lang ko
+```
+
+영어로 보려면 `--lang ko`를 생략하세요. 터미널에는 현재 항목과 단계, 조사별 제안 수와 진행 가능한 수, 완료한 작업을 표시합니다. 긴 단계에서는 30초마다 경과 시간을 알리며 예상 완료 시간은 표시하지 않습니다. 변경으로 새 오류가 생기지 않았더라도 기준선 실패가 그대로 남으면 실패로 안내합니다.
+
+진행 로그는 `stderr`로 출력합니다. `--json`을 추가하면 `stdout`에는 보고서 JSON만 출력합니다. shell 명령, provider 설명과 검증 출력은 터미널 대신 로컬 실행 기록에 보존합니다. 실패하면 CLI가 안내한 진단 경로를 열어 확인하세요. 기록이 생성되지 않았다면 그 사실을 알립니다. 제외, 되돌리기와 provider 복구 안내는 [진행 로그](README.ko.md#progress-logs)를 참고하세요.
 
 <a id="read-the-result"></a>
 

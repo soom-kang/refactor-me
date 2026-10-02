@@ -112,7 +112,7 @@ refactor-me run --repo /path/to/target-repo \
   --effort xhigh --fallback-effort xhigh
 ```
 
-The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for a Korean report and final summary.
+The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for a Korean report and final summary. Development builds also use it for progress logs, as described below.
 
 To search for candidates in selected directories:
 
@@ -134,6 +134,20 @@ Choose existing directories with tracked source files. Omit `--target` to survey
 Paths resolving outside the repository are rejected. **Targets limit candidate discovery, not every edit or validation command.** Caller changes may reach elsewhere inside the repository.
 
 ![Check prerequisites, run in an isolated worktree, inspect the saved outcome, then review published changes before merging.](../docs/assets/workflow/execution.en.png)
+
+### Try progress logs in a development build
+
+Public Beta `0.10.0-beta.2` does not include the new progress display. First [build the development binary](DEVELOPMENT.md#1-build-a-development-binary), then use its absolute path with the same repository preparation and limits:
+
+```sh
+/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh --lang ko
+```
+
+Omit `--lang ko` for English. The terminal names the current candidate and stage, reports each audit's proposed and eligible counts, and confirms completed actions. A long stage reports elapsed time every 30 seconds; this is not an ETA. An unchanged baseline failure remains a failure even when the change introduces no regression.
+
+Progress goes to `stderr`. Add `--json` to keep `stdout` limited to report JSON. Shell commands, provider notes and validation output remain in local run records instead of filling the terminal. On failure, open the saved diagnostic path shown by the CLI; if no record was created, it says so. See [progress logs](README.md#progress-logs) for exclusions, rollback and provider recovery messages.
 
 <a id="read-the-result"></a>
 

@@ -133,7 +133,15 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 		defer func() {
 			if err := workspace.WorktreeRemove(c.Repo, probePath); err != nil {
 				if c.Stderr != nil {
-					fmt.Fprintln(c.Stderr, "warning: doctor worktree retained:", err)
+					if c.Args.Command == "run" {
+						message := "Could not remove the doctor probe worktree; retained at %s.\n"
+						if c.Args.Language == "ko" {
+							message = "doctor 검사 worktree를 삭제하지 못해 보존했습니다. 위치: %s\n"
+						}
+						fmt.Fprintf(c.Stderr, message, surface.DisplayText(probePath))
+					} else {
+						fmt.Fprintln(c.Stderr, "warning: doctor worktree retained:", err)
+					}
 				}
 			}
 		}()

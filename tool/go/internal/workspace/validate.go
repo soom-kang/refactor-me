@@ -376,6 +376,16 @@ type CommandResult struct {
 	Delta       *SignatureDelta `json:"delta,omitempty"`
 }
 
+// CommandEvent observes selected checks. Completed ladder events include the
+// final baseline comparison, so a RED status can still represent an accepted
+// existing failure. Events are transient and do not change persisted results.
+type CommandEvent struct {
+	Kind     string
+	Command  Command
+	Result   CommandResult
+	Baseline bool
+}
+
 type callbackWriter struct {
 	buf    *bytes.Buffer
 	onLine func(string)
@@ -582,9 +592,12 @@ type Baseline struct {
 	Describe   string          `json:"describe"`
 }
 
-func RunBaseline(ctx context.Context, commands []Command, wt string) Baseline {
+func RunBaseline(ctx context.Context, commands []Command, wt string, observer func(CommandEvent)) Baseline {
 	b := Baseline{}
 	for _, c := range commands {
+		if observer != nil {
+			observer(CommandEvent{Kind: "started", Command: c, Baseline: true})
+		}
 		r := RunCommand(ctx, c, wt, nil)
 		b.Results = append(b.Results, r)
 		switch r.Status {
@@ -596,6 +609,9 @@ func RunBaseline(ctx context.Context, commands []Command, wt string) Baseline {
 			b.Unrunnable = append(b.Unrunnable, r)
 		case StatusOpaque:
 			b.Opaque = append(b.Opaque, r)
+		}
+		if observer != nil {
+			observer(CommandEvent{Kind: "completed", Command: c, Result: r, Baseline: true})
 		}
 	}
 	b.Usable = b.Green > 0
@@ -631,7 +647,7 @@ type Ladder struct {
 	Scope  []string        `json:"scope"`
 }
 
-func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt string, changed, areas []string) Ladder {
+func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt string, changed, areas []string, observer func(CommandEvent)) Ladder {
 	scope := AreasForPaths(areas, changed)
 	result := Ladder{OK: true, Scope: scope}
 	byID := map[string]CommandResult{}
@@ -645,6 +661,9 @@ func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt st
 		base, ok := byID[c.ID]
 		if ok && (base.Status == StatusTimeout || base.Status == StatusUnrunnable || base.Status == StatusOpaque) {
 			continue
+		}
+		if observer != nil {
+			observer(CommandEvent{Kind: "started", Command: c})
 		}
 		r := RunCommand(ctx, c, wt, nil)
 		switch {
@@ -673,6 +692,9 @@ func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt st
 			}
 		}
 		result.Checks = append(result.Checks, r)
+		if observer != nil {
+			observer(CommandEvent{Kind: "completed", Command: c, Result: r})
+		}
 		if !r.OK {
 			result.OK = false
 			result.Failed = &result.Checks[len(result.Checks)-1]

@@ -91,11 +91,17 @@ type Result struct {
 	PermissionDenials int    `json:"-"`
 }
 
-// Logger receives only concise event descriptions, never prompt or environment values.
+// ProviderEvent carries only fixed event metadata, never tool arguments or output.
+type ProviderEvent struct {
+	Kind     string
+	Provider string
+	Phase    string
+	Count    int
+}
+
+// Logger receives provider state transitions, never prompt or environment values.
 type Logger interface {
-	Info(string)
-	Warn(string)
-	Retry(string)
+	OnProviderEvent(ProviderEvent)
 }
 
 func ClaudeArgs(mode string, schema map[string]any, model, effort string, budget float64) []string {
@@ -474,7 +480,10 @@ func classifyCodex(res processResult, outPath string, requested bool) classifica
 	return classification{failure: "OK", parsed: p}
 }
 
-func describeEvent(ev map[string]any) string {
+// recognizedToolEvent preserves the tool-call accounting boundary: one call for
+// each Claude assistant event containing a tool use, or completed Codex command
+// or file-change item. It does not extract data intended for terminal output.
+func recognizedToolEvent(ev map[string]any) bool {
 	if ev["type"] == "assistant" {
 		if m, ok := ev["message"].(map[string]any); ok {
 			if parts, ok := m["content"].([]any); ok {
@@ -483,35 +492,19 @@ func describeEvent(ev map[string]any) string {
 					if !ok || c["type"] != "tool_use" {
 						continue
 					}
-					input, _ := c["input"].(map[string]any)
-					name, _ := c["name"].(string)
-					switch name {
-					case "Read", "Edit", "Write":
-						return strings.ToLower(name) + " " + fmt.Sprint(input["file_path"])
-					case "Grep":
-						return "grep " + fmt.Sprint(input["pattern"])
-					case "Glob":
-						return "glob " + fmt.Sprint(input["pattern"])
-					case "Skill":
-						return "skill " + fmt.Sprint(input["skill"])
-					default:
-						return "tool " + name
-					}
+					return true
 				}
 			}
 		}
 	}
 	if ev["type"] == "item.completed" {
 		if item, ok := ev["item"].(map[string]any); ok {
-			if item["type"] == "command_execution" {
-				return "run " + truncate(fmt.Sprint(item["command"]), 70)
-			}
-			if item["type"] == "file_change" {
-				return "edit files"
+			if item["type"] == "command_execution" || item["type"] == "file_change" {
+				return true
 			}
 		}
 	}
-	return ""
+	return false
 }
 func truncate(s string, n int) string {
 	if len(s) > n {
@@ -608,11 +601,8 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	tools := 0
 	started := time.Now()
 	proc := runProcess(ctx, bin, args, req, func(ev map[string]any) {
-		if d := describeEvent(ev); d != "" {
+		if recognizedToolEvent(ev) {
 			tools++
-			if log != nil {
-				log.Info(d)
-			}
 		}
 	})
 	duration := time.Since(started).Milliseconds()
@@ -648,7 +638,7 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	}
 	p := cls.parsed
 	if mode == "read" && p.PermissionDenials > 0 && log != nil {
-		log.Warn(fmt.Sprintf("%s attempted %d denied write(s) in a read phase", provider, p.PermissionDenials))
+		log.OnProviderEvent(ProviderEvent{Kind: "permission_denied", Provider: provider, Phase: req.Phase, Count: p.PermissionDenials})
 	}
 	p.OK = cls.failure == "OK"
 	p.Failure = cls.failure
@@ -690,7 +680,7 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 		return res, nil
 	}
 	if log != nil {
-		log.Retry(provider + " schema failure (" + res.Detail + ") → one repair attempt")
+		log.OnProviderEvent(ProviderEvent{Kind: "schema_repair", Provider: provider, Phase: req.Phase, Count: 1})
 	}
 	req.Mode = "read"
 	req.Attempt = "repair"

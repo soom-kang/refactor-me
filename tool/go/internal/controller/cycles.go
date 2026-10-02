@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
+	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
 
@@ -143,7 +144,13 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 	if prefer != "" && slices.Contains(available, prefer) {
 		available = append([]string{prefer}, slices.DeleteFunc(available, func(x string) bool { return x == prefer })...)
 	}
-	for _, name := range available {
+	for providerIndex, name := range available {
+		if providerIndex > 0 {
+			r.startPhase(r.state.State)
+		}
+		if r.state.ActiveProvider != "" && r.state.ActiveProvider != name {
+			r.notice("Switching provider from %s to %s.", "provider를 %s에서 %s로 전환합니다.", surface.DisplayText(r.state.ActiveProvider), surface.DisplayText(name))
+		}
 		for attempt := 0; attempt < 3; attempt++ {
 			status := r.state.Providers[name]
 			status.Calls++
@@ -151,6 +158,7 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 			if err := r.save(); err != nil {
 				return phaseResult{}, err
 			}
+			r.notice("%s is working on this stage.", "이 단계는 %s가 진행합니다.", surface.DisplayText(name))
 			var result engine.Result
 			injected := r.surface.Args.ForceQuotaAt == phase && !r.forcedQuota
 			if injected {
@@ -209,6 +217,7 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 				if err := r.save(); err != nil {
 					return phaseResult{}, err
 				}
+				r.notice("%s is unavailable for this call. [%s]", "%s가 이번 호출을 진행할 수 없습니다. [%s]", surface.DisplayText(name), surface.DisplayText(result.Failure))
 				if err := r.writeHandoff(name, result.Failure); errors.Is(err, workspace.ErrUnsafe) {
 					return phaseResult{}, err
 				}
@@ -221,6 +230,7 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 					if attempt == 1 {
 						delay = 20 * time.Second
 					}
+					r.notice("%s call failed; retrying in %s (retry %d of 2). [%s]", "%s 호출에 실패했습니다. %s 후 재시도합니다. 재시도 %d/2회입니다. [%s]", surface.DisplayText(name), delay, attempt+1, surface.DisplayText(result.Failure))
 					select {
 					case <-time.After(delay):
 					case <-r.ctx.Done():
@@ -265,6 +275,8 @@ func (r *runner) writeHandoff(dead, failure string) error {
 	if err != nil {
 		return err
 	}
+	r.begin("Preparing context for %s after %s became unavailable.", "%s에 전달할 작업 기록을 준비합니다. %s가 현재 호출을 진행할 수 없습니다.", surface.DisplayText(live), surface.DisplayText(dead))
+	defer r.endProgress()
 	res, err := engine.CallProvider(r.ctx, live, engine.Request{Phase: "handoff", Mode: "read", CWD: r.wt, Body: prompt, RunDir: r.runDir, Effort: "low", Attempt: "primary"}, r.engineConfig, nil)
 	if res.Processes > 0 {
 		r.noteUsage(live, "handoff", res)
@@ -277,6 +289,9 @@ func (r *runner) writeHandoff(dead, failure string) error {
 	}
 	if res.OK && strings.TrimSpace(res.Text) != "" {
 		header := fmt.Sprintf("<!-- generated mid-run at the %s handoff; not the final outcome -->\n> Snapshot at the %s → %s handoff. Read report.md for the final result.\n\n", failure, dead, live)
+		if r.surface.Args.Language == "ko" {
+			header = fmt.Sprintf("<!-- generated mid-run at the %s handoff; not the final outcome -->\n> %s → %s 전환 시점의 기록입니다. 최종 결과는 report.md에서 확인하세요.\n\n", failure, dead, live)
+		}
 		return writeText(filepath.Join(r.runDir, "handoff.md"), header+res.Text)
 	}
 	return nil
@@ -312,6 +327,7 @@ func (r *runner) audit() (int, []map[string]any, error) {
 	}
 	data := obj(call.Result.Data)
 	all := mapsOf(data["candidates"])
+	proposed := len(all)
 	if len(all) > r.policy.MaxAuditCandidates {
 		all = all[:r.policy.MaxAuditCandidates]
 	}
@@ -334,6 +350,16 @@ func (r *runner) audit() (int, []map[string]any, error) {
 	}
 	if err := r.save(); err != nil {
 		return 0, nil, err
+	}
+	r.endProgress()
+	r.notice("This audit found %d candidates; %d are eligible.", "이번 조사에서 후보 %d개를 찾았습니다. 이 중 %d개를 진행할 수 있습니다.", proposed, len(eligible))
+	if len(all) < proposed {
+		r.notice("Reviewed %d candidates within the configured limit.", "설정한 한도에 따라 후보 %d개를 검토했습니다.", len(all))
+	}
+	for _, x := range rejected {
+		if x.Reason != "ALREADY_SEEN" {
+			r.notice("Excluded %s: %s. [%s]", "%s 항목을 제외했습니다. %s [%s]", candidateDescription(x.Candidate, r.surface.Args.Language), surface.ReasonLabel(x.Reason, r.surface.Args.Language), surface.DisplayText(x.Reason))
+		}
 	}
 	return len(all), eligible, nil
 }
@@ -359,8 +385,7 @@ func (r *runner) fail(fp, reason, detail string, paths []string, violated bool) 
 	r.state.markSkipped(fp, reason, detail, paths, violated)
 	r.state.Counters.ConsecutiveFailures++
 	r.state.ActivePacket = nil
-	r.Warn(reason + ": " + detail)
-	return r.save()
+	return r.saveSkipped(reason)
 }
 
 func (r *runner) rollback(preOID string) error {
@@ -371,6 +396,8 @@ func (r *runner) rollback(preOID string) error {
 	if !result.Clean {
 		return halt{"HALTED_UNSAFE", "rollback left worktree dirty: " + result.Residue}
 	}
+	r.endProgress()
+	r.notice("Rolled back this candidate's unaccepted changes.", "이번 항목의 반영되지 않은 변경을 되돌렸습니다.")
 	return nil
 }
 

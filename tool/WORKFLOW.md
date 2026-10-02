@@ -34,6 +34,14 @@ Review uses a separate session, preferring the other available provider when con
 
 Commit hooks run. Hook changes to the reviewed tree or residual working changes stop publication with `HALTED_UNSAFE`. Updating the result branch checks its previous OID, so a conflicting update also stops publication.
 
+### Progress follows confirmed state
+
+Development builds for the next release announce these stages using `--lang en|ko`, defaulting to English. Public Beta `0.10.0-beta.2` retains the earlier logs. The controller emits progress at the actual stage boundary; it does not infer an action from shell commands. Each audit reports its proposed and eligible counts and, when capped, the number inspected. After an accepted change it audits again, so the display has no fixed candidate total or completion percentage.
+
+Validation messages use the command name and area. Baseline results show their measured status; later results show the final comparison with the baseline. An unchanged readable failure is not a pass. Candidate exclusions, rejected execution and no changes are separate outcomes. Rollback completion requires successful restoration, and commit completion requires successful local branch publication and state storage.
+
+Long stages emit their name and elapsed time every 30 seconds. Updates stop before the stage ends or the command returns. All progress uses `stderr`, including with `run --json`; raw provider/tool output remains in local records and `stdout` keeps report JSON alone. Schema repair, permission denial, retry and provider transitions are announced without changing the recovery policy. See [progress logs](README.md#progress-logs).
+
 ## Validation scope
 
 Baseline checks cover discovered areas, or the locked list in `.refactor/commands.json`. At least one command must pass before audit starts.

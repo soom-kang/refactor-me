@@ -48,6 +48,8 @@ Keep English and Korean user instructions equivalent. Preserve executable exampl
 
 For `0.10.0-beta.2`, check model/effort examples against CLI parsing and provider-argument tests. Cover required models for live commands, the offline doctor exception, CLI-over-configuration precedence, explicit effort across all phases and unchanged configuration bytes. `providerSettings` records requested values; it does not establish that a provider executed them. Before updating published version/commit and workflow badges, require successful public-install verification against the selected release tag.
 
+For the next-release progress display, use the development binary built in step 1. Keep public Beta instructions distinct from development behavior in both languages and the tap READMEs. Verify English defaults and `--lang ko`, per-audit counts and caps, unchanged baseline failures, confirmed rollback/commit results, and existing diagnostic paths. Cover provider repair/retry/fallback without exposing raw notes or commands, heartbeat shutdown and serialized output under the race detector, Unicode display limits, and `run --json` with progress on stderr and only report JSON on stdout. Saved transcripts, tool-call accounting and report/configuration schemas must retain their existing contracts.
+
 Check relative links, anchors and diagram exports after deleting or moving a document. Diagram editing and export instructions are in the [asset guide](../docs/assets/workflow/README.md).
 
 ## 4. Separate local and live checks

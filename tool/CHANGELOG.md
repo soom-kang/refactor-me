@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Development changes for the next release; public Beta `0.10.0-beta.2` and its Homebrew formula are unchanged.
+
+- Replace raw terminal tool commands with stage and candidate progress messages. Extend the existing `--lang en|ko` to run progress while keeping English as the default and standalone doctor output in English.
+- Report each audit's proposed, inspected when capped, and eligible counts. Distinguish measured baseline results, unchanged baseline failures, rejection, no changes, regression and confirmed rollback or local commit publication.
+- Add 30-second current-stage elapsed-time updates, serialized stderr output and bounded, sanitized dynamic display values. Preserve report JSON on stdout with `run --json` and original transcripts and tool-call accounting in local records.
+- Explain provider repair, permission denial, retries and switching with fixed messages, and point failures to saved diagnostic records when available. Update English and Korean user documentation and development checks without changing configuration or report schemas.
+
 ## 0.10.0-beta.2
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983). Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`.

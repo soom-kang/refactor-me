@@ -12,6 +12,8 @@ import (
 )
 
 func (r *runner) runCandidate(candidate map[string]any) error {
+	r.candidateLabel = candidateDescription(candidate, r.surface.Args.Language)
+	defer r.endProgress()
 	fp := str(candidate["fp"])
 	cycleDir, err := workspace.CycleDirFor(r.runDir, r.state.Cycle, str(candidate["category"]), fp)
 	if err != nil {
@@ -95,7 +97,7 @@ func (r *runner) selectPacket(candidate map[string]any, cycleDir string) (map[st
 	}
 	if packet["readiness"] != "READY" {
 		r.state.markSkipped(str(candidate["fp"]), "NOT_READY", str(packet["readiness_reason"]), stringsOf(candidate["related_files"]), false)
-		return nil, false, r.save()
+		return nil, false, r.saveSkipped("NOT_READY")
 	}
 	if packet["risk_level"] == "UNKNOWN" || !slices.Contains(r.policy.AllowedRisks, str(packet["risk_level"])) {
 		reason := "RISK_EXCLUDED"
@@ -103,7 +105,7 @@ func (r *runner) selectPacket(candidate map[string]any, cycleDir string) (map[st
 			reason = "RISK_UNKNOWN"
 		}
 		r.state.markSkipped(str(candidate["fp"]), reason, "task packet risk is outside policy", allowlist, false)
-		return nil, false, r.save()
+		return nil, false, r.saveSkipped(reason)
 	}
 	if len(allowlist) == 0 {
 		return nil, false, r.fail(str(candidate["fp"]), "EMPTY_ALLOWLIST", "READY packet with no allowlist", nil, false)
@@ -160,7 +162,7 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if len(changed) == 0 {
 		return true, nil
 	}
-	ladder := workspace.RunLadder(r.ctx, r.baseline, r.commands, r.wt, changed, r.discovery.Areas)
+	ladder := workspace.RunLadder(r.ctx, r.baseline, r.commands, r.wt, changed, r.discovery.Areas, r.observeCommand)
 	if !ladder.OK {
 		if err := r.rollback(preOID); err != nil {
 			return false, err
@@ -187,7 +189,12 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	}
 	r.state.TreeHashes = append(r.state.TreeHashes, tree)
 	r.state.Commits = append(r.state.Commits, commitRecord{OID: oid, FP: str(packet["fp"]) + "-char", Category: "CHARACTERIZATION", Paths: changed, Subject: "characterize current behavior"})
-	return true, r.save()
+	if err := r.save(); err != nil {
+		return false, err
+	}
+	r.endProgress()
+	r.notice("Saved characterization tests on the local result branch.", "현재 동작을 확인하는 테스트를 로컬 결과 branch에 저장했습니다.")
+	return true, nil
 }
 
 func (r *runner) preflight(packet map[string]any, dir string) (bool, error) {
@@ -215,7 +222,7 @@ func (r *runner) preflight(packet map[string]any, dir string) (bool, error) {
 	verdict, reasons := engine.EnforcePreflightVerdict(data)
 	if verdict != "READY_TO_EXECUTE" {
 		r.state.markSkipped(str(packet["fp"]), "PREFLIGHT_BLOCKED", strings.Join(reasons, "; "), stringsOf(packet["allowlist"]), false)
-		return false, r.save()
+		return false, r.saveSkipped("PREFLIGHT_BLOCKED")
 	}
 	return true, nil
 }
@@ -326,7 +333,7 @@ func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {
 			return false, err
 		}
 		r.state.markSkipped(str(packet["fp"]), "NO_OP", "implementer changed nothing", allow, false)
-		return false, r.save()
+		return false, r.saveSkipped("NO_OP")
 	case "VIOLATION":
 		if err := r.rollback(preOID); err != nil {
 			return false, err
@@ -334,7 +341,7 @@ func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {
 		r.state.Counters.Violations++
 		return false, r.fail(str(packet["fp"]), result.Violation.Code, result.Violation.Detail, result.Violation.Paths, true)
 	}
-	ladder := workspace.RunLadder(r.ctx, r.baseline, r.commands, r.wt, facts.Changed, r.discovery.Areas)
+	ladder := workspace.RunLadder(r.ctx, r.baseline, r.commands, r.wt, facts.Changed, r.discovery.Areas, r.observeCommand)
 	if err := writeJSONAtomic(filepath.Join(dir, "validation.json"), ladder); err != nil {
 		return false, err
 	}
@@ -425,7 +432,7 @@ func (r *runner) sweep() error {
 		return err
 	}
 	if len(swept) > 0 {
-		r.Info(fmt.Sprintf("swept %d validation artifact(s); add them to .gitignore", len(swept)))
+		r.notice("Removed %d validation artifact(s); add them to .gitignore.", "검증 산출물 %d개를 정리했습니다. .gitignore에 추가하세요.", len(swept))
 	}
 	return nil
 }
@@ -466,5 +473,10 @@ func (r *runner) commit(packet, candidate map[string]any, dir string) error {
 	r.state.Seen.Done = append(r.state.Seen.Done, str(packet["fp"]))
 	r.state.Commits = append(r.state.Commits, commitRecord{OID: oid, FP: str(packet["fp"]), Category: str(packet["category"]), Paths: stringsOf(packet["allowlist"]), Subject: subject})
 	r.state.ActivePacket = nil
-	return r.save()
+	if err := r.save(); err != nil {
+		return err
+	}
+	r.endProgress()
+	r.notice("Saved %s on the local result branch. Commit: %s", "%s 항목을 로컬 결과 branch에 저장했습니다. 커밋: %s", r.candidateLabel, oid)
+	return nil
 }

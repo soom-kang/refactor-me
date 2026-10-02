@@ -217,7 +217,7 @@ func TestContractDifferentialLadder(t *testing.T) {
 			if tc.status == StatusGreen {
 				base.ExitCode = &zero
 			}
-			got := RunLadder(context.Background(), Baseline{Results: []CommandResult{base}}, []Command{c}, root, []string{"src/a.go"}, []string{"."})
+			got := RunLadder(context.Background(), Baseline{Results: []CommandResult{base}}, []Command{c}, root, []string{"src/a.go"}, []string{"."}, nil)
 			if got.OK != tc.want {
 				t.Fatalf("ladder=%+v", got)
 			}
@@ -512,7 +512,7 @@ func TestContractIgnoredHydrationAndBaseline(t *testing.T) {
 		t.Fatal("hydration removed")
 	}
 	commands := []Command{{ID: "green", Area: ".", Cwd: ".", Tier: TierFast, Argv: []string{"/usr/bin/true"}}, {ID: "red", Area: ".", Cwd: ".", Tier: TierFast, Argv: []string{"/bin/sh", "-c", "echo src/a.go:1; exit 1"}}}
-	baseline := RunBaseline(context.Background(), commands, wt)
+	baseline := RunBaseline(context.Background(), commands, wt, nil)
 	if !baseline.Usable || baseline.Green != 1 || baseline.Red != 1 {
 		t.Fatal(baseline)
 	}
@@ -575,17 +575,17 @@ func TestContractAffectedAreaLadder(t *testing.T) {
 		}
 	}
 	commands := []Command{{ID: "root", Area: ".", Cwd: ".", Tier: TierFast, Argv: []string{"/usr/bin/true"}}, {ID: "app", Area: "app", Cwd: "app", Tier: TierTest, Argv: []string{"/usr/bin/true"}}, {ID: "other", Area: "other", Cwd: "other", Tier: TierTest, Argv: []string{"/usr/bin/true"}}}
-	baseline := RunBaseline(context.Background(), commands, root)
+	baseline := RunBaseline(context.Background(), commands, root, nil)
 	if !baseline.Usable || len(baseline.Results) != 3 {
 		t.Fatal(baseline)
 	}
 	commands[2].Argv = []string{"/usr/bin/false"}
-	got := RunLadder(context.Background(), baseline, commands, root, []string{"app/a.go"}, []string{".", "app", "other"})
+	got := RunLadder(context.Background(), baseline, commands, root, []string{"app/a.go"}, []string{".", "app", "other"}, nil)
 	if !got.OK || len(got.Checks) != 2 {
 		t.Fatal(got)
 	}
 	commands[1].Argv = []string{"/usr/bin/false"}
-	got = RunLadder(context.Background(), baseline, commands, root, []string{"app/a.go"}, []string{".", "app", "other"})
+	got = RunLadder(context.Background(), baseline, commands, root, []string{"app/a.go"}, []string{".", "app", "other"}, nil)
 	if got.OK || got.Failed == nil || got.Failed.FailureKind != "REGRESSION" {
 		t.Fatal(got)
 	}

@@ -185,6 +185,7 @@ jobs:
           cp "$RUNNER_TEMP/homebrew-source/refactor-me.rb" "$(brew --repository local/refactor-me-check)/Formula/refactor-me.rb"
           brew trust --formula local/refactor-me-check/refactor-me
           brew style local/refactor-me-check/refactor-me
+          brew audit --strict local/refactor-me-check/refactor-me
           brew install --build-from-source refactor-me
           brew test refactor-me
           brew uninstall refactor-me

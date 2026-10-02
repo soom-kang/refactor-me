@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.10.0-beta.3
 
-Development changes for the next release; public Beta `0.10.0-beta.2` and its Homebrew formula are unchanged.
+Release preparation for `0.10.0-beta.3`; the changes below are not included in public Beta `0.10.0-beta.2`.
 
 - Replace raw terminal tool commands with stage and candidate progress messages. Extend the existing `--lang en|ko` to run progress while keeping English as the default and standalone doctor output in English.
 - Report each audit's proposed, inspected when capped, and eligible counts. Distinguish measured baseline results, unchanged baseline failures, rejection, no changes, regression and confirmed rollback or local commit publication.

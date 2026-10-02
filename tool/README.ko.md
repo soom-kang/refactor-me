@@ -22,6 +22,36 @@
 
 설정·잠금·실행 기록은 선택한 저장소에 속하며 Homebrew 실행 파일 경로와 독립적입니다.
 
+<a id="model-and-effort-selection"></a>
+
+## 모델과 추론 수준 선택
+
+이 옵션은 아직 게시하지 않은 `0.10.0-beta.2` 후보 기능입니다. 현재 공개 버전은 `0.10.0-beta.1`입니다.
+
+`run`과 모델을 호출하는 `doctor`는 선택한 provider마다 모델이 필요합니다. 고정 기본 모델은 없습니다. 명령 옵션이 `agents.<provider>.model`보다 우선하며 둘 다 비어 있으면 provider를 호출하기 전에 오류로 종료합니다. `doctor --no-live-probe`에는 모델이 필요하지 않습니다.
+
+| 옵션 | 적용 대상 | 동작 |
+| --- | --- | --- |
+| `--model <id>` | 선택한 primary provider | 이번 명령에서 설정의 모델을 대체 |
+| `--fallback-model <id>` | 선택한 fallback provider | 이번 명령에서 설정의 모델을 대체 |
+| `--effort <level>` | 선택한 primary provider | 이번 명령의 모든 단계에 같은 추론 수준 적용 |
+| `--fallback-effort <level>` | 선택한 fallback provider | 이번 명령의 모든 단계에 같은 추론 수준 적용 |
+
+옵션은 선택한 provider 순서를 따릅니다. `--provider claude --fallback codex`에서는 `--model`이 Claude, `--fallback-model`이 Codex 모델을 선택합니다. provider 옵션을 생략하면 프로젝트 설정의 순서를 사용하며 기본 순서는 Codex 다음 Claude입니다. fallback을 선택했다면 primary가 성공하더라도 fallback 모델이 필요합니다. 하나만 사용하려면 `--fallback none`을 지정하세요. 명령 옵션은 `.refactor/config.json`에 저장하지 않습니다.
+
+두 provider를 선택하고 각각 모든 단계에 `xhigh`를 적용하는 예시입니다.
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback claude \
+  --model gpt-6.1-sol --fallback-model claude-sonnet-5-5 \
+  --effort xhigh --fallback-effort xhigh
+```
+
+모델 ID는 예시이며 기본값이나 계정의 접근 권한을 뜻하지 않습니다. CLI는 비어 있지 않은 모델과 추론 수준 문자열을 별도 provider 인자로 전달하며 허용 목록을 두지 않습니다. 인증한 provider CLI가 지원하는 값을 사용하세요. 옵션을 받아들였다는 사실이 provider 지원 여부를 입증하지는 않습니다. 모델을 호출하는 `doctor`에도 같은 옵션을 쓸 수 있으며 provider 사용량이 발생합니다. fallback 모델과 추론 수준 옵션을 쓰려면 primary와 다른 fallback provider를 선택해야 합니다.
+
+추론 수준 옵션을 생략하면 기존 정책을 유지합니다. doctor와 handoff는 운영 단계에서 `low`, 재조사는 `medium`을 지정합니다. 나머지 호출은 `effort_by_phase`, provider 설정의 `effort`, 아래 단계 기본값 순서로 적용합니다. CLI 추론 수준 옵션은 운영 단계의 지정값을 포함해 모두보다 우선합니다.
+
 <a id="configuration"></a>
 
 ## 설정
@@ -36,7 +66,7 @@
 | `agents.primary` / `agents.fallback` | `codex` / `claude` | 시작 provider 순서 |
 | `agents.<name>.enabled` | `true` | provider 활성화 |
 | `agents.<name>.bin` | provider 이름 | CLI 실행 파일 |
-| `agents.<name>.model` | 빈 값 | provider CLI 기본 모델 사용 |
+| `agents.<name>.model` | 빈 값 | 모델 ID. live 호출 시 명령 옵션으로 대체하지 않았다면 필수 |
 | `agents.<name>.timeout_sec` | `1800` | provider 호출 제한 시간, doctor는 더 짧은 검사 시간 사용 |
 | `agents.<name>.effort_by_phase` | 빈 값 | 단계별 추론 수준 지정 |
 | `agents.<name>.effort` | 미지정 | 기본 추론 수준 표 대체, 단계별 값이 있으면 그 값 우선 |
@@ -62,7 +92,7 @@
 - `medium`: preflight, characterization, 재조사
 - `low`: doctor, handoff
 
-provider 설정으로 바꿀 수 있으며 단계별 값이 우선합니다.
+일반 단계의 기본값은 provider 설정으로 바꿀 수 있으며 단계별 값이 provider의 `effort`보다 우선합니다. doctor, handoff와 재조사는 운영 단계의 지정값을 유지합니다. CLI 추론 수준 옵션을 지정하면 이번 명령의 모든 호출에 그 값을 적용합니다.
 
 `verification`은 설정 형식에 남아 있습니다. 현재 루프는 검증 명령을 고를 때 `verification.locked`를 사용하지 않습니다. 직접 지정하려면 아래의 `.refactor/commands.json`을 사용하세요.
 
@@ -119,9 +149,13 @@ Doctor는 전역 원본과 전달 경로를 검사합니다. 기본적으로 모
 | `sharpen-brief` | 쿼터나 인증 문제로 provider를 전환할 때 | 전환 시점의 상태 요약 |
 | `sharpen-dedupe` | 중복 제거 후보를 검증하거나 실행할 때 | 중복 분석과 범위 안의 통합 |
 
-루프가 단계별 Skill 허용 목록, 출력 스키마와 권한을 정합니다. 모델과 추론 수준은 루프 설정을 따르며 Skill의 권고로 바뀌지 않습니다.
+루프가 단계별 Skill 허용 목록, 출력 스키마와 권한을 정합니다. 모델과 추론 수준은 명령 옵션과 프로젝트 설정으로 정하며 Skill의 권고로 바뀌지 않습니다.
 
 실행 보고서에는 Skill의 실제 경로·내용 hash, CLI·provider 버전과 provider별 전달 경로를 기록합니다. 전역 카탈로그 업데이트 전후의 실행을 비교할 때 이 기록을 사용하세요.
+
+후보 버전의 보고서와 doctor 진단은 provider별 `providerSettings`도 기록합니다. `requestedModel`은 CLI나 설정에서 정한 모델이며, 선택 필드 `cliEffort`는 명령에서 지정한 추론 수준입니다. 요청한 설정을 기록한 것이며 provider가 그 모델과 추론 수준으로 실행했다는 증거는 아닙니다. 모델을 호출하지 않는 doctor에는 빈 모델을 기록할 수 있습니다. 보고서 schema는 `3`을 유지합니다.
+
+보고서의 단계별 `기본 추론 수준` 열은 정책이며 관측한 provider 추론 수준이 아닙니다. 요청한 provider 설정은 별도로 읽으세요. 어느 필드도 provider의 실제 실행을 입증하지 않습니다.
 
 <a id="validation-commands"></a>
 

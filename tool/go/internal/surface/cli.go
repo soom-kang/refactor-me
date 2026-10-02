@@ -31,6 +31,7 @@ const LastRunSchemaVersion = 1
 
 type Args struct {
 	Command, Provider, Fallback, Language, ForceQuotaAt, Repo string
+	Model, FallbackModel, Effort, FallbackEffort              string
 	FallbackSet, JSON, Live, Version, LanguageSet             bool
 	Targets                                                   []string
 }
@@ -40,6 +41,7 @@ type Context struct {
 	Config             Config
 	Args               Args
 	Providers, Targets []string
+	ProviderSettings   map[string]ProviderSettings
 	Stdout, Stderr     io.Writer
 }
 
@@ -108,6 +110,25 @@ func Parse(argv []string) (Args, error) {
 			}
 			args.Fallback = v
 			args.FallbackSet = true
+		case "--model", "--fallback-model", "--effort", "--fallback-effort":
+			flag := argv[i]
+			v, e := value(&i, flag)
+			if e != nil {
+				return args, e
+			}
+			if strings.TrimSpace(v) == "" {
+				return args, fmt.Errorf("%s needs a nonblank value", flag)
+			}
+			switch flag {
+			case "--model":
+				args.Model = v
+			case "--fallback-model":
+				args.FallbackModel = v
+			case "--effort":
+				args.Effort = v
+			case "--fallback-effort":
+				args.FallbackEffort = v
+			}
 		case "--force-quota-at":
 			v, e := value(&i, "--force-quota-at")
 			if e != nil {
@@ -148,6 +169,9 @@ func Parse(argv []string) (Args, error) {
 	if args.LanguageSet && (args.Version || (args.Command != "run" && args.Command != "report")) {
 		return args, errors.New("--lang is supported only for run and report")
 	}
+	if hasProviderOptions(args) && (args.Version || (args.Command != "run" && args.Command != "doctor")) {
+		return args, errors.New("model and effort options are supported only for run and doctor")
+	}
 	return args, nil
 }
 
@@ -167,12 +191,21 @@ OPTIONS
                             relative to --repo root, or current directory without --repo
   --provider claude|codex   agent leading the run
   --fallback claude|codex|none
+  --model <id>              model for the leading provider (overrides project config)
+  --fallback-model <id>     model for the fallback provider
+  --effort <level>          leading provider effort for every call, including doctor
+  --fallback-effort <level> fallback provider effort for every call
   --json                    machine-readable stdout
   --lang en|ko              report and summary language (run/report)
   --no-live-probe           skip live provider checks
 
 The source checkout, index, and HEAD are not edited. Accepted commits are
 published to a local refactor/auto-* branch. The tool does not push or deploy.
+
+Run and live doctor require a nonblank model for each selected provider,
+from these options or agents.<provider>.model in .refactor/config.json.
+Model and effort options apply only to run/doctor and are not saved.
+Effort options override phase policy; omission preserves existing effort settings.
 
 EXIT CODES
   0  completed or partially completed
@@ -325,6 +358,11 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
+	cfg, settings, err := providerOptions(cfg, args, providers)
+	if err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
 	targetDir := cwd
 	if args.Repo != "" {
 		targetDir = repo
@@ -334,7 +372,7 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
-	ctx := Context{Repo: repo, Config: cfg, Args: args, Providers: providers, Targets: targets, Stdout: stdout, Stderr: stderr}
+	ctx := Context{Repo: repo, Config: cfg, Args: args, Providers: providers, ProviderSettings: settings, Targets: targets, Stdout: stdout, Stderr: stderr}
 	if args.Command == "clean" {
 		if callbacks.Clean == nil {
 			fmt.Fprintln(stderr, "clean is unavailable")

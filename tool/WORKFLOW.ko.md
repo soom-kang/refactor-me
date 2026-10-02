@@ -4,6 +4,8 @@
 
 실행 제한을 설정하고 `run`을 시작하면 단계마다 승인하지 않아도 컨트롤러가 검사와 실행을 이어갑니다. 코드는 격리된 Git worktree에서 수정하며, 통과한 커밋을 로컬 결과 branch에 발행합니다.
 
+아직 게시하지 않은 `0.10.0-beta.2` 후보에서는 모델을 호출하기 전에 primary와 fallback provider마다 모델을 선택합니다. 명령의 모델 옵션이 프로젝트 설정보다 우선하며 해당 명령에만 적용됩니다. 추론 수준 옵션은 선택한 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. [모델과 추론 수준 선택](README.ko.md#model-and-effort-selection)을 참고하세요.
+
 ## 전역 설치와 프로젝트별 상태
 
 ![Homebrew와 전역 Skills는 공유하고, 설정과 보고서는 선택한 저장소에 따로 저장합니다.](../docs/assets/workflow/installation.ko.png)
@@ -18,7 +20,7 @@ Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude�
 
 | 단계 | 통과 조건 | 저장하는 근거 |
 | --- | --- | --- |
-| 준비 | 깨끗한 원본, 유효한 전역 Skills, 사용 가능한 provider, 기준선 명령 하나 이상 통과 | doctor와 기준선 결과 |
+| 준비 | 깨끗한 원본, 유효한 전역 Skills, 선택한 모델, 사용 가능한 provider, 기준선 명령 하나 이상 통과 | doctor와 기준선 결과 |
 | 후보 선택 | 조사 범위·위험·시도 이력 확인, deep check에서 실행 가능한 작업 명세 확정 | `audits/`, `packet.json` |
 | 수정 | 필요하면 characterization 테스트 추가, preflight 통과, 명세 범위 안에서 실행 | `preflight.json`, `execution.json` |
 | 검증·검토 | diff 검사, 검증 결과 악화 없음, 별도 세션 검토 통과 | `gate.json`, `validation.json`, `review.json` |

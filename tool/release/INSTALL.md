@@ -4,12 +4,31 @@
 
 The public Beta supports macOS Apple Silicon. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
+The current public release is `0.10.0-beta.1`. Candidate `0.10.0-beta.2` has not been published; its model and effort options are described in the usage guide for pre-release review.
+
+## Already extracted an archive
+
+If you are reading the `INSTALL.md` enclosed in an archive, use that archive's executable. Skip the Homebrew and public-download steps below. From its extracted directory:
+
+```sh
+cat BUILD-INFO.txt
+./refactor-me version --json
+```
+
+Compare the enclosed `version` and `commit` with the JSON output; both must match. The executable must identify itself as `refactor-me`, with platform `darwin` and architecture `arm64`, also matching `BUILD-INFO.txt`. Stop if any value differs. Keep it outside the target repository and use its absolute path for later commands.
+
+A locally built `0.10.0-beta.2` candidate has its own enclosed version and commit. These do not make it a published release. The download example below describes the separate public `0.10.0-beta.1` archive. For that version, follow the [tagged public guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md); only a verified beta.2 candidate can use the new model/effort options in the [candidate guide](https://github.com/soom-kang/refactor-me/blob/main/tool/TUTORIAL.md).
+
+Checksums verify archive bytes; `BUILD-INFO.txt` comparison detects a mismatched executable and metadata, not publisher identity. Later website or repository documentation updates do not change this enclosed guide.
+
 ## Homebrew
 
 Prepare Git, an authenticated Codex or Claude Code CLI, and the target project's validation tools. Node.js is needed for the Skill installer, not refactor-me itself.
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
@@ -17,7 +36,9 @@ npx skills add soom-kang/sharpen-me \
 
 Homebrew builds fixed release source with Go as a build dependency. Required Skills resolve from `~/.agents/skills`. Homebrew does not install Skills or write project configuration.
 
-Continue with the [usage guide](https://github.com/soom-kang/refactor-me/blob/main/tool/TUTORIAL.md): select a clean Git repository, run the non-live doctor check and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
+Tap registration and trust for this formula are one-time setup with Homebrew 6 or later. A new Homebrew environment needs them before `brew install refactor-me` can resolve the third-party formula. Trust only this formula; whole-tap trust is unnecessary.
+
+If Homebrew reports `0.10.0-beta.1`, follow the [tagged public usage guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md), rather than the candidate's model/effort commands. Select a clean Git repository, run the non-live doctor check and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
 
 ## Standalone download
 
@@ -46,7 +67,7 @@ Checksums detect altered downloads; they do not authenticate the publisher. This
 ## Upgrade or uninstall
 
 ```sh
-brew upgrade soom-kang/refactor-me/refactor-me
+brew upgrade refactor-me
 ```
 
 An upgrade changes the CLI used by every project. Repeat the non-live doctor check after upgrading. Maintain global Skills separately, between runs.

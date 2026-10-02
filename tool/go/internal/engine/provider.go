@@ -51,8 +51,9 @@ type AgentConfig struct {
 	EffortByPhase map[string]string `json:"effort_by_phase"`
 }
 type Config struct {
-	Agents map[string]AgentConfig `json:"agents"`
-	Skills *catalog.Catalog       `json:"-"`
+	Agents          map[string]AgentConfig `json:"agents"`
+	Skills          *catalog.Catalog       `json:"-"`
+	EffortOverrides map[string]string      `json:"-"`
 }
 type Request struct {
 	Phase   string
@@ -562,7 +563,10 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 		}
 		req.Timeout = time.Duration(seconds) * time.Second
 	}
-	effort := req.Effort
+	effort := cfg.EffortOverrides[provider]
+	if effort == "" {
+		effort = req.Effort
+	}
 	if effort == "" {
 		effort = EffortFor(req.Phase, agent)
 	}

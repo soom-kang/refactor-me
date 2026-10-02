@@ -53,7 +53,7 @@ func Run(c surface.Context) (surface.RunResult, error) {
 		return surface.RunResult{}, err
 	}
 	r := &runner{ctx: context.Background(), surface: c, policy: p,
-		engineConfig: engineConfig(c.Config), started: time.Now()}
+		engineConfig: engineConfigForContext(c), started: time.Now()}
 	if err := r.init(); err != nil {
 		if r.lock != nil {
 			_ = r.lock.Release()
@@ -285,7 +285,8 @@ func (r *runner) result() (surface.RunResult, error) {
 		"repoRoot": state.RepoRoot, "targets": state.Targets, "baseCommit": state.BaseOID,
 		"baseBranch": state.BaseBranch, "branch": branch, "worktree": state.Worktree,
 		"skills": r.doctor.Skills, "providerVersions": r.doctor.ProviderVersions, "skillLiveProbe": r.doctor.LiveProbe,
-		"providers": state.Providers, "providerOrder": state.ProviderOrder,
+		"providerSettings": r.doctor.ProviderSettings,
+		"providers":        state.Providers, "providerOrder": state.ProviderOrder,
 		"usage":    map[string]any{"totals": usageTotals, "byPhase": state.Usage.ByPhase},
 		"counters": state.Counters, "commits": state.Commits, "skipped": state.Seen.Skipped,
 		"codeComparison": r.collectComparison(),

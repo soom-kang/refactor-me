@@ -46,6 +46,8 @@ A failed vulnerability database download is not a passed scan. CI configuration 
 
 Keep English and Korean user instructions equivalent. Preserve executable examples and their expected failures. The ten JSON examples in both WORKFLOW editions are inputs to schema and controller tests.
 
+For the `0.10.0-beta.2` candidate, check model/effort examples against CLI parsing and provider-argument tests. Cover required models for live commands, the offline doctor exception, CLI-over-configuration precedence, explicit effort across all phases and unchanged configuration bytes. `providerSettings` records requested values; it does not establish that a provider executed them. Keep candidate notices until public installation succeeds, then update published version/commit and the workflow badge together.
+
 Check relative links, anchors and diagram exports after deleting or moving a document. Diagram editing and export instructions are in the [asset guide](../docs/assets/workflow/README.md).
 
 ## 4. Separate local and live checks

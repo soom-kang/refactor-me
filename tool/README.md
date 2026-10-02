@@ -22,6 +22,34 @@ Follow the [guide](TUTORIAL.md) for installation.
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
+## Model and effort selection
+
+These options are part of the unpublished `0.10.0-beta.2` candidate. The current public release is `0.10.0-beta.1`.
+
+`run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
+
+| Option | Applies to | Behavior |
+| --- | --- | --- |
+| `--model <id>` | Selected primary provider | Override its configured model for this command |
+| `--fallback-model <id>` | Selected fallback provider | Override its configured model for this command |
+| `--effort <level>` | Selected primary provider | Force one effort level across all phases in this command |
+| `--fallback-effort <level>` | Selected fallback provider | Force one effort level across all phases in this command |
+
+The options follow the selected provider order. For `--provider claude --fallback codex`, `--model` selects Claude's model and `--fallback-model` selects Codex's. Without provider flags, the order comes from project configuration, defaulting to Codex then Claude. An enabled fallback also needs a model even if the primary succeeds. Use `--fallback none` to select only one provider. Command options never write `.refactor/config.json`.
+
+For example, select both providers and force `xhigh` for each:
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback claude \
+  --model gpt-6.1-sol --fallback-model claude-sonnet-5-5 \
+  --effort xhigh --fallback-effort xhigh
+```
+
+These model IDs are examples, not defaults or a guarantee of account access. The CLI passes nonblank model and effort strings as separate provider arguments without a built-in allowlist. Use values supported by your authenticated provider CLI; accepting an option does not verify provider support. The same options apply to live `doctor`; provider calls consume usage. Fallback model/effort options require a distinct selected fallback provider.
+
+An omitted effort option preserves the existing policy. Operational overrides use `low` for doctor/handoff and `medium` for a re-audit. Other calls use `effort_by_phase`, then the provider's configured `effort`, then the phase defaults below. A CLI effort option overrides every level, including the operational values.
+
 ## Configuration
 
 `refactor-me init --repo <path>` creates `.refactor/config.json` if absent and never overwrites it. Initialization is optional; commands use built-in defaults when configuration is absent. Runtime defaults are in `go/internal/surface/config.go` and `go/internal/controller`; the initialization template is [config.default.json](config.default.json). Configuration requires `schema_version: 2`. Unsupported or missing versions in an existing file are errors, not migration requests.
@@ -34,7 +62,7 @@ Configuration, locks and runs belong to the selected repository, independently o
 | `agents.primary` / `agents.fallback` | `codex` / `claude` | Initial provider order |
 | `agents.<name>.enabled` | `true` | Enable a provider |
 | `agents.<name>.bin` | Provider name | CLI executable |
-| `agents.<name>.model` | Empty | Use the provider CLI's model default |
+| `agents.<name>.model` | Empty | Model ID; required for live calls unless overridden on the command line |
 | `agents.<name>.timeout_sec` | `1800` | Provider call timeout; doctor uses a shorter probe timeout |
 | `agents.<name>.effort_by_phase` | Empty | Override effort for individual phases |
 | `agents.<name>.effort` | Unset | Override the default effort table; a per-phase value takes precedence |
@@ -60,7 +88,7 @@ Default reasoning effort:
 - `medium`: preflight, characterization, re-audit
 - `low`: doctor, handoff
 
-Provider configuration can override these values; per-phase settings take precedence.
+Provider configuration can override ordinary phase defaults; per-phase settings take precedence over the provider's configured effort. Doctor/handoff and re-audit keep their operational overrides. A CLI effort option forces one level for every call.
 
 `verification` remains in the configuration format. The current loop does not use `verification.locked` to choose validation commands. For explicit commands, use `.refactor/commands.json` as described below.
 
@@ -115,9 +143,13 @@ Doctor validates the global source and delivery paths. By default it also calls 
 | `sharpen-brief` | Provider quota or authentication failure causes a handoff | A snapshot of the transition |
 | `sharpen-dedupe` | A duplication candidate reaches deep check or execution | Duplicate analysis and scoped consolidation |
 
-The loop defines each phase's allowed skills, output schema, and permissions. Model and effort settings come from the loop's configuration; skill recommendations do not change them.
+The loop defines each phase's allowed skills, output schema, and permissions. Model and effort settings resolve from command options and project configuration; skill recommendations do not change them.
 
 Run reports record the resolved Skill paths and content hashes, CLI/provider versions and the delivery path used for each provider. Keep these records when comparing runs after a global catalog update.
+
+Candidate reports and doctor diagnostics also record `providerSettings` by provider: `requestedModel` is the model resolved from CLI/configuration, and optional `cliEffort` records an explicit command override. These are requested settings, not proof that a provider ran that model or effort. Offline doctor may record an empty requested model. Report schema remains `3`.
+
+The report's `Default effort` phase column shows policy, not observed provider effort. Read the requested provider settings separately; neither field verifies provider execution.
 
 ## Validation commands
 

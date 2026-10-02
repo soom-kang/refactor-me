@@ -10,12 +10,18 @@ Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동
 
 공개 Beta **0.10.0-beta.1**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
+**릴리스 후보: `0.10.0-beta.2`.** 아래 모델과 추론 수준 옵션은 후보 버전에 적용됩니다. 아직 게시하지 않았으며 Homebrew는 현재 `0.10.0-beta.1`을 설치합니다.
+
 <a id="quick-start"></a>
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 ```
+
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 이후에는 `brew upgrade refactor-me`로 갱신합니다. 새 Homebrew 환경에서는 위 준비 명령을 먼저 실행해야 짧은 설치 명령을 사용할 수 있습니다.
 
 sharpen-me Skills는 전역으로 설치합니다. 아래 설치기에는 Node.js가 필요하지만 refactor-me 실행에는 필요하지 않습니다.
 
@@ -30,7 +36,9 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며, Claude Code를 쓰려면 `codex`를 `claude`로 바꿉니다.
+`refactor-me version --json`이 `0.10.0-beta.1`을 표시하면 아래 후보 명령을 실행하지 말고 [공개 `0.10.0-beta.1` 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. 검증한 `0.10.0-beta.2` 후보 실행 파일을 사용할 때만 아래 단계로 넘어갑니다.
+
+아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 
 ```sh
 refactor-me init --repo /path/to/target-repo
@@ -42,9 +50,12 @@ refactor-me doctor --repo /path/to/target-repo \
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 refactor-me report --repo /path/to/target-repo --lang ko
 ```
+
+선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정하세요. 예시의 모델과 추론 수준은 이번 실행의 선택값이며 기본값이 아닙니다. Claude Code는 `--provider claude --fallback none --model claude-sonnet-5-5 --effort xhigh`를 사용합니다. 이 옵션은 설정 파일을 바꾸지 않습니다. fallback 예시와 우선순위는 [모델과 추론 수준 선택](../tool/README.ko.md#model-and-effort-selection)을 참고하세요.
 
 `run`과 `--no-live-probe` 없는 doctor는 provider 사용량을 소비합니다. 종료 코드가 `0`이어도 부분 완료일 수 있으므로 보고서와 diff를 확인한 뒤 병합하세요. CLI는 결과를 자동으로 병합하거나 push·배포하지 않습니다.
 

@@ -65,12 +65,15 @@ func TestRunNoCandidatesPreservesSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := surface.Execute([]string{"run", "--provider", "codex", "--fallback", "none", "--no-live-probe", "--json"}, repo, &stdout, &stderr, surface.Callbacks{Run: Run, Doctor: Doctor, Clean: Clean})
+	code := surface.Execute([]string{"run", "--provider", "codex", "--fallback", "none", "--model", "fixture-model", "--effort", "xhigh", "--no-live-probe", "--json"}, repo, &stdout, &stderr, surface.Callbacks{Run: Run, Doctor: Doctor, Clean: Clean})
 	if code != surface.ExitOK {
 		t.Fatalf("exit=%d stderr=%s stdout=%s", code, &stderr, &stdout)
 	}
 	if !bytes.Contains(stdout.Bytes(), []byte(`"status": "NO_CHANGES"`)) {
 		t.Fatalf("unexpected report: %s", &stdout)
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte(`"requestedModel": "fixture-model"`)) || !bytes.Contains(stdout.Bytes(), []byte(`"cliEffort": "xhigh"`)) {
+		t.Fatalf("requested settings missing from saved report: %s", &stdout)
 	}
 	if got := gitTest(t, repo, "rev-parse", "HEAD"); got != head {
 		t.Fatalf("source HEAD changed: %s", got)
@@ -200,7 +203,7 @@ func TestRunPublishesReviewedDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := surface.Execute([]string{"run", "--provider", "codex", "--fallback", "none", "--no-live-probe", "--json"}, repo, &stdout, &stderr, surface.Callbacks{Run: Run, Doctor: Doctor, Clean: Clean})
+	code := surface.Execute([]string{"run", "--provider", "codex", "--fallback", "none", "--model", "fixture-model", "--no-live-probe", "--json"}, repo, &stdout, &stderr, surface.Callbacks{Run: Run, Doctor: Doctor, Clean: Clean})
 	if code != surface.ExitOK {
 		t.Fatalf("exit=%d stderr=%s stdout=%s", code, &stderr, &stdout)
 	}

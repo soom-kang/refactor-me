@@ -4,6 +4,8 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
+**`0.10.0-beta.2` 후보 사용법입니다.** 새 모델과 추론 수준 옵션은 현재 공개 버전인 `0.10.0-beta.1`에 없습니다. 후보를 게시하기 전까지 Homebrew는 기존 공개 버전을 설치합니다.
+
 <a id="prepare-the-target"></a>
 
 ## 1. 저장소 준비
@@ -33,13 +35,17 @@ claude auth status
 Homebrew와 Skill 설치기에 필요한 Node.js를 준비합니다. Homebrew가 CLI 빌드에 필요한 Go를 관리합니다. 설치된 CLI 실행에는 Go나 Node가 필요하지 않습니다.
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-CLI 버전 `0.10.0-beta.1`, 플랫폼 `darwin`, 아키텍처 `arm64`를 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 후보를 게시하기 전에는 공개 CLI 버전 `0.10.0-beta.1`, 플랫폼 `darwin`, 아키텍처 `arm64`를 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+
+버전 출력이 `0.10.0-beta.1`이면 여기서 후보 안내를 중단하고 [태그에 고정한 공개 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. 검증한 `0.10.0-beta.2` 후보에서만 계속합니다. 로컬에서 압축을 푼 후보를 사용한다면 아래 명령의 `refactor-me`를 그 실행 파일의 절대 경로로 바꾸고 기존 공개 CLI는 보존하세요.
 
 설정을 만든 뒤 모델 호출 없이 Codex 실행 준비를 확인합니다.
 
@@ -51,7 +57,7 @@ refactor-me doctor --repo /path/to/target-repo \
 
 Claude Code를 쓰려면 doctor와 run 모두에 `--provider claude --fallback none`을 사용합니다. 실행을 막는 `FAIL` 항목을 해결한 뒤 다음 단계로 넘어가세요. `init`은 기존 설정을 덮어쓰지 않습니다. 이 안내에서는 다음 단계에서 설정 파일을 수정하므로 먼저 실행하세요. 초기화를 생략하면 내장 기본값을 사용하며, 인자 없는 `refactor-me`는 도움말을 표시합니다.
 
-`--no-live-probe`는 모델 호출을 생략하지만 provider 실행 파일을 확인하고 임시 진단 환경을 만듭니다. 실제 세션의 Skill 인식을 확인하려면 이 옵션 없이 doctor를 실행하세요. 이때 provider 사용량이 발생합니다.
+`--no-live-probe`는 모델 호출을 생략하므로 모델 선택이 필요하지 않습니다. provider 실행 파일은 확인하고 임시 진단 환경을 만듭니다. 모델을 호출하는 `doctor`는 선택한 provider마다 모델이 필요합니다. 아래 실행 예시와 같은 provider와 모델 옵션을 사용하고 `--no-live-probe`를 생략하세요. 이때 provider 사용량이 발생합니다.
 
 <a id="set-limits-and-run"></a>
 
@@ -83,17 +89,36 @@ Claude Code를 쓰려면 doctor와 run 모두에 `--provider claude --fallback n
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 ```
 
-Claude Code를 쓰려면 `codex`를 `claude`로 바꿉니다. Codex 실패 시 Claude로 전환하려면 `--provider codex --fallback claude`를 사용합니다. provider 옵션을 생략해도 이 순서로 실행합니다. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다.
+Claude Code만 사용하려면 다음과 같이 실행합니다.
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider claude --fallback none \
+  --model claude-sonnet-5-5 --effort xhigh
+```
+
+Claude fallback을 허용하려면 모델 두 개를 지정합니다.
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback claude \
+  --model gpt-6.1-sol --fallback-model claude-sonnet-5-5 \
+  --effort xhigh --fallback-effort xhigh
+```
+
+모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다.
 
 특정 디렉터리에서 후보를 찾으려면 다음과 같이 실행합니다.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
   --target app/web --target app/api \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 ```
 
 추적 중인 소스 파일이 있는 디렉터리를 지정하세요. 저장소 전체를 조사하려면 `--target`을 생략합니다.
@@ -148,7 +173,7 @@ refactor-me report --repo /path/to/target-repo --json
 CLI를 업데이트한 뒤 모델 호출 없는 doctor 검사를 반복합니다.
 
 ```sh
-brew upgrade soom-kang/refactor-me/refactor-me
+brew upgrade refactor-me
 refactor-me version --json
 refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe

@@ -248,6 +248,7 @@ func RenderReport(data []byte, language string) (string, error) {
 		}
 		lines = append(lines, line)
 	}
+	lines = append(lines, renderProviderSettings(obj(report["providerSettings"]), language)...)
 	lines = append(lines, "")
 	lines = append(lines, renderUsage(report, language)...)
 	lines = append(lines, label(language, "## Next steps", "## 다음 단계"), "")
@@ -470,7 +471,7 @@ func renderUsage(report map[string]any, language string) []string {
 	} else {
 		lines = append(lines, "- "+label(language, "Cost", "비용")+": **"+cost+"**")
 	}
-	lines = append(lines, "", label(language, "| Phase | Effort | Calls | Duration | Input | Output | Cost |", "| 단계 | 추론 수준 | 호출 | 소요 | 입력 | 출력 | 비용 |"), "|---|---|---|---|---|---|---|")
+	lines = append(lines, "", label(language, "| Phase | Default effort | Calls | Duration | Input | Output | Cost |", "| 단계 | 기본 추론 수준 | 호출 | 소요 | 입력 | 출력 | 비용 |"), "|---|---|---|---|---|---|---|")
 	byPhase := obj(usage["byPhase"])
 	phaseOrder := []string{"doctor", "audit", "deep_check", "characterization", "preflight", "execute", "review", "handoff"}
 	seen := map[string]bool{}
@@ -504,7 +505,28 @@ func renderUsage(report map[string]any, language string) []string {
 		}
 		lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s |", phase, effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), cost))
 	}
-	return append(lines, "", label(language, "Effort shows the default policy; provider configuration can override it. A plus sign marks a partial cost.", "추론 수준은 기본 정책입니다. 프로바이더 설정으로 바꿀 수 있습니다. 비용의 +는 일부 비용만 집계했음을 뜻합니다."), "")
+	return append(lines, "", label(language, "Default effort shows the phase policy, not observed provider effort. CLI effort overrides every phase; without it, existing configuration and operational overrides apply. A plus sign marks a partial cost.", "기본 추론 수준은 단계별 정책이며 실제 provider의 추론 수준을 관측한 값이 아닙니다. CLI effort는 모든 단계에 우선 적용됩니다. 미지정 시 기존 설정과 운영 단계의 별도 값이 적용됩니다. 비용의 +는 일부 비용만 집계했음을 뜻합니다."), "")
+}
+
+func renderProviderSettings(settings map[string]any, language string) []string {
+	if len(settings) == 0 {
+		return nil
+	}
+	lines := []string{"", label(language, "### Requested provider settings", "### 요청한 provider 설정"), "",
+		label(language, "| Provider | Requested model | CLI effort |", "| Provider | 요청한 모델 | CLI effort |"), "|---|---|---|"}
+	var names []string
+	for name := range settings {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	escape := strings.NewReplacer("\\", "\\\\", "|", "\\|", "\r", " ", "\n", " ")
+	for _, name := range names {
+		value := obj(settings[name])
+		model := fallback(val(value, "requestedModel"), label(language, "Not specified", "미지정"))
+		effort := fallback(val(value, "cliEffort"), label(language, "Not overridden", "CLI override 없음"))
+		lines = append(lines, fmt.Sprintf("| %s | %s | %s |", escape.Replace(name), escape.Replace(model), escape.Replace(effort)))
+	}
+	return append(lines, "", label(language, "These are requested settings; they do not verify which model the provider executed.", "요청한 설정을 기록한 정보이며 provider가 실제로 실행한 모델을 확인한 증거는 아닙니다."))
 }
 
 func costText(u map[string]any) string {

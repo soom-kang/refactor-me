@@ -4,12 +4,31 @@
 
 공개 Beta는 macOS Apple Silicon을 지원합니다. Homebrew로 전역 실행 파일을 설치하고 sharpen-me Skills는 따로 설치합니다.
 
+현재 공개 버전은 `0.10.0-beta.1`입니다. 후보 `0.10.0-beta.2`는 아직 게시하지 않았으며, 새 모델과 추론 수준 옵션은 게시 전 검토용 사용법에 설명했습니다.
+
+## 이미 압축을 푼 경우
+
+압축파일에 포함된 `INSTALL.md`를 읽고 있다면 해당 압축파일의 실행 파일을 사용하세요. 아래 Homebrew 설치와 공개 버전 다운로드 단계는 건너뜁니다. 압축을 푼 디렉터리에서 실행합니다.
+
+```sh
+cat BUILD-INFO.txt
+./refactor-me version --json
+```
+
+동봉한 `version`, `commit`을 JSON 출력과 비교해 두 값이 모두 같은지 확인하세요. 실행 파일의 이름은 `refactor-me`, 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 하며 `BUILD-INFO.txt`와도 같아야 합니다. 하나라도 다르면 중단합니다. 실행 파일은 대상 저장소 밖에 보관하고 이후 명령에는 절대 경로를 사용하세요.
+
+로컬에서 빌드한 `0.10.0-beta.2` 후보에는 그 후보의 버전과 commit이 들어 있습니다. 이 정보가 릴리스 게시를 뜻하지는 않습니다. 아래 다운로드 예시는 별도의 공개 `0.10.0-beta.1` 압축파일입니다. 해당 버전은 [태그에 고정한 공개 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. [후보 사용법](https://github.com/soom-kang/refactor-me/blob/main/tool/TUTORIAL.ko.md)의 새 모델과 추론 수준 옵션은 검증한 beta.2 후보에서만 사용합니다.
+
+checksum은 압축파일의 바이트를 검사합니다. `BUILD-INFO.txt` 비교는 실행 파일과 메타데이터의 불일치를 찾으며 게시자를 인증하지 않습니다. 이후 웹이나 저장소의 문서를 갱신해도 동봉한 안내는 바뀌지 않습니다.
+
 ## Homebrew
 
 Git, 인증을 마친 Codex 또는 Claude Code CLI, 대상 프로젝트의 검증 도구를 준비하세요. Node.js는 Skill 설치기에 필요하며 refactor-me 실행에는 필요하지 않습니다.
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
@@ -17,7 +36,9 @@ npx skills add soom-kang/sharpen-me \
 
 Homebrew는 고정한 릴리스 소스를 Go로 빌드합니다. 필수 Skills는 `~/.agents/skills`에서 읽습니다. Homebrew는 Skills나 프로젝트 설정을 설치하지 않습니다.
 
-이후 [사용법](../TUTORIAL.ko.md)에 따라 깨끗한 Git 저장소를 선택하고 모델 호출 없는 doctor 검사와 제한 설정을 마친 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 새 환경에서는 먼저 설정해야 `brew install refactor-me`가 외부 formula를 찾을 수 있습니다. 해당 formula만 신뢰하면 되며 tap 전체의 trust 설정은 필요하지 않습니다.
+
+Homebrew가 `0.10.0-beta.1`을 표시하면 후보의 모델과 추론 수준 명령 대신 [태그에 고정한 공개 사용법](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.ko.md)을 따르세요. 깨끗한 Git 저장소를 선택하고 모델 호출 없는 doctor 검사와 제한 설정을 마친 뒤 `run`을 시작합니다. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
 
 ## 직접 다운로드
 
@@ -45,7 +66,7 @@ checksum은 다운로드 파일의 변경 여부를 확인하며 게시자를 �
 ## 업데이트와 제거
 
 ```sh
-brew upgrade soom-kang/refactor-me/refactor-me
+brew upgrade refactor-me
 ```
 
 업데이트는 모든 프로젝트가 사용하는 CLI를 바꿉니다. 이후 모델 호출 없는 doctor 검사를 반복하세요. 전역 Skills는 실행 사이에 따로 관리합니다.

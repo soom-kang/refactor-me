@@ -65,7 +65,8 @@ func TestRepoSelectionAndTargetBase(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			called := false
 			var stdout, stderr bytes.Buffer
-			code := Execute(tc.args, tc.cwd, &stdout, &stderr, Callbacks{Doctor: func(c Context) (DoctorResult, error) {
+			args := append(append([]string{}, tc.args...), "--no-live-probe")
+			code := Execute(args, tc.cwd, &stdout, &stderr, Callbacks{Doctor: func(c Context) (DoctorResult, error) {
 				called = true
 				if c.Repo != canonical || strings.Join(c.Targets, ",") != strings.Join(tc.targets, ",") {
 					t.Fatalf("context=%+v", c)

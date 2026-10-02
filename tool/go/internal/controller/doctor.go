@@ -30,16 +30,17 @@ type doctorCheck struct {
 }
 
 type doctorReport struct {
-	Skills           *catalog.Catalog  `json:"skills"`
-	ProviderVersions map[string]string `json:"providerVersions"`
-	LiveProbe        bool              `json:"liveProbe"`
-	At               string            `json:"at"`
-	Version          string            `json:"version"`
-	OK               bool              `json:"ok"`
-	Healthy          []string          `json:"healthy"`
-	Excluded         []string          `json:"excluded"`
-	Checks           []doctorCheck     `json:"checks"`
-	Usage            []doctorUsage     `json:"usage"`
+	Skills           *catalog.Catalog                    `json:"skills"`
+	ProviderVersions map[string]string                   `json:"providerVersions"`
+	ProviderSettings map[string]surface.ProviderSettings `json:"providerSettings"`
+	LiveProbe        bool                                `json:"liveProbe"`
+	At               string                              `json:"at"`
+	Version          string                              `json:"version"`
+	OK               bool                                `json:"ok"`
+	Healthy          []string                            `json:"healthy"`
+	Excluded         []string                            `json:"excluded"`
+	Checks           []doctorCheck                       `json:"checks"`
+	Usage            []doctorUsage                       `json:"usage"`
 }
 
 type doctorUsage struct {
@@ -56,7 +57,7 @@ func check(id, status, detail string, blocking bool) doctorCheck {
 
 func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	report := doctorReport{At: time.Now().UTC().Format(time.RFC3339Nano), Version: surface.Version,
-		Healthy: []string{}, Excluded: []string{}, Checks: []doctorCheck{}, ProviderVersions: map[string]string{}, LiveProbe: c.Args.Live}
+		Healthy: []string{}, Excluded: []string{}, Checks: []doctorCheck{}, ProviderVersions: map[string]string{}, ProviderSettings: providerSettings(c), LiveProbe: c.Args.Live}
 	add := func(id, status, detail string, blocking bool) {
 		report.Checks = append(report.Checks, check(id, status, detail, blocking))
 	}
@@ -148,7 +149,7 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	if err != nil {
 		return report, err
 	}
-	config := engineConfig(c.Config)
+	config := engineConfigForContext(c)
 	config.Skills = report.Skills
 	for _, provider := range c.Providers {
 		agent := config.Agents[provider]
@@ -298,6 +299,26 @@ func renderDoctor(report doctorReport) string {
 	}
 	if len(report.Excluded) > 0 {
 		healthy += "; excluded: " + strings.Join(report.Excluded, ", ")
+	}
+	if len(report.ProviderSettings) > 0 {
+		lines = append(lines, "", "Requested provider settings (model access requires a live check):")
+		var names []string
+		for name := range report.ProviderSettings {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			settings := report.ProviderSettings[name]
+			model := settings.RequestedModel
+			if model == "" {
+				model = "not specified"
+			}
+			line := fmt.Sprintf("  %s: model=%s", name, model)
+			if settings.CLIEffort != "" {
+				line += "; CLI effort=" + settings.CLIEffort
+			}
+			lines = append(lines, line)
+		}
 	}
 	return fmt.Sprintf("doctor: %s  (healthy providers: %s)\n%s", state, healthy, strings.Join(lines, "\n"))
 }

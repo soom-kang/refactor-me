@@ -10,12 +10,18 @@ Automate behavior-preserving refactoring with Codex or Claude Code. The CLI work
 
 Public Beta **0.10.0-beta.1** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
 
+**Release candidate: `0.10.0-beta.2`.** The model and effort options below apply to this candidate. It has not been published; Homebrew currently installs `0.10.0-beta.1`.
+
 <a id="quick-start"></a>
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 ```
+
+Register and trust this formula once with Homebrew 6 or later. Future updates use `brew upgrade refactor-me`. A fresh Homebrew installation needs these setup commands before the short install command.
 
 Install sharpen-me Skills globally. This separate installer requires Node.js; running refactor-me does not.
 
@@ -30,7 +36,9 @@ Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`
 
 ## First run
 
-Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; replace `codex` with `claude` for Claude Code.
+If `refactor-me version --json` reports `0.10.0-beta.1`, stop before the candidate commands below and follow the [public `0.10.0-beta.1` guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md). Continue below only with a verified `0.10.0-beta.2` candidate executable.
+
+Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; a Claude Code check uses `--provider claude --fallback none`.
 
 ```sh
 refactor-me init --repo /path/to/target-repo
@@ -42,9 +50,12 @@ refactor-me doctor --repo /path/to/target-repo \
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 refactor-me report --repo /path/to/target-repo
 ```
+
+Choose a model for every selected provider, either with command options or in project configuration. The example model and effort are choices for this run, not defaults. Claude Code uses `--provider claude --fallback none --model claude-sonnet-5-5 --effort xhigh`. These options do not change configuration files; see [model and effort selection](tool/README.md#model-and-effort-selection) for fallback examples and precedence.
 
 `run` and doctor without `--no-live-probe` consume provider usage. Exit `0` can mean partial completion: inspect the report and diff before merging. The CLI does not merge, push or deploy results.
 

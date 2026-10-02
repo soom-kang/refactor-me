@@ -4,6 +4,8 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
+**Candidate guide for `0.10.0-beta.2`.** The new model and effort options are not in the current public `0.10.0-beta.1`. Homebrew still installs that public version until this candidate is published.
+
 <a id="prepare-the-target"></a>
 
 ## 1. Prepare the repository
@@ -33,13 +35,17 @@ claude auth status
 You need Homebrew and Node.js for the separate Skill installer. Homebrew supplies Go to build the CLI; the installed CLI needs neither Go nor Node at runtime.
 
 ```sh
-brew install soom-kang/refactor-me/refactor-me
+brew tap soom-kang/refactor-me
+brew trust --formula soom-kang/refactor-me/refactor-me
+brew install refactor-me
 refactor-me version --json
 npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Expect CLI version `0.10.0-beta.1`, platform `darwin` and architecture `arm64`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect public CLI version `0.10.0-beta.1`, platform `darwin` and architecture `arm64` until the candidate is published. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+
+If the version output is `0.10.0-beta.1`, stop this candidate guide here and use the [tagged public guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.1/tool/TUTORIAL.md). Continue only with a verified `0.10.0-beta.2` candidate. When using a locally extracted candidate, replace `refactor-me` in the commands below with that executable's absolute path; preserve the installed public CLI.
 
 Create configuration and check Codex without calling a model:
 
@@ -51,7 +57,7 @@ refactor-me doctor --repo /path/to/target-repo \
 
 For Claude Code, use `--provider claude --fallback none` in both doctor and run. Resolve blocking `FAIL` checks before continuing. `init` never overwrites an existing configuration. Run it for this guide so the next step has a file to edit. Without initialization, the CLI uses built-in defaults. Running `refactor-me` alone displays help.
 
-`--no-live-probe` skips model calls but still checks provider executables and prepares temporary diagnostics. To check live session Skill visibility, repeat doctor without that flag; this consumes provider usage.
+`--no-live-probe` skips model calls and needs no model selection, but still checks provider executables and prepares temporary diagnostics. Live `doctor` needs models for all selected providers; use the same provider and model options as the run examples below, without `--no-live-probe`. It consumes provider usage.
 
 <a id="set-limits-and-run"></a>
 
@@ -83,17 +89,36 @@ Run Codex without fallback from any directory:
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 ```
 
-For Claude Code, replace `codex` with `claude`. To allow Claude fallback, use `--provider codex --fallback claude`; this is also the default when provider flags are omitted. Add `--lang ko` for a Korean report and final summary.
+For Claude Code alone:
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider claude --fallback none \
+  --model claude-sonnet-5-5 --effort xhigh
+```
+
+To allow Claude fallback, supply both model choices:
+
+```sh
+refactor-me run --repo /path/to/target-repo \
+  --provider codex --fallback claude \
+  --model gpt-6.1-sol --fallback-model claude-sonnet-5-5 \
+  --effort xhigh --fallback-effort xhigh
+```
+
+The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for a Korean report and final summary.
 
 To search for candidates in selected directories:
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
   --target app/web --target app/api \
-  --provider codex --fallback none
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --effort xhigh
 ```
 
 Choose existing directories with tracked source files. Omit `--target` to survey the whole repository.
@@ -148,7 +173,7 @@ Records can contain source excerpts and command output. Review them before shari
 Upgrade the CLI, then repeat the non-live doctor check:
 
 ```sh
-brew upgrade soom-kang/refactor-me/refactor-me
+brew upgrade refactor-me
 refactor-me version --json
 refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe

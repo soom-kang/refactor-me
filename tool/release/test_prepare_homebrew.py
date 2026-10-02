@@ -14,7 +14,7 @@ spec.loader.exec_module(prepare)
 
 class PackagingTest(unittest.TestCase):
     def test_candidate_archive_and_formula(self):
-        with tempfile.TemporaryDirectory() as one, tempfile.TemporaryDirectory() as two:
+        with tempfile.TemporaryDirectory(prefix='refactor source ') as one, tempfile.TemporaryDirectory() as two:
             first = prepare.prepare(one, candidate=True)
             second = prepare.prepare(two, candidate=True)
             self.assertEqual(first['sha256'], second['sha256'])
@@ -22,7 +22,9 @@ class PackagingTest(unittest.TestCase):
             formula = (Path(one) / 'refactor-me.rb').read_text()
             self.assertIn(first['sha256'], formula)
             self.assertIn(first['commit'], formula)
-            self.assertIn('file://', formula)
+            self.assertEqual(first['url'], (Path(one) / first['archive']).resolve().as_uri())
+            self.assertIn('%20', first['url'])
+            self.assertIn(first['url'], formula)
             self.assertNotIn('@VERSION@', formula)
             with tarfile.open(Path(one) / first['archive']) as source:
                 names = source.getnames()
@@ -67,6 +69,16 @@ class PackagingTest(unittest.TestCase):
             return 'a' * 40 if args[0] == 'rev-parse' else ' M README.md'
         with tempfile.TemporaryDirectory() as out, patch.object(prepare, 'git', fake_git):
             with self.assertRaisesRegex(ValueError, 'dirty checkout'):
+                prepare.prepare(out)
+            self.assertEqual(list(Path(out).iterdir()), [])
+
+    def test_release_tag_must_identify_head(self):
+        def fake_git(*args):
+            if args[0] == 'status':
+                return ''
+            return 'a' * 40 if args[1] == 'HEAD' else 'b' * 40
+        with tempfile.TemporaryDirectory() as out, patch.object(prepare, 'git', fake_git):
+            with self.assertRaisesRegex(ValueError, 'release tag does not identify HEAD'):
                 prepare.prepare(out)
             self.assertEqual(list(Path(out).iterdir()), [])
 

@@ -4,6 +4,8 @@
 
 You set the limits and start `run`. The controller then checks each phase without asking for approval between steps. Changes happen in an isolated Git worktree; accepted commits appear on a local result branch.
 
+For the unpublished `0.10.0-beta.2` candidate, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
+
 ## Global installation, separate project state
 
 ![Homebrew and global Skills are shared; configuration and reports belong to the selected repository.](../docs/assets/workflow/installation.en.png)
@@ -18,7 +20,7 @@ Codex receives the absolute paths of the selected global Skills. Claude receives
 
 | Stage | Required check | Saved evidence |
 | --- | --- | --- |
-| Prepare | Clean source, valid global Skills and available provider; at least one passing baseline command | Doctor and baseline results |
+| Prepare | Clean source, valid global Skills, selected models and available provider; at least one passing baseline command | Doctor and baseline results |
 | Choose | Audit scope, risk and candidate history; deep check produces a ready task packet | `audits/`, `packet.json` |
 | Refine | Optional characterization tests; preflight rejects unresolved failure hypotheses; execution stays within the packet | `preflight.json`, `execution.json` |
 | Validate and review | Diff gate, no validation regression, separate review session | `gate.json`, `validation.json`, `review.json` |

@@ -35,10 +35,17 @@ class RefactorMe < Formula
     repo = testpath/"target repo"
     system "git", "init", "-q", repo
     system bin/"refactor-me", "init", "--repo", repo
-    config = JSON.parse((repo/".refactor/config.json").read)
+    config_path = repo/".refactor/config.json"
+    config = JSON.parse(config_path.read)
     assert_equal 2, config.fetch("schema_version")
+    assert_empty config.fetch("agents").fetch("codex").fetch("model")
+    assert_empty config.fetch("agents").fetch("claude").fetch("model")
     assert_path_exists repo/".refactor/runs"
     refute_path_exists repo/".refactor/bin"
+    config.fetch("policy")["max_cycles"] = 1
+    config_path.open("w") { |file| file.write JSON.pretty_generate(config) + "\n" }
+    config_before = config_path.read
     system bin/"refactor-me", "init", "--repo", repo
+    assert_equal config_before, config_path.read
   end
 end

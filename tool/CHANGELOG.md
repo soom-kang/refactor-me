@@ -2,7 +2,7 @@
 
 ## 0.10.0-beta.3
 
-Release preparation for `0.10.0-beta.3`; the changes below are not included in public Beta `0.10.0-beta.2`.
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653). Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`.
 
 - Replace raw terminal tool commands with stage and candidate progress messages. Extend the existing `--lang en|ko` to run progress while keeping English as the default and standalone doctor output in English.
 - Report each audit's proposed, inspected when capped, and eligible counts. Distinguish measured baseline results, unchanged baseline failures, rejection, no changes, regression and confirmed rollback or local commit publication.

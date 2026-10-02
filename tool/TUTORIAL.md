@@ -4,7 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-This guide covers public Beta `0.10.0-beta.2` for macOS Apple Silicon. Release commit: `c30dbdadc4229958e29366fdc14d79df3da8cb02`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36956289983) verifies the published tag and Homebrew formula.
+This guide covers public Beta `0.10.0-beta.3` for macOS Apple Silicon. Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653) verifies the published tag and Homebrew formula.
 
 <a id="prepare-the-target"></a>
 
@@ -43,7 +43,7 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.2`, platform `darwin`, architecture `arm64` and commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.3`, platform `darwin`, architecture `arm64` and commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
 Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
@@ -112,7 +112,7 @@ refactor-me run --repo /path/to/target-repo \
   --effort xhigh --fallback-effort xhigh
 ```
 
-The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for a Korean report and final summary. Development builds also use it for progress logs, as described below.
+The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for Korean progress logs, report and final summary.
 
 To search for candidates in selected directories:
 
@@ -135,12 +135,12 @@ Paths resolving outside the repository are rejected. **Targets limit candidate d
 
 ![Check prerequisites, run in an isolated worktree, inspect the saved outcome, then review published changes before merging.](../docs/assets/workflow/execution.en.png)
 
-### Try progress logs in a development build
+### Read progress logs
 
-Public Beta `0.10.0-beta.2` does not include the new progress display. First [build the development binary](DEVELOPMENT.md#1-build-a-development-binary), then use its absolute path with the same repository preparation and limits:
+In public Beta `0.10.0-beta.3`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
 
 ```sh
-/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+refactor-me run --repo /path/to/target-repo \
   --provider codex --fallback none \
   --model gpt-6.1-sol --effort xhigh --lang ko
 ```

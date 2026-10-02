@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.2`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2), commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.3`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3), commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Build a local candidate
 
@@ -93,6 +93,16 @@ refactor-me version --json
 Confirm the published version and release commit, then test repository selection, repeated `init` and offline doctor in a temporary Git repository. Check report viewing with a saved fixture report; do not start a provider run for an installation check. Preserve the source HEAD, index and tracked files. Do not replace the user's installed package or change unrelated Homebrew trust to obtain this evidence.
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
+
+## Beta.3 verification record
+
+Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`. [Tag CI](https://github.com/soom-kang/refactor-me/actions/runs/36970731411) · [Selected-tag public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653).
+
+- Selected release-tag public-install result: `PASS`. Required successful jobs are `go`, `public-install` and aggregate `verify`. This run checks the public formula's style, audit, install and test, and compares version/commit with the selected checkout. Installation checks make no provider calls.
+- Codex: `PASS` for all 12 acceptance criteria; one reviewed `DEAD_CODE` commit, six CLI calls (one per phase), no retries or fallback; 1,108.8 seconds; `DONE_PARTIAL` at the one-cycle limit. Requested `gpt-6.1-sol`/`xhigh`, a 900-second refactoring-phase provider timeout, at most three attempts, one refactor commit and a 20-minute elapsed limit checked between work units; embedded doctor only, with a 180-second live-probe timeout. Aggregate reported usage: 987,494 input tokens, 27,695 output tokens; `costUsd=null` (unavailable).
+- Integrity: clean release source `01a3fad54149cb127e8bd6c5d638eda0562a5897`; final binary SHA-256 `b55f0af5e389dd611772ac5592295aa0d6619c5910f6703944570737c303d911` matches the live-tested binary. All 94 measured runtime files and eight global Skills remained unchanged; source fixture HEAD, index, tracked files and configuration were preserved. `go vet` and `go build` remained GREEN; `go test` retained only the expected RED signature `GOFAIL:TestKnownBaseline`, `contract_test.go:7`. Skill-loading probe responses are provider self-report; file hashes were measured separately.
+- Claude: user manual verification `PASS`; automated verification `NOT_RUN` because tokens were exhausted. No automated Claude call was made for Beta.3.
+- Preserve raw logs privately. The Codex result covers the bounded fixture described above.
 
 ## Beta.2 verification record
 

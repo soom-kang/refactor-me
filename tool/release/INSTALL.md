@@ -4,7 +4,7 @@
 
 This Beta supports macOS Apple Silicon (`darwin/arm64`) only. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
-This guide targets `0.10.0-beta.3`. The download commands apply once its tag and assets are public on the [GitHub release page](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3). Until then, the public release is `0.10.0-beta.2`; use its [tagged installation guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.2/tool/release/INSTALL.md).
+Public release [`0.10.0-beta.3`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3) uses commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`. See the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653) for the published tag and Homebrew formula.
 
 ## Already extracted an archive
 
@@ -38,11 +38,11 @@ Homebrew builds fixed release source with Go as a build dependency. Required Ski
 
 Tap registration and trust for this formula are one-time setup with Homebrew 6 or later. A new Homebrew environment needs them before `brew install refactor-me` can resolve the third-party formula. Trust only this formula; whole-tap trust is unnecessary.
 
-If Homebrew reports `0.10.0-beta.2`, follow the [tagged public usage guide](https://github.com/soom-kang/refactor-me/blob/v0.10.0-beta.2/tool/TUTORIAL.md). For Beta.3, confirm version `0.10.0-beta.3` and compare its commit with the release tag as described below. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
+Confirm version `0.10.0-beta.3` and the release commit before continuing; upgrade older installations first. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
 
 ## Standalone download
 
-Once Beta.3 is public, create a new empty directory and download the archive and checksum file from its [GitHub release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3). In that directory:
+Create a new empty directory and download the archive and checksum file from its [GitHub release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3). In that directory:
 
 ```sh
 release_url=https://github.com/soom-kang/refactor-me/releases/download

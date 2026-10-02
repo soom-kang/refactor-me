@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.2`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.2)이며 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.3`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3)이며 commit은 `01a3fad54149cb127e8bd6c5d638eda0562a5897`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 로컬 후보 생성
 
@@ -93,6 +93,16 @@ refactor-me version --json
 공개 버전과 릴리스 commit을 확인한 뒤 임시 Git 저장소에서 대상 선택, 반복 `init`, 모델 호출 없는 doctor를 검사합니다. 보고서 조회는 저장된 fixture 보고서로 확인하며 설치 검사를 위해 provider 실행을 시작하지 않습니다. 원본 HEAD, index, 추적 파일은 유지되어야 합니다. 이 근거를 얻기 위해 사용자의 기존 설치를 교체하거나 관련 없는 Homebrew trust를 바꾸지 않습니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
+
+## Beta.3 검증 기록
+
+릴리스 commit은 `01a3fad54149cb127e8bd6c5d638eda0562a5897`입니다. [태그 CI](https://github.com/soom-kang/refactor-me/actions/runs/36970731411)와 [선택한 태그의 공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36971167653)을 확인하세요.
+
+- 선택한 릴리스 태그의 공개 설치 결과: `PASS`. 필수 성공 job은 `go`, `public-install`, 집계 `verify`입니다. 이 실행은 공개 formula의 style, audit, 설치, 테스트와 버전·commit 일치를 검사합니다. 설치 검사는 provider를 호출하지 않습니다.
+- Codex: 수락 기준 12개 모두 `PASS`. 검토를 통과한 `DEAD_CODE` 커밋 1개, 단계마다 1회씩 총 6회 CLI 호출, 재시도와 fallback 없음; 1,108.8초; 1 cycle 제한에 따른 `DONE_PARTIAL`. 요청 설정은 `gpt-6.1-sol`/`xhigh`, 리팩토링 단계의 provider 호출 제한 900초, 최대 시도 3회, 리팩토링 커밋 최대 1개와 작업 단위 사이에서 확인하는 20분 경과 시간 제한입니다. `run`에 포함된 doctor만 실행했으며 live probe 제한은 180초입니다. 집계한 보고 사용량은 input 987,494 tokens, output 27,695 tokens이며 `costUsd=null`로 비용은 미확인입니다.
+- 불변성: clean 릴리스 소스 `01a3fad54149cb127e8bd6c5d638eda0562a5897`. 최종 실행 파일 SHA-256 `b55f0af5e389dd611772ac5592295aa0d6619c5910f6703944570737c303d911`는 실제 검증한 실행 파일과 같습니다. 측정한 runtime 파일 94개와 전역 Skills 8개가 모두 유지됐고 원본 fixture의 HEAD, index, 추적 파일과 설정도 보존됐습니다. `go vet`와 `go build`는 GREEN을 유지하고 `go test`에는 의도된 RED인 `GOFAIL:TestKnownBaseline`, `contract_test.go:7`만 남았습니다. Skill 로딩 응답은 provider의 자기보고이며 파일 hash는 별도로 측정했습니다.
+- Claude: 사용자 수동 검증 `PASS`. 토큰 소진으로 자동 검증은 `NOT_RUN`이며 Beta.3 준비 중 Claude를 자동 호출하지 않았습니다.
+- 원본 로그는 비공개로 보관합니다. Codex 결과는 위에서 설명한 제한된 fixture에 해당합니다.
 
 ## Beta.2 검증 기록
 

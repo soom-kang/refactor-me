@@ -4,7 +4,7 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-macOS Apple Silicon용 공개 Beta `0.10.0-beta.2` 사용법입니다. 릴리스 commit은 `c30dbdadc4229958e29366fdc14d79df3da8cb02`입니다. 공개 태그와 Homebrew formula는 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36956289983)에서 확인합니다.
+macOS Apple Silicon용 공개 Beta `0.10.0-beta.3` 사용법입니다. 릴리스 commit은 `01a3fad54149cb127e8bd6c5d638eda0562a5897`입니다. 공개 태그와 Homebrew formula는 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36971167653)에서 확인합니다.
 
 <a id="prepare-the-target"></a>
 
@@ -43,7 +43,7 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.2`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `c30dbdadc4229958e29366fdc14d79df3da8cb02`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.3`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
 이전 버전이라면 먼저 업데이트하세요. 독립 실행 파일 압축파일은 [설치 검사](release/INSTALL.ko.md)를 마친 뒤 아래 명령의 `refactor-me`를 해당 실행 파일의 절대 경로로 바꿉니다. 실행 파일은 대상 저장소 밖에 보관하세요.
 
@@ -112,7 +112,7 @@ refactor-me run --repo /path/to/target-repo \
   --effort xhigh --fallback-effort xhigh
 ```
 
-모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 보고서와 최종 요약을 한글로 표시합니다. 개발 버전에서는 아래 설명처럼 진행 로그에도 적용합니다.
+모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 진행 로그, 보고서와 최종 요약을 한글로 표시합니다.
 
 특정 디렉터리에서 후보를 찾으려면 다음과 같이 실행합니다.
 
@@ -135,12 +135,12 @@ refactor-me run --repo /path/to/target-repo \
 
 ![준비 상태를 확인하고 격리 worktree에서 실행한 뒤, 저장된 결과와 변경 사항을 검토합니다.](../docs/assets/workflow/execution.ko.png)
 
-### 개발 버전의 진행 로그 확인
+### 진행 로그 확인
 
-공개 Beta `0.10.0-beta.2`에는 새 진행 로그가 포함되지 않습니다. 먼저 [개발 실행 파일을 빌드](DEVELOPMENT.md#1-build-a-development-binary)하고, 저장소 준비와 실행 제한을 그대로 적용한 뒤 절대 경로로 실행하세요.
+공개 Beta `0.10.0-beta.3`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
 
 ```sh
-/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+refactor-me run --repo /path/to/target-repo \
   --provider codex --fallback none \
   --model gpt-6.1-sol --effort xhigh --lang ko
 ```

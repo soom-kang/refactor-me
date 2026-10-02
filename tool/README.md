@@ -24,7 +24,7 @@ Configuration, locks and runs belong to the selected repository, independently o
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.2`.
+These options are available in public Beta `0.10.0-beta.3`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -205,13 +205,13 @@ After a change, validation selects the deepest affected area for each path and t
 
 ### Language and saved files
 
-`--lang en|ko` applies to `run` and `report`; the default is `en`. It translates the final summary, `report.md`, and fixed handoff header. Development builds for the next release also apply it to run progress logs; public Beta `0.10.0-beta.2` keeps the earlier logs. The standalone `doctor` command remains in English. Model explanations, stored errors, paths, identifiers and commit subjects keep their original wording.
+`--lang en|ko` applies to `run` and `report`; the default is `en`. It translates run progress logs, the final summary, `report.md`, and fixed handoff header. The standalone `doctor` command remains in English. Model explanations, stored errors, paths, identifiers and commit subjects keep their original wording.
 
 Each run writes one `report.md` and one `report.json`. `report --lang ko` renders the latest JSON without changing files. Current reports use `schemaVersion: 3`. Missing, invalid or unsupported older JSON produces an error and preserves existing files. Reports are not automatically migrated. `--json` prints the stored JSON bytes for a supported report and is independent of language.
 
 ### Progress logs
 
-The following behavior is available in development builds for the next release. It is not part of public Beta `0.10.0-beta.2`; use a [development binary](DEVELOPMENT.md#1-build-a-development-binary) to try it.
+The following behavior is included in public Beta `0.10.0-beta.3`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.

@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify Apple Silicon runner
         run: test "$(uname -m)" = arm64
-      - name: Install and test the public formula
+      - name: Audit, install and test the public formula
         run: |
           if brew list --formula | grep -Fxq refactor-me; then
             echo "public-install requires a runner without refactor-me installed" >&2
@@ -61,6 +61,8 @@ jobs:
           fi
           brew tap soom-kang/refactor-me
           brew trust --formula soom-kang/refactor-me/refactor-me
+          brew style soom-kang/refactor-me/refactor-me
+          brew audit --strict soom-kang/refactor-me/refactor-me
           brew install refactor-me
           brew test refactor-me
       - name: Verify public provenance and offline repository behavior

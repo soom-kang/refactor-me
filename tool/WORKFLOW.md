@@ -28,6 +28,10 @@ Codex receives the absolute paths of the selected global Skills. Claude receives
 
 Characterization records existing behavior in tests before production edits. When enabled, these tests must pass against unchanged production code and may form a separate commit. A later rejected refactor can leave that test commit on the result branch. `max_commits` counts refactor commits only.
 
+Development builds pass measured baseline results to deep check, characterization, preflight and execution. After a characterization commit, preflight and execution also receive its commit, files and validation results. A filename collision check made before test creation does not reject files recorded as newly created by this step; pre-existing files retain their collision checks. Missing evidence remains unknown, and existing baseline failures are still reported as failures. Characterization checks are saved in `cycles/*/characterization-validation.json`.
+
+Execution instructions require preserving unrelated bytes, including line endings and trailing blank lines. An incidental whitespace change introduced by the editing tool in the same allowed production file may be corrected once before the final diff is judged. Unresolved mismatches, scope expansion and behavior changes still reject the candidate. Validation after the edit remains the controller's responsibility.
+
 Preflight must report `READY_TO_EXECUTE`, a `FALSIFIED` failure hypothesis and no blocking reasons. Execution cannot expand the packet's scope. The controller checks paths, file and line limits, test weakening, binaries and repeated trees against the actual diff.
 
 Review uses a separate session, preferring the other available provider when configured. `FAIL`, `BLOCKER`, or an assessment other than `PRESERVED` rejects the change. A `HIGH` finding alone does not override `PASS`; read the findings before merging.

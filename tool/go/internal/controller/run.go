@@ -36,6 +36,7 @@ type runner struct {
 	gateFacts                     workspace.GateFacts
 	progress                      *progressLogger
 	candidateLabel                string
+	characterization              *engine.CharacterizationEvidence
 }
 
 func (r *runner) phase(next string) error {

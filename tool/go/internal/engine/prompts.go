@@ -28,6 +28,30 @@ type SkippedCandidate struct {
 	Reason      string
 }
 
+// PhaseEvidence contains measured controller facts, never model assertions or
+// raw command output. Baseline failures remain failures even when usable.
+type PhaseEvidence struct {
+	BaseCommit       string                    `json:"base_commit"`
+	BaselineSummary  string                    `json:"baseline_summary"`
+	BaselineUsable   bool                      `json:"baseline_usable"`
+	BaselineChecks   []CheckEvidence           `json:"baseline_checks"`
+	Characterization *CharacterizationEvidence `json:"characterization"`
+}
+
+type CheckEvidence struct {
+	ID       string `json:"id"`
+	Status   string `json:"status"`
+	ExitCode *int   `json:"exit_code"`
+}
+
+type CharacterizationEvidence struct {
+	Commit             string          `json:"commit"`
+	Files              []string        `json:"files"`
+	CreatedFiles       []string        `json:"created_files"`
+	ValidationAccepted bool            `json:"validation_accepted"`
+	Checks             []CheckEvidence `json:"checks"`
+}
+
 // PromptArgs carries the phase-specific facts already established by the
 // orchestrator. Repository-sourced strings are fenced as untrusted data.
 type PromptArgs struct {
@@ -46,6 +70,7 @@ type PromptArgs struct {
 	AreaSkills      string
 	Commands        string
 	BaselineSummary string
+	PhaseEvidence   *PhaseEvidence
 	Diff            string
 	Rationale       string
 	DeadProvider    string
@@ -121,6 +146,7 @@ func BuildPrompt(phase string, a PromptArgs) (string, error) {
 		"__NONCE__", a.Nonce, "__REPO_FACTS__", a.RepoFacts, "__TARGETS__", strings.Join(a.Targets, ", "),
 		"__CYCLE__", fmt.Sprint(a.Cycle), "__AREA_SKILLS__", a.AreaSkills, "__COMMANDS__", a.Commands,
 		"__CANDIDATE_JSON__", candidateJSON, "__PACKET_JSON__", packetJSON, "__BASELINE__", a.BaselineSummary,
+		"__PHASE_EVIDENCE__", jsonOf(a.PhaseEvidence),
 		"__REVIEW_JSON__", jsonOf(review), "__DIFF__", a.Diff, "__RATIONALE__", defaultString(a.Rationale, "(none given)"),
 		"__DEAD_PROVIDER__", a.DeadProvider, "__LIVE_PROVIDER__", a.LiveProvider, "__FAILURE_CLASS__", a.FailureClass,
 		"__STATE_JSON__", a.StateJSON, "__JOURNAL_TAIL__", a.JournalTail, "__GIT_LOG__", a.GitLog,

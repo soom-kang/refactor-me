@@ -12,6 +12,7 @@ import (
 )
 
 func (r *runner) runCandidate(candidate map[string]any) error {
+	r.characterization = nil
 	r.candidateLabel = candidateDescription(candidate, r.surface.Args.Language)
 	defer r.endProgress()
 	fp := str(candidate["fp"])
@@ -73,7 +74,7 @@ func (r *runner) selectPacket(candidate map[string]any, cycleDir string) (map[st
 		return nil, false, err
 	}
 	args := engine.PromptArgs{Candidate: candidate, RepoFacts: facts, Targets: r.surface.Targets,
-		AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(candidate["related_files"])), Commands: strings.Join(r.commandDescriptions(), "\n")}
+		AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(candidate["related_files"])), Commands: strings.Join(r.commandDescriptions(), "\n"), PhaseEvidence: r.phaseEvidence()}
 	call, err := r.callPhase("deep_check", cycleDir, "", args)
 	if err != nil {
 		return nil, false, err
@@ -121,7 +122,15 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if len(files) == 0 {
 		return false, r.fail(str(packet["fp"]), "NO_CHARACTERIZATION_FILES", "characterization required but no test files named", nil, false)
 	}
-	call, err := r.callPhase("characterization", dir, "", engine.PromptArgs{Packet: packet, AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(packet["allowlist"]))})
+	var absent []string
+	for _, path := range files {
+		if _, err := os.Lstat(filepath.Join(r.wt, path)); os.IsNotExist(err) {
+			absent = append(absent, path)
+		} else if err != nil {
+			return false, err
+		}
+	}
+	call, err := r.callPhase("characterization", dir, "", engine.PromptArgs{Packet: packet, AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(packet["allowlist"])), PhaseEvidence: r.phaseEvidence()})
 	if err != nil {
 		return false, err
 	}
@@ -163,6 +172,9 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 		return true, nil
 	}
 	ladder := workspace.RunLadder(r.ctx, r.baseline, r.commands, r.wt, changed, r.discovery.Areas, r.observeCommand)
+	if err := writeJSONAtomic(filepath.Join(dir, "characterization-validation.json"), ladder); err != nil {
+		return false, err
+	}
 	if !ladder.OK {
 		if err := r.rollback(preOID); err != nil {
 			return false, err
@@ -192,6 +204,14 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if err := r.save(); err != nil {
 		return false, err
 	}
+	r.characterization = &engine.CharacterizationEvidence{
+		Commit: oid, Files: changed, CreatedFiles: []string{}, ValidationAccepted: ladder.OK, Checks: checkEvidence(ladder.Checks),
+	}
+	for _, path := range changed {
+		if slices.Contains(absent, path) {
+			r.characterization.CreatedFiles = append(r.characterization.CreatedFiles, path)
+		}
+	}
 	r.endProgress()
 	r.notice("Saved characterization tests on the local result branch.", "현재 동작을 확인하는 테스트를 로컬 결과 branch에 저장했습니다.")
 	return true, nil
@@ -205,7 +225,7 @@ func (r *runner) preflight(packet map[string]any, dir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	call, err := r.callPhase("preflight", dir, "", engine.PromptArgs{Packet: packet, RepoFacts: facts, BaselineSummary: r.baseline.Describe})
+	call, err := r.callPhase("preflight", dir, "", engine.PromptArgs{Packet: packet, RepoFacts: facts, BaselineSummary: r.baseline.Describe, PhaseEvidence: r.phaseEvidence()})
 	if err != nil {
 		return false, err
 	}
@@ -231,7 +251,7 @@ func (r *runner) execute(packet map[string]any, dir, preOID string) (map[string]
 	if err := r.phase("EXECUTE"); err != nil {
 		return nil, false, err
 	}
-	call, err := r.callPhase("execute", dir, "", engine.PromptArgs{Packet: packet, AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(packet["allowlist"]))})
+	call, err := r.callPhase("execute", dir, "", engine.PromptArgs{Packet: packet, AreaSkills: engine.CollectAreaSkills(r.wt, stringsOf(packet["allowlist"])), PhaseEvidence: r.phaseEvidence()})
 	if err != nil {
 		return nil, false, err
 	}
@@ -255,6 +275,9 @@ func (r *runner) execute(packet map[string]any, dir, preOID string) (map[string]
 			return nil, false, err
 		}
 		why := strings.Join(reasons, "; ")
+		if why == "" {
+			why = str(data["rationale"])
+		}
 		if why == "" {
 			why = str(data["notes"])
 		}

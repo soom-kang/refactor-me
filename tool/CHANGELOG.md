@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Pass measured baseline checks and completed characterization evidence between candidate phases so execution can verify prerequisites without rediscovering run logs or rejecting tests just prepared by the controller.
+- Save characterization validation results, preserve failed and unavailable check statuses, and include the implementer's rationale in execution rejection diagnostics.
+- Clarify phase ownership of stop conditions and allow one correction of incidental whitespace from an editing tool within the same allowed production file. Keep scope, behavior, validation and run-limit gates unchanged.
+
 ## 0.10.0-beta.3
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653). Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`.

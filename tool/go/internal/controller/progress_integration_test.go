@@ -251,7 +251,8 @@ func TestProgressRunSkippedOutcomesHaveDiagnosticsAndNoPublishedCommit(t *testin
 				f.responses["deep_check"]["risk_level"] = "UNKNOWN"
 			case "declined":
 				f.responses["execute"]["verdict"] = "FAIL"
-				f.responses["execute"]["notes"] = "RAW_FAILURE_DETAIL_FIXTURE"
+				f.responses["execute"]["rationale"] = "RAW_FAILURE_DETAIL_FIXTURE"
+				f.responses["execute"]["notes"] = "RAW_MODEL_NOTES_FIXTURE"
 			case "no-op":
 				f.responses["execute"]["deleted_files"] = []any{}
 			case "regression":
@@ -259,6 +260,9 @@ func TestProgressRunSkippedOutcomesHaveDiagnosticsAndNoPublishedCommit(t *testin
 			}
 			f.prepare(t)
 			output, report, runDir := f.run(t, "ko")
+			if tc.name == "declined" && obj(mapsOf(report["skipped"])[0]["detail"])["detail"] != "RAW_FAILURE_DETAIL_FIXTURE" {
+				t.Fatal("execution rejection lost the implementer's rationale")
+			}
 			if report["status"] != "NO_CHANGES" || report["branch"] != nil || obj(report["counters"])["commits"] != float64(0) {
 				t.Fatalf("unexpected skipped result: %#v", report)
 			}

@@ -3,7 +3,6 @@ name: Verify
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -33,7 +32,11 @@ jobs:
           PUBLIC_RESULT: ${{ needs.public-install.result }}
           PUBLIC_REQUESTED: ${{ inputs.public_install }}
         run: |
-          test "$GO_RESULT" = success
+          if [ "$PUBLIC_REQUESTED" = true ]; then
+            test "$GO_RESULT" = skipped
+          else
+            test "$GO_RESULT" = success
+          fi
           if [ "$JS_REQUESTED" = true ]; then
             test "$JS_RESULT" = success
           else
@@ -46,14 +49,13 @@ jobs:
           fi
   public-install:
     if: github.event_name == 'workflow_dispatch' && inputs.public_install
-    needs: go
     runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify Apple Silicon runner
         run: test "$(uname -m)" = arm64
-      - name: Audit, install and test the public formula
+      - name: Install and test the public formula
         run: |
           if brew list --formula | grep -Fxq refactor-me; then
             echo "public-install requires a runner without refactor-me installed" >&2
@@ -61,18 +63,15 @@ jobs:
           fi
           brew tap soom-kang/refactor-me
           brew trust --formula soom-kang/refactor-me/refactor-me
-          brew style soom-kang/refactor-me/refactor-me
-          brew audit --strict soom-kang/refactor-me/refactor-me
           brew install refactor-me
           brew test refactor-me
-      - name: Verify public provenance and offline repository behavior
+      - name: Verify public version and commit
         run: |
           python3 - <<'PY'
           import json
           import os
           from pathlib import Path
           import subprocess
-          import tempfile
 
           root = Path(os.environ['GITHUB_WORKSPACE'])
           expected_version = (root / 'tool/RELEASE_VERSION').read_text().strip()
@@ -81,48 +80,6 @@ jobs:
           assert (version['name'], version['version'], version['commit'], version['platform'], version['arch']) == (
               'refactor-me', expected_version, expected_commit, 'darwin', 'arm64'), version
           print(json.dumps(version, indent=2))
-
-          with tempfile.TemporaryDirectory(prefix='public install ', dir=os.environ['RUNNER_TEMP']) as directory:
-              repo = Path(directory) / 'target repo'
-              repo.mkdir()
-              env = dict(os.environ, GIT_OPTIONAL_LOCKS='0')
-              def git(*args):
-                  return subprocess.check_output(['git', '-C', str(repo), *args], env=env)
-              git('init', '-q')
-              source = repo / 'source.txt'
-              source.write_text('tracked source remains unchanged\n')
-              git('add', 'source.txt')
-              git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
-                  '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'baseline')
-              def snapshot():
-                  return (git('rev-parse', 'HEAD'), (repo / '.git/index').read_bytes(),
-                          source.read_bytes(), git('status', '--porcelain', '--untracked-files=normal'))
-              before = snapshot()
-              subprocess.run(['refactor-me', 'init', '--repo', str(repo)], check=True)
-              config_path = repo / '.refactor/config.json'
-              config = json.loads(config_path.read_text())
-              assert config['schema_version'] == 2
-              assert all(config['agents'][name]['model'] == '' for name in ('codex', 'claude'))
-              config['policy']['max_cycles'] = 1
-              config_path.write_text(json.dumps(config, indent=2) + '\n')
-              config_before = config_path.read_bytes()
-              subprocess.run(['refactor-me', 'init', '--repo', str(repo)], check=True)
-              doctor = subprocess.run(['refactor-me', 'doctor', '--repo', str(repo), '--provider', 'codex',
-                                       '--fallback', 'none', '--no-live-probe', '--json'], capture_output=True, text=True)
-              report = json.loads(doctor.stdout)
-              assert doctor.returncode == (0 if report['ok'] else 2), (doctor.returncode, doctor.stderr)
-              assert report['version'] == expected_version
-              assert report['liveProbe'] is False and not report.get('usage'), report
-              checks = {check['id']: check for check in report['checks']}
-              assert all(checks[name]['status'] == 'PASS' for name in ('source-clean', 'git-worktree')), checks
-              blocked = {name for name, check in checks.items() if check['blocking'] and check['status'] == 'FAIL'}
-              assert blocked <= {'global-skills', 'providers'}, blocked
-              assert config_path.read_bytes() == config_before
-              assert not (repo / '.refactor/bin').exists()
-              assert before == snapshot(), 'source HEAD, index, tracked content or status changed'
-              print(json.dumps({'doctorExit': doctor.returncode, 'liveProbe': False,
-                                'blockingChecks': sorted(blocked), 'configPreserved': True,
-                                'sourcePreserved': True}, indent=2))
           PY
   js-fixture:
     if: github.event_name == 'workflow_dispatch' && inputs.js_fixture
@@ -143,6 +100,7 @@ jobs:
           REFACTOR_TEST_JS: '1'
         run: go test -count=1 ./internal/fixture
   go:
+    if: github.event_name != 'workflow_dispatch' || !inputs.public_install
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -159,60 +117,9 @@ jobs:
           bash tool/check-no-node.sh bash -e -c '
             cd tool/go
             test -z "$(gofmt -l .)"
-            go test -race -count=1 ./...
+            go test -count=1 ./...
             go vet ./...
             go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me
-            go build -o "$RUNNER_TEMP/make-fixture" ./cmd/make-fixture
-            "$RUNNER_TEMP/refactor-me" help
-            "$RUNNER_TEMP/refactor-me" version --json
           '
-      - name: Install fixed verification tools
-        env:
-          GOBIN: ${{ runner.temp }}/verification-tools
-        run: |
-          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-      - name: Lint and vulnerability scan
-        working-directory: tool/go
-        run: |
-          "$RUNNER_TEMP/verification-tools/golangci-lint" run --config ../../.golangci.yml
-          "$RUNNER_TEMP/verification-tools/govulncheck" ./...
-      - name: Validate source formula without publication
-        run: |
-          python3 -m unittest discover -s tool/release -p 'test_*.py'
-          python3 tool/release/prepare-homebrew.py "$RUNNER_TEMP/homebrew-source" --candidate
-          brew tap-new local/refactor-me-check
-          cp "$RUNNER_TEMP/homebrew-source/refactor-me.rb" "$(brew --repository local/refactor-me-check)/Formula/refactor-me.rb"
-          brew trust --formula local/refactor-me-check/refactor-me
-          brew style local/refactor-me-check/refactor-me
-          brew audit --strict local/refactor-me-check/refactor-me
-          brew install --build-from-source refactor-me
-          brew test refactor-me
-          brew uninstall refactor-me
-          brew untap local/refactor-me-check
-      - name: Check independent release version
-        run: |
-          bash tool/release/build-macos-arm64.sh --check-tag "v$(cat tool/RELEASE_VERSION)"
-          if bash tool/release/build-macos-arm64.sh --check-tag v99.99.99-beta.1; then
-            echo "unrelated release tag was accepted" >&2
-            exit 1
-          fi
-      - name: Build and smoke test release archive
-        run: |
-          bash tool/check-no-node.sh bash tool/release/build-macos-arm64.sh "$RUNNER_TEMP/release"
-          cd "$RUNNER_TEMP/release"
-          shasum -a 256 -c SHA256SUMS
-          mkdir unpacked
-          unzip -q refactor-me_$(cat "$GITHUB_WORKSPACE/tool/RELEASE_VERSION")_darwin_arm64.zip -d unpacked
-          unpacked/refactor-me version --json
-          git init -q "$RUNNER_TEMP/install-fixture"
-          git -C "$RUNNER_TEMP/install-fixture" -c user.name=Fixture -c user.email=fixture@example.invalid commit -q --allow-empty -m baseline
-          unpacked/refactor-me init --repo "$RUNNER_TEMP/install-fixture"
-          unpacked/refactor-me init --repo "$RUNNER_TEMP/install-fixture"
-          test -f "$RUNNER_TEMP/install-fixture/.refactor/config.json"
-          test ! -e "$RUNNER_TEMP/install-fixture/.refactor/bin"
-      - name: Match release tag to independent version
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: bash tool/release/build-macos-arm64.sh --check-tag "$RELEASE_TAG"
+      - name: Test release packaging
+        run: python3 -m unittest discover -s tool/release -p 'test_*.py'

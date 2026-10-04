@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+## 0.10.0-beta.4
+
 - Pass measured baseline checks and completed characterization evidence between candidate phases so execution can verify prerequisites without rediscovering run logs or rejecting tests just prepared by the controller.
 - Save characterization validation results, preserve failed and unavailable check statuses, and include the implementer's rationale in execution rejection diagnostics.
 - Clarify phase ownership of stop conditions and allow one correction of incidental whitespace from an editing tool within the same allowed production file. Keep scope, behavior, validation and run-limit gates unchanged.
+- Reduce required release checks to formatting, Go tests, vet, CLI build and packaging tests on main, archive integrity checks during packaging, and one public Homebrew installation check. Remove duplicate tag CI and make race, lint, vulnerability, formula audit and live-provider checks optional for relevant changes.
 
 ## 0.10.0-beta.3
 

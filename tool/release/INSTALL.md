@@ -4,7 +4,7 @@
 
 This Beta supports macOS Apple Silicon (`darwin/arm64`) only. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
-This guide targets `0.10.0-beta.4`. Publication and installation results are recorded on the [release page](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4). Confirm the archive version and commit with `BUILD-INFO.txt`, executable JSON output and the release tag as described below.
+Public release [`0.10.0-beta.4`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4) uses commit `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549) passed for the published tag and Homebrew formula. Confirm the archive version and commit with `BUILD-INFO.txt`, executable JSON output and the release tag as described below.
 
 ## Already extracted an archive
 

@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.3`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3)이며 commit은 `01a3fad54149cb127e8bd6c5d638eda0562a5897`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.4`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4)이며 commit은 `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 선택 검사: 로컬 후보 생성
 
@@ -89,6 +89,15 @@ refactor-me version --json
 `brew test`가 버전, commit, 도움말, 대상 저장소 선택, 기본 설정과 반복 `init`의 설정 보존을 이미 검사합니다. workflow는 설치된 버전과 commit을 선택한 릴리스 태그와도 비교합니다. 로컬에서 같은 검사를 반복하거나 설치 확인을 위해 실제 provider를 호출하지 않습니다. 사용자의 기존 설치와 관련 없는 Homebrew trust는 보존합니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
+
+## Beta.4 검증 기록
+
+릴리스 commit은 `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37207945672)와 [선택한 태그의 공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37208178549)을 확인하세요.
+
+- Main CI: 릴리스 commit과 같은 SHA에서 `PASS`. formatting, Go tests, vet, CLI build와 Python release test 4개를 검사했습니다. 태그 CI는 중복 실행하지 않았습니다.
+- 공개 설치: `PASS`. `brew install`과 `brew test`를 통과했고 설치된 버전과 commit이 선택한 릴리스 태그와 일치했습니다. 플랫폼은 `darwin`, 아키텍처는 `arm64`입니다. `public-install`과 집계 `verify`가 성공했고 `go`와 `js-fixture`는 생략됐습니다.
+- 소스 압축파일, 실행 파일 압축파일과 두 항목을 합친 `SHA256SUMS`를 게시 전에 검증했습니다.
+- 이번 릴리스의 실제 Codex/Claude fixture와 HAPJOO 전체 재실행은 `NOT_RUN`입니다. 위 검사가 해당 프로젝트의 리팩토링 완주를 입증하지는 않습니다.
 
 ## Beta.3 검증 기록
 

@@ -24,7 +24,7 @@ Configuration, locks and runs belong to the selected repository, independently o
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.3`.
+These options are available in public Beta `0.10.0-beta.4`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -211,7 +211,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.3`.
+The following behavior is included in public Beta `0.10.0-beta.4`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.

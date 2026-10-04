@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.3-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.4-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
 
 Automate behavior-preserving refactoring with Codex or Claude Code. The CLI works in an isolated Git worktree, validates each candidate, and saves accepted commits on a local branch for your review.
 
@@ -10,9 +10,9 @@ Automate behavior-preserving refactoring with Codex or Claude Code. The CLI work
 
 ## Install
 
-Public Beta **0.10.0-beta.3** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
+Public Beta **0.10.0-beta.4** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
 
-Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`. See the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653) for the published tag and Homebrew formula. The Verify badge follows the CLI workflow on `main`.
+Release commit: `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. See the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549) for the published tag and Homebrew formula. The Verify badge follows the CLI workflow on `main`.
 
 <a id="quick-start"></a>
 
@@ -38,7 +38,7 @@ Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`
 
 ## First run
 
-Confirm `refactor-me version --json` reports `0.10.0-beta.3` before following these commands. If an older version is installed, run `brew upgrade refactor-me` first.
+Confirm `refactor-me version --json` reports `0.10.0-beta.4` before following these commands. If an older version is installed, run `brew upgrade refactor-me` first.
 
 Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; a Claude Code check uses `--provider claude --fallback none`.
 
@@ -63,7 +63,7 @@ Choose a model for every selected provider, either with command options or in pr
 
 ## Readable progress logs
 
-Public Beta `0.10.0-beta.3` shows the current stage, candidate and confirmed result instead of shell commands. The existing `--lang en|ko` selects progress logs, the final summary and report language; English remains the default. Add `--lang ko` for Korean progress.
+Public Beta `0.10.0-beta.4` shows the current stage, candidate and confirmed result instead of shell commands. The existing `--lang en|ko` selects progress logs, the final summary and report language; English remains the default. Add `--lang ko` for Korean progress.
 
 Progress goes to `stderr`, so `run --json` keeps report JSON alone on `stdout`. Each audit reports its own proposed and eligible candidate counts; long stages report elapsed time every 30 seconds. Original provider transcripts and validation output remain in local run records. See [progress logs](tool/README.md#progress-logs).
 

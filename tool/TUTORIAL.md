@@ -4,7 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-This guide covers public Beta `0.10.0-beta.3` for macOS Apple Silicon. Release commit: `01a3fad54149cb127e8bd6c5d638eda0562a5897`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/36971167653) verifies the published tag and Homebrew formula.
+This guide covers public Beta `0.10.0-beta.4` for macOS Apple Silicon. Release commit: `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549) verifies the published tag and Homebrew formula.
 
 <a id="prepare-the-target"></a>
 
@@ -43,7 +43,7 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.3`, platform `darwin`, architecture `arm64` and commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.4`, platform `darwin`, architecture `arm64` and commit `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
 Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
@@ -137,7 +137,7 @@ Paths resolving outside the repository are rejected. **Targets limit candidate d
 
 ### Read progress logs
 
-In public Beta `0.10.0-beta.3`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
+In public Beta `0.10.0-beta.4`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \

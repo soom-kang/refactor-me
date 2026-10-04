@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.3-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.4-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
 
 Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동화합니다. 격리된 Git worktree에서 후보를 수정하고 검증한 뒤, 통과한 커밋을 검토용 로컬 branch에 저장합니다.
 
@@ -10,9 +10,9 @@ Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동
 
 ## 설치
 
-공개 Beta **0.10.0-beta.3**는 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
+공개 Beta **0.10.0-beta.4**는 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
-릴리스 commit은 `01a3fad54149cb127e8bd6c5d638eda0562a5897`입니다. 공개 태그와 Homebrew formula의 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/36971167653)을 확인할 수 있습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
+릴리스 commit은 `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`입니다. 공개 태그와 Homebrew formula의 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37208178549)을 확인할 수 있습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
 
 <a id="quick-start"></a>
 
@@ -38,7 +38,7 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.3`를 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
+아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.4`를 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
 
 아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 
@@ -63,7 +63,7 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 ## 읽기 쉬운 진행 로그
 
-공개 Beta `0.10.0-beta.3`는 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
+공개 Beta `0.10.0-beta.4`는 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
 
 진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)를 참고하세요.
 

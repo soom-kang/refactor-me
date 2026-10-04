@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.3`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.3), commit `01a3fad54149cb127e8bd6c5d638eda0562a5897`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.4`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4), commit `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Optional local candidate
 
@@ -89,6 +89,15 @@ refactor-me version --json
 `brew test` already checks version, commit, help, repository selection, configuration defaults and preservation across repeated `init`. The workflow also compares the installed version and commit with the selected release tag. Do not repeat these checks locally or add live provider calls for installation verification. Preserve the user's installed package and unrelated Homebrew trust.
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
+
+## Beta.4 verification record
+
+Release commit: `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37207945672) · [Selected-tag public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549).
+
+- Main CI: `PASS` for the exact release commit, covering formatting, Go tests, vet, CLI build and the four Python release tests. No duplicate tag CI was run.
+- Public installation: `PASS`. `brew install` and `brew test` passed; the installed version and commit matched the selected release tag, with platform `darwin` and architecture `arm64`. `public-install` and aggregate `verify` passed; `go` and `js-fixture` were skipped.
+- The source archive, binary archive and combined `SHA256SUMS` were verified before publication.
+- Live Codex/Claude fixtures and a complete HAPJOO rerun: `NOT_RUN` for this release. The checks above do not establish completion of that target's refactoring workflow.
 
 ## Beta.3 verification record
 

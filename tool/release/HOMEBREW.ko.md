@@ -90,6 +90,12 @@ refactor-me version --json
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
 
+## 개발 중 Skill 기준 카탈로그 (RM-PRE-009)
+
+새 진단은 `tool/go/internal/catalog/reference.json`을 포함합니다. sharpen-me revision은 `fbb88aea30ff46ade265607ea6572be7cc642a4c`이며 8개 전체 트리 SHA-256과 실제 호환성 `NOT_RUN`을 기록합니다. 2026-10-07에 저장소의 Skill 파일 24개와 모드가 해당 revision의 완전한 GitHub 트리와 일치함을 확인했습니다. 해시는 런타임과 같은 정렬된 경로·바이트 길이·실행 비트·내용 인코딩(`catalog-tree-sha256-v1`)을 사용하며 `skills-lock.json`의 설치기 해시와 다릅니다. [고정 설치 경로](INSTALL.ko.md#skill-reference)를 참고하세요.
+
+이 변경은 이후 빌드에 내용 기준을 추가하며 이미 공개한 Beta.5 실행 파일이나 실제 provider 호환성을 소급 검증하지 않습니다. 향후 릴리스에는 정확한 CLI commit, manifest revision·해시, 실제 비실시간·실시간 검증 결과를 각각 기록하세요. 실제 모델 검증에는 제한된 범위의 승인이 필요합니다.
+
 ## Beta.5 검증 기록
 
 릴리스 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37573194052)와 [선택한 태그의 공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)을 확인하세요.

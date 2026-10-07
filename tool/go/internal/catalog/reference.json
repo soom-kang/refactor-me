@@ -1,0 +1,16 @@
+{
+  "source": "https://github.com/soom-kang/sharpen-me",
+  "revision": "fbb88aea30ff46ade265607ea6572be7cc642a4c",
+  "hashAlgorithm": "catalog-tree-sha256-v1",
+  "liveCompatibility": "NOT_RUN",
+  "skills": {
+    "sharpen-assess": "4e5fb1d90f5b044af53ef458160b8aba0e4e573952b791d31f4b77b502abaf6a",
+    "sharpen-brief": "6b6981a28c8bfc767ad60bd8165bcd8bdb186346287205333e3e0a724006660c",
+    "sharpen-challenge": "c34e20b42980ee935e019102248ccbf88a246a6e6162a55390bd67d785bf7e7d",
+    "sharpen-clarify": "1db8090a86dccb9c9f7007139919512cfb441606d8a1a8e52c3bf57c470a4c23",
+    "sharpen-cold-review": "14370ea29e1712510cc959444368aa34d5e0ace48a0a378c74ed398482c5a465",
+    "sharpen-dedupe": "14ed2b484ad1cdee55023ef8105ff89daf263f0c94d9e85c60b9bdbfc83b89b6",
+    "sharpen-refine": "c626fcc97b642b98afa556673740cda4a2f97bc97d8219fdd855d1824e165cf3",
+    "sharpen-review": "ef2bf6dfe05fccc7735622037094843ea6c63e45cb9d9e8459a2431cc94633f6"
+  }
+}

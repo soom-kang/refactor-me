@@ -345,6 +345,7 @@ func TestDoctorProbeFailure(t *testing.T) {
 		t.Fatal(report, err)
 	}
 	failed := false
+	referenceChecked := false
 	for _, c := range report.Checks {
 		if c.ID == "git-worktree" && c.Status == "FAIL" && c.Blocking {
 			failed = true
@@ -352,8 +353,11 @@ func TestDoctorProbeFailure(t *testing.T) {
 		if strings.HasSuffix(c.ID, "-skills") && c.ID != "global-skills" {
 			t.Fatal("unmeasured skill check reported", c)
 		}
+		if c.ID == "skill-reference" {
+			referenceChecked = c.Status == "WARN" && !c.Blocking && strings.Contains(c.Detail, "unverified/custom")
+		}
 	}
-	if !failed {
+	if !failed || !referenceChecked {
 		t.Fatal(report)
 	}
 }

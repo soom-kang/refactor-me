@@ -90,6 +90,12 @@ refactor-me version --json
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
 
+## Development Skill reference (RM-PRE-009)
+
+The new diagnostic embeds `tool/go/internal/catalog/reference.json`: sharpen-me revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, eight full-tree SHA-256 hashes, live compatibility `NOT_RUN`. On 2026-10-07, all 24 checked-in Skill files and their modes matched the complete GitHub tree at that revision. These hashes use the runtime's sorted path/byte-length/executable-bit/content framing (`catalog-tree-sha256-v1`), not `skills-lock.json` installer hashes. See the [pinned installation path](INSTALL.md#skill-reference).
+
+This adds a content reference to subsequent builds; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+
 ## Beta.5 verification record
 
 Release commit: `8bfebe90b04e54cf1ef843915aad2901be0db41d`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37573194052) · [Selected-tag public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37573464996).

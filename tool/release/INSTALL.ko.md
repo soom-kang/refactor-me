@@ -23,22 +23,62 @@ checksum은 압축파일의 바이트를 검사합니다. `BUILD-INFO.txt` 비�
 
 ## Homebrew
 
-Git, 인증을 마친 Codex 또는 Claude Code CLI, 대상 프로젝트의 검증 도구를 준비하세요. Node.js는 Skill 설치기에 필요하며 refactor-me 실행에는 필요하지 않습니다.
+Git, 인증을 마친 Codex 또는 Claude Code CLI, 대상 프로젝트의 검증 도구를 준비하세요. 아래의 Git 기반 고정 Skill 설치에는 Node.js가 필요하지 않습니다.
 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
 brew install refactor-me
 refactor-me version --json
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
 ```
 
-Homebrew는 고정한 릴리스 소스를 Go로 빌드합니다. 필수 Skills는 `~/.agents/skills`에서 읽습니다. Homebrew는 Skills나 프로젝트 설정을 설치하지 않습니다.
+Homebrew는 고정한 릴리스 소스를 Go로 빌드합니다. 필수 Skills는 `~/.agents/skills`에서 읽습니다. Homebrew는 Skills나 프로젝트 설정을 설치하지 않습니다. 첫 doctor 검사 전에 아래 [Skill 기준 카탈로그](#skill-reference)를 설치하세요.
 
 Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 새 환경에서는 먼저 설정해야 `brew install refactor-me`가 외부 formula를 찾을 수 있습니다. 해당 formula만 신뢰하면 되며 tap 전체의 trust 설정은 필요하지 않습니다.
 
 버전 `0.10.0-beta.5`와 실행 파일의 commit을 annotated tag의 peeled commit과 비교한 뒤 계속하세요. 이전 버전이라면 먼저 업데이트합니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정합니다. 고정 기본 모델은 없습니다. `doctor --no-live-probe`에는 모델이 필요하지 않으며 모델을 호출하지 않습니다. 깨끗한 Git 저장소를 선택하고 제한을 설정한 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
+
+<a id="skill-reference"></a>
+
+## 고정 Skill 기준 카탈로그
+
+기준은 [sharpen-me commit `fbb88aea30ff46ade265607ea6572be7cc642a4c`](https://github.com/soom-kang/sharpen-me/tree/fbb88aea30ff46ade265607ea6572be7cc642a4c)입니다. 실행 파일에 포함된 [manifest](https://github.com/soom-kang/refactor-me/blob/main/tool/go/internal/catalog/reference.json)는 `LICENSE`와 `agents/` 파일을 포함한 8개 Skill 전체 트리의 SHA-256을 기록합니다. 재현 가능한 내용 기준이며 실제 provider 호환성 검증은 `NOT_RUN`입니다.
+
+Skills를 처음 설치할 때 아래 Git 전용 경로를 사용하세요. 변경될 수 있는 `npx` 설치기를 실행하지 않고 소스 commit을 고정합니다. 해당 이름의 Skill이나 소스 checkout이 이미 있으면 중단합니다. 기존·사용자 정의 설치는 보존하고 교체 여부를 실행 사이에 직접 검토하세요. 전역 경로가 소스를 가리키므로 소스 checkout을 유지하세요.
+
+```sh
+(
+  set -eu
+  revision=fbb88aea30ff46ade265607ea6572be7cc642a4c
+  source="$HOME/.local/share/refactor-me/sharpen-me-$revision"
+  names="sharpen-clarify sharpen-review sharpen-challenge sharpen-assess sharpen-refine sharpen-cold-review sharpen-brief sharpen-dedupe"
+  if test -e "$source" || test -L "$source"; then
+    echo "Existing source: $source; preserve it and resolve manually." >&2
+    exit 1
+  fi
+  for name in $names; do
+    for root in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills"; do
+      if test -e "$root/$name" || test -L "$root/$name"; then
+        echo "Existing Skill: $root/$name; preserve it and resolve manually." >&2
+        exit 1
+      fi
+    done
+  done
+  mkdir -p "$(dirname "$source")"
+  git -c core.autocrlf=false clone --no-checkout https://github.com/soom-kang/sharpen-me.git "$source"
+  git -C "$source" -c core.autocrlf=false checkout --detach "$revision"
+  test "$(git -C "$source" rev-parse HEAD)" = "$revision"
+  mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
+  for name in $names; do
+    ln -s "$source/skills/$name" "$HOME/.agents/skills/$name"
+    ln -s "$HOME/.agents/skills/$name" "$HOME/.claude/skills/$name"
+  done
+)
+```
+
+설치 후 `refactor-me doctor --repo /path/to/target-repo --provider codex --fallback none --no-live-probe`를 실행하세요. Claude를 쓰면 `--provider claude`로 바꿉니다. 프로젝트 복사본이나 별도 provider 설정 경로를 포함해 doctor가 보고한 탐색 충돌을 해결하세요.
+
+새 `skill-reference` 진단을 포함한 빌드는 `PASS`(기준 내용 일치), 실행을 막지 않는 `WARN`(미검증·사용자 정의 내용, 다른 Skill 이름 표시), `FAIL`(카탈로그 사용 불가, 별도 `global-skills` 실패가 실행 차단)을 구분합니다. 유효한 사용자 정의 카탈로그와 기존 실행 중 변경 감지는 유지합니다. 내용 일치는 실제 Skill 로딩이나 모델 동작을 입증하지 않습니다. 이미 공개한 Beta.5 실행 파일에는 이 새 진단이 없으며 과거 Beta.5 검증 기록은 바뀌지 않습니다.
 
 ## 직접 다운로드
 

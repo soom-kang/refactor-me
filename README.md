@@ -25,12 +25,7 @@ refactor-me version --json
 
 Register and trust this formula once with Homebrew 6 or later. Future updates use `brew upgrade refactor-me`. A fresh Homebrew installation needs these setup commands before the short install command.
 
-Install sharpen-me Skills globally. This separate installer requires Node.js; running refactor-me does not.
-
-```sh
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
-```
+Install the pinned sharpen-me [Skill reference](tool/release/INSTALL.md#skill-reference) globally. This Git-based path needs no Node.js or unpinned installer.
 
 Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`. Each target repository keeps its own configuration and run records.
 

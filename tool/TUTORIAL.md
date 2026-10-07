@@ -32,15 +32,13 @@ claude auth status
 
 ## 2. Install the CLI and Skills
 
-You need Homebrew and Node.js for the separate Skill installer. Homebrew supplies Go to build the CLI; the installed CLI needs neither Go nor Node at runtime.
+You need Homebrew and Git. Homebrew supplies Go to build the CLI; the installed CLI needs neither Go nor Node at runtime. Install the pinned [Skill reference](release/INSTALL.md#skill-reference) separately after installing the CLI.
 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
 brew install refactor-me
 refactor-me version --json
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
 ```
 
 Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.5`, platform `darwin`, architecture `arm64` and commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.

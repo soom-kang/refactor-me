@@ -25,12 +25,7 @@ refactor-me version --json
 
 Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 이후에는 `brew upgrade refactor-me`로 갱신합니다. 새 Homebrew 환경에서는 위 준비 명령을 먼저 실행해야 짧은 설치 명령을 사용할 수 있습니다.
 
-sharpen-me Skills는 전역으로 설치합니다. 아래 설치기에는 Node.js가 필요하지만 refactor-me 실행에는 필요하지 않습니다.
-
-```sh
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
-```
+고정된 sharpen-me [Skill 기준 카탈로그](../tool/release/INSTALL.ko.md#skill-reference)를 전역 설치하세요. Git을 쓰는 이 경로에는 Node.js나 버전이 고정되지 않은 설치기가 필요하지 않습니다.
 
 Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필수 Skills를 읽습니다. 각 대상 저장소에는 설정과 실행 기록을 따로 저장합니다.
 

@@ -105,6 +105,8 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 		return report, err
 	}
 	report.Skills, err = catalog.Load(home, c.Repo)
+	referenceStatus, referenceDetail := report.Skills.ReferenceCheck()
+	add("skill-reference", referenceStatus, referenceDetail, false)
 	if err != nil {
 		add("global-skills", "FAIL", err.Error(), true)
 	} else {

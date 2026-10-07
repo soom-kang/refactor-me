@@ -148,26 +148,41 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if err := r.sweep(); err != nil {
 		return false, err
 	}
-	changed, err := workspace.ChangedPaths(r.wt)
+	facts, err := workspace.CollectFacts(r.wt, r.surface.Repo, preOID, r.state.BaseOID, r.sourceFingerprint, workspace.Packet{Allowlist: files})
 	if err != nil {
 		return false, err
 	}
-	var outside []string
-	for _, path := range changed {
-		if !slices.Contains(files, path) {
-			outside = append(outside, path)
-		}
+	cfgPolicy := obj(r.surface.Config["policy"])
+	policy := workspace.Policy{MaxFilesPerCandidate: r.policy.MaxFilesPerCandidate,
+		MaxChangedLines: integer(cfgPolicy["max_changed_lines"], 600), ExtraForbiddenGlobs: stringsOf(cfgPolicy["extra_forbidden_globs"])}
+	result := workspace.RunCharacterizationChecks(facts, files, policy, r.state.TreeHashes)
+	if err := writeJSONAtomic(filepath.Join(dir, "characterization-gate.json"), result); err != nil {
+		return false, err
 	}
-	if verdict != "PASS" || len(outside) > 0 {
+	patch, err := workspace.Git(r.wt, "diff", "--binary", "HEAD")
+	if err != nil {
+		return false, err
+	}
+	if err := writeText(filepath.Join(dir, "characterization.patch"), patch); err != nil {
+		return false, err
+	}
+	if result.Verdict == "HALT" {
+		return false, halt{"HALTED_UNSAFE", result.Violation.Code + ": " + result.Violation.Detail}
+	}
+	if verdict != "PASS" || result.Verdict == "VIOLATION" {
 		if err := r.rollback(preOID); err != nil {
 			return false, err
 		}
 		why := strings.Join(reasons, "; ")
-		if len(outside) > 0 {
-			why = "touched outside test allowlist: " + strings.Join(outside, ",")
+		var paths []string
+		if result.Violation != nil {
+			why = result.Violation.Code + ": " + result.Violation.Detail
+			paths = result.Violation.Paths
+			r.state.Counters.Violations++
 		}
-		return false, r.fail(str(packet["fp"]), "CHARACTERIZATION_REJECTED", why, outside, len(outside) > 0)
+		return false, r.fail(str(packet["fp"]), "CHARACTERIZATION_REJECTED", why, paths, result.Violation != nil)
 	}
+	changed := facts.Changed
 	if len(changed) == 0 {
 		return true, nil
 	}
@@ -187,6 +202,9 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	tree, err := workspace.WriteTree(r.wt)
 	if err != nil {
 		return false, err
+	}
+	if tree != facts.ProspectiveTree {
+		return false, halt{"HALTED_UNSAFE", "characterization changed between safety checks and commit"}
 	}
 	message := filepath.Join(dir, "characterization-message.txt")
 	if err := writeText(message, fmt.Sprintf("test(%s): characterize current behavior before refactor\n\nRefactor-Fingerprint: %s-char\n", str(packet["candidate_id"]), str(packet["fp"]))); err != nil {

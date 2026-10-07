@@ -220,6 +220,29 @@ func NetSizeRule(packet Packet, facts GateFacts) (bool, string) {
 	}
 }
 
+// RunCharacterizationChecks applies the measured-diff safety gates without a
+// production refactor's net-size rule or target requirement: tests may live
+// outside the production target, but every changed path must be a test.
+func RunCharacterizationChecks(f GateFacts, files []string, policy Policy, treeHashes []string) GateResult {
+	r := RunChecks(f, Packet{Allowlist: files}, policy, treeHashes, nil)
+	if r.Verdict != "PASS" {
+		return r
+	}
+	check := GateCheck{ID: "TEST_ONLY", OK: true, Detail: "only test files changed"}
+	for _, path := range f.Changed {
+		if !IsTestPath(path, policy.ExtraTestGlobs) {
+			check.Paths = append(check.Paths, path)
+		}
+	}
+	if len(check.Paths) > 0 {
+		check.OK, check.Code = false, "PRODUCTION_CHANGED"
+		check.Detail = "characterization changed non-test paths: " + strings.Join(check.Paths, ", ")
+		r.Verdict, r.Violation = "VIOLATION", &check
+	}
+	r.Checks = append(r.Checks, check)
+	return r
+}
+
 func RunChecks(f GateFacts, p Packet, policy Policy, treeHashes, targets []string) GateResult {
 	r := GateResult{Verdict: "PASS", Checks: []GateCheck{}}
 	add := func(c GateCheck) bool {

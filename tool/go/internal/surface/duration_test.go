@@ -81,6 +81,9 @@ func TestRunTimeSelectionPrecedencePreservesProjectConfig(t *testing.T) {
 			if prompted != tc.prompted || called == tc.cancel || (code != ExitOK && !tc.cancel) || (tc.cancel && code != ExitAborted) {
 				t.Fatalf("code=%d called=%v prompted=%v stderr=%s", code, called, prompted, stderr.String())
 			}
+			if !tc.cancel && !strings.Contains(stderr.String(), "비용 상한이 아닙니다") {
+				t.Fatal("missing soft-limit cost warning")
+			}
 			if tc.name == "json" && stdout.String() != "{}\n" {
 				t.Fatal("non-JSON output", stdout.String())
 			}

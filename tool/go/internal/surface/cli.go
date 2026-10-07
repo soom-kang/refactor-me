@@ -429,6 +429,10 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintf(stderr, "  target=%s", DisplayText(strings.Join(targets, ",")))
 	}
 	fmt.Fprintln(stderr)
+	if args.Command == "run" {
+		minutes, _ := configuredMaxMinutes(cfg)
+		fmt.Fprintf(stderr, label(args.Language, "Soft time limit: %d minutes; in-flight work may finish later. This is not a spending cap.\n", "실행 시간 한도: %d분. 진행 중인 작업은 나중에 끝날 수 있으며 비용 상한이 아닙니다.\n"), minutes)
+	}
 	if args.Command == "doctor" {
 		if callbacks.Doctor == nil {
 			fmt.Fprintln(stderr, "doctor is unavailable")

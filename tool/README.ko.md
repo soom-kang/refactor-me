@@ -308,3 +308,5 @@ CLI는 provider가 보고한 USD를 우선합니다. 비용이 없으면 **2026-
 ## 로컬 개발 검사
 
 [개발 안내](DEVELOPMENT.md)에 따라 Go로 빌드하고 검증합니다. 임시 저장소는 [fixture 안내](fixtures/README.ko.md)로 만들 수 있습니다. 실제 provider의 Skill 로딩과 모델 판단은 별도로 확인해야 합니다.
+
+`run`/`doctor` 실행 중 Ctrl-C 또는 SIGTERM을 받으면 관리 중인 provider와 검증 프로세스를 취소합니다. 재시도·fallback을 중단하고 승인된 커밋은 보존하며 미완료 worktree는 확인할 수 있도록 남깁니다. SIGKILL에는 정상 정리를 보장할 수 없습니다.

@@ -63,6 +63,9 @@ func (r *runner) cycles() error {
 }
 
 func (r *runner) budgetCheck() error {
+	if err := r.contextErr(); err != nil {
+		return err
+	}
 	c := r.state.Counters
 	p := r.policy
 	switch {
@@ -140,6 +143,9 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 			r.notice("Switching provider from %s to %s.", "provider를 %s에서 %s로 전환합니다.", surface.DisplayText(r.state.ActiveProvider), surface.DisplayText(name))
 		}
 		for attempt := 0; attempt < 3; attempt++ {
+			if err := r.contextErr(); err != nil {
+				return phaseResult{}, err
+			}
 			status := r.state.Providers[name]
 			status.Calls++
 			r.state.ActiveProvider = name
@@ -185,6 +191,9 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 				if err := r.save(); err != nil {
 					return phaseResult{}, err
 				}
+			}
+			if err := r.contextErr(); err != nil {
+				return phaseResult{}, err
 			}
 			if result.OK {
 				return phaseResult{Result: result, Provider: name, OK: true}, nil

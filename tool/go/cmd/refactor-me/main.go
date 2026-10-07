@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/soom-kang/refactor-me/tool/go/internal/controller"
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
@@ -19,7 +22,19 @@ func main() {
 		os.Exit(surface.ExitAborted)
 	}
 	callbacks := surface.Callbacks{
-		Run: controller.Run, Doctor: controller.Doctor, Clean: controller.Clean,
+		Run: func(c surface.Context) (surface.RunResult, error) {
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			c.Context = ctx
+			return controller.Run(c)
+		},
+		Doctor: func(c surface.Context) (surface.DoctorResult, error) {
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			c.Context = ctx
+			return controller.Doctor(c)
+		},
+		Clean: controller.Clean,
 	}
 	if surface.InteractiveTerminal(os.Stdin, os.Stderr) {
 		callbacks.SelectMaxMinutes = func(defaultMinutes int, language string) (int, error) {

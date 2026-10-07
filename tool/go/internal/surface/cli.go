@@ -1,6 +1,7 @@
 package surface
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ type Args struct {
 }
 
 type Context struct {
+	Context            context.Context
 	Repo               string
 	Config             Config
 	Args               Args
@@ -45,6 +47,14 @@ type Context struct {
 	ProviderSettings   map[string]ProviderSettings
 	RunLimitSource     string
 	Stdout, Stderr     io.Writer
+}
+
+// OperationContext preserves the existing API for callers without cancellation.
+func (c Context) OperationContext() context.Context {
+	if c.Context != nil {
+		return c.Context
+	}
+	return context.Background()
 }
 
 type RunResult struct {

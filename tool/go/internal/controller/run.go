@@ -39,7 +39,17 @@ type runner struct {
 	characterization              *engine.CharacterizationEvidence
 }
 
+func (r *runner) contextErr() error {
+	if r.ctx != nil {
+		return r.ctx.Err()
+	}
+	return nil
+}
+
 func (r *runner) phase(next string) error {
+	if err := r.contextErr(); err != nil {
+		return err
+	}
 	r.state.State = next
 	if err := r.save(); err != nil {
 		return err
@@ -55,7 +65,7 @@ func Run(c surface.Context) (surface.RunResult, error) {
 	if err != nil {
 		return surface.RunResult{}, err
 	}
-	r := &runner{ctx: context.Background(), surface: c, policy: p,
+	r := &runner{ctx: c.OperationContext(), surface: c, policy: p,
 		engineConfig: engineConfigForContext(c), started: time.Now()}
 	r.progressLog()
 	defer r.endProgress()
@@ -232,6 +242,9 @@ func (r *runner) baselinePhase() error {
 		return halt{"ABORTED", "no deterministic validation command could be discovered"}
 	}
 	r.baseline = workspace.RunBaseline(r.ctx, r.commands, r.wt, r.observeCommand)
+	if err := r.contextErr(); err != nil {
+		return err
+	}
 	noEvidence := map[string]bool{}
 	for _, item := range r.baseline.Unrunnable {
 		noEvidence[item.ID] = true
@@ -263,6 +276,11 @@ func (r *runner) baselinePhase() error {
 }
 
 func (r *runner) stopFromError(err error) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		r.state.finish("ABORTED", "run cancelled; unfinished worktree retained")
+		r.endProgress()
+		return
+	}
 	var h halt
 	if errors.As(err, &h) {
 		r.state.finish(h.Status, h.Reason)

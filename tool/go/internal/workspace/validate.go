@@ -418,6 +418,11 @@ func terminateGroup(pid int, signal syscall.Signal) {
 // timeout signal the group, then escalate after ten seconds.
 func RunCommand(parent context.Context, c Command, wt string, onLine func(string)) CommandResult {
 	r := CommandResult{Command: c}
+	if err := parent.Err(); err != nil {
+		r.SpawnError = err.Error()
+		r.Status = StatusUnrunnable
+		return r
+	}
 	started := time.Now()
 	if len(c.Argv) == 0 {
 		r.SpawnError = "EMPTY_ARGV"

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,10 +55,14 @@ func check(id, status, detail string, blocking bool) doctorCheck {
 }
 
 func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
+	ctx := c.OperationContext()
 	report := doctorReport{At: time.Now().UTC().Format(time.RFC3339Nano), Version: surface.Version,
 		Healthy: []string{}, Excluded: []string{}, Checks: []doctorCheck{}, ProviderVersions: map[string]string{}, ProviderSettings: providerSettings(c), LiveProbe: c.Args.Live}
 	add := func(id, status, detail string, blocking bool) {
 		report.Checks = append(report.Checks, check(id, status, detail, blocking))
+	}
+	if err := ctx.Err(); err != nil {
+		return report, err
 	}
 	if _, err := workspace.EnsureRefactorDir(c.Repo); err != nil {
 		return report, err
@@ -160,6 +163,9 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	config := engineConfigForContext(c)
 	config.Skills = report.Skills
 	for _, provider := range c.Providers {
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
 		agent := config.Agents[provider]
 		bin := agent.Bin
 		if bin == "" {
@@ -171,11 +177,14 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 			continue
 		}
 		add(provider+"-cli", "PASS", where, false)
-		if version, err := engine.ProviderVersion(context.Background(), bin, probePath); err == nil {
+		if version, err := engine.ProviderVersion(c.OperationContext(), bin, probePath); err == nil {
 			report.ProviderVersions[provider] = version
 		} else {
 			report.ProviderVersions[provider] = "unknown"
 			add(provider+"-version", "WARN", err.Error(), false)
+		}
+		if err := ctx.Err(); err != nil {
+			return report, err
 		}
 		if report.Skills == nil || !opened {
 			report.Excluded = append(report.Excluded, provider)
@@ -185,7 +194,7 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 		if c.Args.Live {
 			probeFile := filepath.Join(probePath, fmt.Sprintf("refactor-probe-%d.txt", time.Now().UnixNano()))
 			prompt := fmt.Sprintf("Capability probe. Return JSON with answer 7, visible_skills listing only skills available in this session from %s, and wrote_file indicating whether creating %s succeeded. Attempt the write once. Do not work around a refusal.", strings.Join(requiredSkills, ", "), probeFile)
-			res, err := engine.CallProvider(context.Background(), provider, engine.Request{
+			res, err := engine.CallProvider(c.OperationContext(), provider, engine.Request{
 				Phase: "doctor", Mode: "read", CWD: probePath, Body: prompt,
 				Schema: map[string]any{"type": "object", "additionalProperties": false,
 					"required":   []any{"answer", "visible_skills", "wrote_file"},
@@ -193,6 +202,9 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 				RunDir: runDir, Timeout: 180 * time.Second, Attempt: "primary", Effort: "low",
 			}, config, nil)
 			report.Usage = append(report.Usage, doctorUsage{Provider: provider, Usage: res.Usage, DurationMS: res.DurationMS, Processes: res.Processes, OK: res.OK})
+			if err := ctx.Err(); err != nil {
+				return report, err
+			}
 			if errors.Is(err, workspace.ErrUnsafe) {
 				return report, err
 			}

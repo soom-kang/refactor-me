@@ -76,7 +76,7 @@ gh workflow run verify.yml --ref "$release_tag" -f public_install=true
 
 Check that this dispatch completes with `public-install` and aggregate `verify` successful and `go` skipped. The optional `js-fixture` job is skipped unless requested. In `public-install`, the installed JSON version must equal the selected tag checkout's `tool/RELEASE_VERSION`; the commit must equal that checkout's HEAD, with platform `darwin` and architecture `arm64`. A passing run on another ref, or a run without `public_install=true`, does not satisfy this release check. Inspect the public-install logs and preserve the run URL as evidence.
 
-The workflow performs this installation once on a clean disposable runner without refactor-me. It registers the tap, trusts only the formula and verifies the short install command:
+By default, the workflow performs this installation once on a clean disposable runner without refactor-me. It registers the tap, trusts only the formula and verifies the short install command:
 
 ```sh
 brew tap soom-kang/refactor-me
@@ -87,6 +87,15 @@ refactor-me version --json
 ```
 
 `brew test` already checks version, commit, help, repository selection, configuration defaults and preservation across repeated `init`. The workflow also compares the installed version and commit with the selected release tag. Do not repeat these checks locally or add live provider calls for installation verification. Preserve the user's installed package and unrelated Homebrew trust.
+
+For a release ref containing the optional upgrade check, run a separate dispatch with the full prior tap commit SHA. For example, this starts from the Beta.4 formula:
+
+```sh
+gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
+  -f upgrade_from_formula=cbc9b49c967869d674c6bf48b0876d6514bb3cce
+```
+
+This installs the prior formula on the disposable runner, restores the current formula and runs `brew upgrade` with automatic updates disabled. It checks byte preservation of an edited config schema 2 and a seeded report schema 3 through `init`/`report`, plus non-destructive rejection of an unsupported report schema. The report is a compatibility fixture, not evidence of a previous provider run. The existing final version/commit check still applies. Keep fresh-install and upgrade run URLs/results separate; adding this check does not establish an upgrade PASS. No provider is called or additional tap trusted.
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
 

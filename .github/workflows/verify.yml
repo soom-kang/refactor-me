@@ -14,6 +14,10 @@ on:
         description: Verify the public Homebrew installation against the selected ref
         type: boolean
         default: false
+      upgrade_from_formula:
+        description: Optional prior tap commit SHA for upgrade verification (requires public_install)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -31,7 +35,11 @@ jobs:
           JS_REQUESTED: ${{ inputs.js_fixture }}
           PUBLIC_RESULT: ${{ needs.public-install.result }}
           PUBLIC_REQUESTED: ${{ inputs.public_install }}
+          UPGRADE_FROM_FORMULA: ${{ inputs.upgrade_from_formula }}
         run: |
+          if [ -n "$UPGRADE_FROM_FORMULA" ]; then
+            test "$PUBLIC_REQUESTED" = true
+          fi
           if [ "$PUBLIC_REQUESTED" = true ]; then
             test "$GO_RESULT" = skipped
           else
@@ -55,7 +63,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify Apple Silicon runner
         run: test "$(uname -m)" = arm64
-      - name: Install and test the public formula
+      - name: Prepare the public tap on a clean runner
         run: |
           if brew list --formula | grep -Fxq refactor-me; then
             echo "public-install requires a runner without refactor-me installed" >&2
@@ -63,8 +71,16 @@ jobs:
           fi
           brew tap soom-kang/refactor-me
           brew trust --formula soom-kang/refactor-me/refactor-me
+      - name: Install and test the public formula
+        if: inputs.upgrade_from_formula == ''
+        run: |
           brew install refactor-me
           brew test refactor-me
+      - name: Upgrade a prior installation and preserve project state
+        if: inputs.upgrade_from_formula != ''
+        env:
+          UPGRADE_FROM_FORMULA: ${{ inputs.upgrade_from_formula }}
+        run: python3 tool/release/verify-upgrade.py "$UPGRADE_FROM_FORMULA"
       - name: Verify public version and commit
         run: |
           python3 - <<'PY'
@@ -116,7 +132,11 @@ jobs:
           test -z "$(git ls-files '*.mjs')"
           bash tool/check-no-node.sh bash -e -c '
             cd tool/go
-            test -z "$(gofmt -l .)"
+            unformatted=$(gofmt -l .)
+            if [ -n "$unformatted" ]; then
+              gofmt -d .
+              exit 1
+            fi
             go test -count=1 ./...
             go vet ./...
             go build -o "$RUNNER_TEMP/refactor-me" ./cmd/refactor-me

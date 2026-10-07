@@ -76,7 +76,7 @@ gh workflow run verify.yml --ref "$release_tag" -f public_install=true
 
 해당 dispatch의 `public-install`과 집계 `verify`가 성공하고 `go`는 생략됐는지 확인하세요. 선택 항목 `js-fixture`도 요청하지 않았다면 생략됩니다. `public-install`에서 설치된 JSON 버전은 선택한 태그 checkout의 `tool/RELEASE_VERSION`, commit은 해당 checkout의 HEAD와 같아야 합니다. 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 합니다. 다른 ref의 성공이나 `public_install=true`가 없는 실행은 이 릴리스 검사를 충족하지 않습니다. public-install 로그를 읽고 실행 URL을 근거로 남기세요.
 
-workflow는 refactor-me가 없는 깨끗한 임시 runner에서 아래 설치를 한 번 실행합니다. tap을 등록하고 해당 formula만 신뢰한 뒤 짧은 설치 명령을 검사합니다.
+기본 workflow는 refactor-me가 없는 깨끗한 임시 runner에서 아래 설치를 한 번 실행합니다. tap을 등록하고 해당 formula만 신뢰한 뒤 짧은 설치 명령을 검사합니다.
 
 ```sh
 brew tap soom-kang/refactor-me
@@ -87,6 +87,15 @@ refactor-me version --json
 ```
 
 `brew test`가 버전, commit, 도움말, 대상 저장소 선택, 기본 설정과 반복 `init`의 설정 보존을 이미 검사합니다. workflow는 설치된 버전과 commit을 선택한 릴리스 태그와도 비교합니다. 로컬에서 같은 검사를 반복하거나 설치 확인을 위해 실제 provider를 호출하지 않습니다. 사용자의 기존 설치와 관련 없는 Homebrew trust는 보존합니다.
+
+선택적 업그레이드 검사가 포함된 릴리스 ref에서는 이전 tap commit의 전체 SHA를 지정해 별도 dispatch를 실행합니다. 아래 예시는 Beta.4 formula에서 시작합니다.
+
+```sh
+gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
+  -f upgrade_from_formula=cbc9b49c967869d674c6bf48b0876d6514bb3cce
+```
+
+임시 runner에 이전 formula를 설치하고 현재 formula를 복원한 뒤 자동 업데이트를 끈 상태로 `brew upgrade`를 실행합니다. 사용자 편집을 넣은 config schema 2와 미리 만든 report schema 3이 `init`/`report` 후에도 바이트 단위로 보존되는지, 지원하지 않는 report schema가 파일 변경·삭제 없이 거부되는지 확인합니다. 보고서는 호환성 fixture이며 이전 provider 실행의 근거가 아닙니다. 마지막 버전·commit 검사도 그대로 적용됩니다. 신규 설치와 업그레이드의 실행 URL·결과를 따로 기록하고, 검사 추가만으로 업그레이드 `PASS`를 기록하지 마세요. provider를 호출하거나 다른 tap을 신뢰하지 않습니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
 

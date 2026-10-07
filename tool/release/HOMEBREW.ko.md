@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.5`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)이며 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.6`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6)이며 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 선택 검사: 로컬 후보 생성
 
@@ -88,22 +88,37 @@ refactor-me version --json
 
 `brew test`가 버전, commit, 도움말, 대상 저장소 선택, 기본 설정과 반복 `init`의 설정 보존을 이미 검사합니다. workflow는 설치된 버전과 commit을 선택한 릴리스 태그와도 비교합니다. 로컬에서 같은 검사를 반복하거나 설치 확인을 위해 실제 provider를 호출하지 않습니다. 사용자의 기존 설치와 관련 없는 Homebrew trust는 보존합니다.
 
-선택적 업그레이드 검사가 포함된 릴리스 ref에서는 이전 tap commit의 전체 SHA를 지정해 별도 dispatch를 실행합니다. 아래 예시는 Beta.4 formula에서 시작합니다.
+선택적 업그레이드 검사가 포함된 릴리스 ref에서는 이전 tap commit의 전체 SHA를 지정해 별도 dispatch를 실행합니다. 아래 예시는 Beta.5 formula에서 시작합니다.
 
 ```sh
 gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
-  -f upgrade_from_formula=cbc9b49c967869d674c6bf48b0876d6514bb3cce
+  -f upgrade_from_formula=9d5c3011ee78152379b932dbbd222ba4e86d107b
 ```
 
 임시 runner에 이전 formula를 설치하고 현재 formula를 복원한 뒤 자동 업데이트를 끈 상태로 `brew upgrade`를 실행합니다. 사용자 편집을 넣은 config schema 2와 미리 만든 report schema 3이 `init`/`report` 후에도 바이트 단위로 보존되는지, 지원하지 않는 report schema가 파일 변경·삭제 없이 거부되는지 확인합니다. 보고서는 호환성 fixture이며 이전 provider 실행의 근거가 아닙니다. 마지막 버전·commit 검사도 그대로 적용됩니다. 신규 설치와 업그레이드의 실행 URL·결과를 따로 기록하고, 검사 추가만으로 업그레이드 `PASS`를 기록하지 마세요. provider를 호출하거나 다른 tap을 신뢰하지 않습니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
 
-## 개발 중 Skill 기준 카탈로그 (RM-PRE-009)
+## 공개 Skill 기준 카탈로그 (RM-PRE-009)
 
 새 진단은 `tool/go/internal/catalog/reference.json`을 포함합니다. sharpen-me revision은 `fbb88aea30ff46ade265607ea6572be7cc642a4c`이며 8개 전체 트리 SHA-256과 실제 호환성 `NOT_RUN`을 기록합니다. 2026-10-07에 저장소의 Skill 파일 24개와 모드가 해당 revision의 완전한 GitHub 트리와 일치함을 확인했습니다. 해시는 런타임과 같은 정렬된 경로·바이트 길이·실행 비트·내용 인코딩(`catalog-tree-sha256-v1`)을 사용하며 `skills-lock.json`의 설치기 해시와 다릅니다. [고정 설치 경로](INSTALL.ko.md#skill-reference)를 참고하세요.
 
-이 변경은 이후 빌드에 내용 기준을 추가하며 이미 공개한 Beta.5 실행 파일이나 실제 provider 호환성을 소급 검증하지 않습니다. 향후 릴리스에는 정확한 CLI commit, manifest revision·해시, 실제 비실시간·실시간 검증 결과를 각각 기록하세요. 실제 모델 검증에는 제한된 범위의 승인이 필요합니다.
+Beta.6은 이 내용 기준을 포함하며 이미 공개한 Beta.5 실행 파일이나 실제 provider 호환성을 소급 검증하지 않습니다. 향후 릴리스에는 정확한 CLI commit, manifest revision·해시, 실제 비실시간·실시간 검증 결과를 각각 기록하세요. 실제 모델 검증에는 제한된 범위의 승인이 필요합니다.
+
+## Beta.6 검증 기록
+
+릴리스 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37625020035), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/37625488585), [Beta.5 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/37625494290)를 확인하세요.
+
+- Main CI: 릴리스 commit과 같은 SHA에서 `PASS`. formatting, Go tests, vet, CLI build와 Python packaging test 4개를 검사했습니다. 로컬 전체 검사와 태그 CI는 반복하지 않았습니다. 태그의 commit에서 소스 압축파일과 실제 독립 실행 파일을 각각 한 번 빌드했습니다.
+- 신규 설치: `brew install refactor-me`와 `brew test`가 `PASS`. 설치된 JSON은 버전 `0.10.0-beta.6`, commit `01b407ce81e9803878c003c181860e499718b0fa`, 플랫폼 `darwin`, 아키텍처 `arm64`를 보고했습니다.
+- 업그레이드: Beta.5 commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`에서 `PASS`. 이전 tap commit은 `9d5c3011ee78152379b932dbbd222ba4e86d107b`입니다. 편집한 config schema 2와 미리 만든 report schema 3이 동일한 바이트로 보존됐고, 지원하지 않는 report schema 2는 프로젝트 파일을 바꾸지 않고 거부했습니다. 두 dispatch 모두 `public-install`과 집계 `verify`가 성공했으며 `go`와 `js-fixture`는 생략됐습니다.
+- 두 압축파일과 통합 `SHA256SUMS`는 GitHub 업로드 digest와 일치했습니다. 공개 소스 URL은 HTTP 200을 반환했고 [Formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/3a33e5bbb94a2a2e633db7edef848ed1bb7c1050)은 해당 소스 hash와 CLI commit을 고정합니다. 사용자 컴퓨터의 Homebrew 설치, trust 설정과 전역 Skills는 보존했습니다.
+- 실제 Codex/Claude 호출과 Skill 로딩은 `NOT_RUN`입니다. 업그레이드 보고서는 미리 만든 호환성 fixture이며 과거 provider 실행 결과가 아닙니다. 내장 Skill manifest는 revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`와 내용 해시 8개를 기록합니다. 내용 일치는 실제 호환성과 별도입니다. 저장소 문서 갱신은 공개한 압축파일을 바꾸지 않으며 signing, notarization과 bottle은 제공하지 않습니다.
+
+```text
+4aa48a1d9870831493b70b04220859f367cb1586cfeca47c3609ca7576c3236f  refactor-me_0.10.0-beta.6_source.tar.gz
+b2e70150e681a730e155370a91031df94b6a5fe1cb7d1843d2437fba60a97ed5  refactor-me_0.10.0-beta.6_darwin_arm64.zip
+```
 
 ## Beta.5 검증 기록
 

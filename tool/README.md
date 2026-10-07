@@ -22,7 +22,7 @@ Follow the [guide](TUTORIAL.md) for installation.
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
-This reference covers public Beta `0.10.0-beta.5`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
+This reference covers public Beta `0.10.0-beta.6`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
 
 <a id="run-time-selection"></a>
 
@@ -36,7 +36,7 @@ Priority is CLI option, terminal selection, then project/default configuration (
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.5`.
+These options are available in public Beta `0.10.0-beta.6`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -142,6 +142,8 @@ The CLI resolves each Skill directory, validates `SKILL.md` and its supporting f
 
 The Claude directory contains only the selected Skills and supporting files; the CLI does not grant access to the whole home directory through `--add-dir`. Content hashes are checked around provider calls. Unexpected drift halts the run before publishing that result.
 
+Doctor's `skill-reference` check compares the catalog with the [pinned reference](release/INSTALL.md#skill-reference). `PASS` means matching content; `WARN` means a valid custom or unverified catalog and does not block execution. An unavailable catalog reports `FAIL`; the separate blocking `global-skills` check prevents execution. The manifest records live compatibility as `NOT_RUN`; a content match does not prove live loading or model behavior.
+
 Doctor validates the global source and delivery paths. By default it also calls models, consumes account usage and writes diagnostics. `--no-live-probe` checks local prerequisites and provider executables without model calls; it does not prove live session loading. Local fixture tests and live provider checks are separate evidence. The live probe requires the provider to report all eight visible Skill names; this is session self-report, not independent proof of every file read. File paths and hashes are measured separately.
 
 | Skill | Used when | Result |
@@ -223,7 +225,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.5`.
+The following behavior is included in public Beta `0.10.0-beta.6`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.
@@ -291,14 +293,18 @@ If the initial doctor or run preparation fails, no final run report is generated
 | `2` | Aborted or CLI error; inspect diagnostics |
 | `4` | Safety invariant failed; worktree retained as evidence |
 
-Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation evidence, and reports. `last-run.json` points to the latest result. Supported records retain their worktree path independently of the current cache default. Unsupported older formats are not read or cleaned by the current CLI.
+Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation evidence, and reports. Report lookup uses `last-run.json`; a failure marker takes precedence over an earlier result pointer. Supported records retain their worktree path independently of the current cache default. Unsupported older formats are not read or cleaned by the current CLI.
+
+<a id="interruption-and-failed-attempts"></a>
+
+### Interruption and failed attempts
+
+Ctrl-C or SIGTERM during `run`/`doctor` cancels managed provider and validation processes. Cancellation stops retries and fallback; accepted commits remain intact and an unfinished worktree is retained for inspection. SIGKILL cannot provide cleanup guarantees.
+
+When the run controller returns an error and the CLI successfully saves `lastAttemptError` in `last-run.json`, `report` returns exit `2` and shows the recorded failure instead of an earlier result. Any previous completed report stays in its original run directory; a later completed run clears the failure marker.
+
+This does not apply to CLI, configuration or input-validation errors before the controller starts, or to a failure to save the marker. Those cases leave the existing report pointer unchanged.
 
 ## Local development checks
 
 Build and test with Go using the [development guide](DEVELOPMENT.md). Generate disposable repositories with the [fixture guide](fixtures/README.md). Live provider loading and model decisions require separate checks.
-
-The cancellation and latest-failure behavior below is **Unreleased** for Beta.6 builds; it is not included in the published Beta.5 binary.
-
-Ctrl-C or SIGTERM during `run`/`doctor` cancels managed provider and validation processes. Cancellation stops retries and fallback; accepted commits remain intact and an unfinished worktree is retained for inspection. SIGKILL cannot provide cleanup guarantees.
-
-If run preparation fails before a final report, `report` returns exit 2 and shows the latest failure rather than a stale successful result. The previous completed report stays in its original run directory; a later completed run clears the failure marker.

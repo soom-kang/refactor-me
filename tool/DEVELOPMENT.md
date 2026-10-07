@@ -57,6 +57,8 @@ When changing run time selection, check run-only `--max-minutes`, positive overf
 
 When changing reports, check `changes.md` against the complete saved `changes.patch`, including large diffs, renames, binaries and mode changes; retain patch bytes and user-edited review boxes during report viewing. Cost fixtures must cover provider-reported precedence, exact-model offline rates, cached input, cache writes, reasoning output without double-counting, mixed providers, retries/repair and unknown/invalid usage. Keep dated source URLs, per-call assumptions and partial totals visible. Add optional fields to supported report schema 3 without repricing old reports. Updating bundled rates requires fresh Artificial Analysis and provider-source evidence; runtime network fetching is outside this feature.
 
+Keep exact-main CI, fresh-install and prior-version upgrade results separate in release records. Upgrade evidence must name the full prior tap commit and distinguish seeded report compatibility from a past provider run; config schema 2 and report schema 3 must retain their saved bytes. Record the embedded Skill reference separately from live provider compatibility. Packaging unit tests do not replace the actual tagged standalone build and metadata checks.
+
 Check relative links, anchors and diagram exports after deleting or moving a document. Diagram editing and export instructions are in the [asset guide](../docs/assets/workflow/README.md).
 
 ## 4. Separate local and live checks

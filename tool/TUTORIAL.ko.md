@@ -4,7 +4,7 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-macOS Apple Silicon용 공개 Beta `0.10.0-beta.5` 사용법입니다. 릴리스 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573194052)과 [공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)이 통과했습니다.
+macOS Apple Silicon용 공개 Beta `0.10.0-beta.6` 사용법입니다. 릴리스 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625020035), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625488585), [Beta.5에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625494290)이 통과했습니다.
 
 <a id="prepare-the-target"></a>
 
@@ -41,7 +41,7 @@ brew install refactor-me
 refactor-me version --json
 ```
 
-Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.5`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.6`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `01b407ce81e9803878c003c181860e499718b0fa`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
 이전 버전이라면 먼저 업데이트하세요. 독립 실행 파일 압축파일은 [설치 검사](release/INSTALL.ko.md)를 마친 뒤 아래 명령의 `refactor-me`를 해당 실행 파일의 절대 경로로 바꿉니다. 실행 파일은 대상 저장소 밖에 보관하세요.
 
@@ -147,7 +147,7 @@ refactor-me run --repo /path/to/target-repo \
 
 ### 진행 로그 확인
 
-공개 Beta `0.10.0-beta.5`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
+공개 Beta `0.10.0-beta.6`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -194,6 +194,8 @@ CLI는 `.refactor/runs/<id>/changes.md`도 저장합니다. Markdown 편집기�
 | 원본 변경 또는 잘못된 target | 기존 작업을 마무리하거나 경로를 고친 뒤 doctor 재실행 |
 | 기준선 검증 실패 | 의존성과 [검증 명령](README.ko.md#validation-commands) 확인. 최소 한 명령은 통과해야 함 |
 | 변경 없음 또는 부분 완료 | 제외 이유와 실행 제한을 읽은 뒤 재실행 판단 |
+| Ctrl-C 또는 SIGTERM | 보존된 worktree와 수락한 커밋 확인. 취소 시 재시도와 fallback 중단 |
+| 기록된 컨트롤러 준비 실패 | `report`와 저장된 진단 확인. 이전 보고서를 계속 조회하는 조건은 [실패 표시 규칙](README.ko.md#interruption-and-failed-attempts) 참고 |
 | 종료 코드 `4`, 안전 중단 | worktree와 진단 기록을 보존하고 원인 조사 |
 
 종료 코드 `2`는 실행 중단 또는 CLI 오류입니다. stderr와 남아 있는 실행 기록을 확인하세요. 설정 schema `2`, 보고서 schema `3`을 지원하며 다른 형식은 파일을 바꾸지 않고 오류로 알립니다. 보고서가 없거나 잘못되었다고 해서 실행이 성공한 것은 아닙니다.
@@ -211,7 +213,9 @@ refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe
 ```
 
-업데이트는 이 실행 파일을 쓰는 모든 프로젝트에 적용됩니다. Skills는 로컬 수정 사항을 확인한 뒤 2단계 설치 명령으로 따로 갱신합니다. 실행 도중에는 Skills를 바꾸지 마세요.
+[Beta.5 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625494290)은 수정한 schema 2 설정과 seeded schema 3 보고서의 바이트를 upgrade, `init`, `report` 이후에도 그대로 보존했습니다. 지원하지 않는 보고서도 파일을 바꾸지 않고 거부했습니다. provider를 호출하지 않은 호환성 검사이며 이전 실제 실행의 근거는 아닙니다.
+
+업데이트는 이 실행 파일을 쓰는 모든 프로젝트에 적용됩니다. Skills는 로컬 수정 사항과 기존 사용자 정의 설치를 보존하고 [고정된 설치 절차](release/INSTALL.ko.md#skill-reference)에 따라 별도로 관리합니다. 실행 도중에는 Skills를 바꾸지 마세요.
 
 `refactor-me clean --repo /path/to/target-repo`는 제거 조건을 충족한 완료 worktree를 정리합니다. 부분 완료나 안전 중단 worktree는 조사할 수 있도록 남깁니다.
 

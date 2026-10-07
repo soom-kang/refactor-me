@@ -4,7 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-This guide covers public Beta `0.10.0-beta.5` for macOS Apple Silicon. Release commit: `8bfebe90b04e54cf1ef843915aad2901be0db41d`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/37573194052) and the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37573464996) passed for this version.
+This guide covers public Beta `0.10.0-beta.6` for macOS Apple Silicon. Release commit: `01b407ce81e9803878c003c181860e499718b0fa`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/37625020035), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/37625488585) and the [upgrade from Beta.5](https://github.com/soom-kang/refactor-me/actions/runs/37625494290) passed for this version.
 
 <a id="prepare-the-target"></a>
 
@@ -41,7 +41,7 @@ brew install refactor-me
 refactor-me version --json
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.5`, platform `darwin`, architecture `arm64` and commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.6`, platform `darwin`, architecture `arm64` and commit `01b407ce81e9803878c003c181860e499718b0fa`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
 Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
@@ -147,7 +147,7 @@ Paths resolving outside the repository are rejected. **Targets limit candidate d
 
 ### Read progress logs
 
-In public Beta `0.10.0-beta.5`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
+In public Beta `0.10.0-beta.6`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -194,6 +194,8 @@ Read provider-reported and estimated USD separately in the report. Supported exa
 | Dirty checkout or invalid target | Finish existing work or correct the path, then rerun doctor |
 | Baseline failure | Inspect dependencies and [validation commands](README.md#validation-commands); at least one command must pass |
 | No changes or partial completion | Read exclusions and limits before starting another run |
+| Ctrl-C or SIGTERM | Inspect the retained worktree and accepted commits; cancellation stops retries and fallback |
+| Recorded controller preparation failure | Read `report` and the saved diagnostics; [failure-marker rules](README.md#interruption-and-failed-attempts) explain when the previous report remains available |
 | Exit `4`, safety halt | Preserve the worktree and diagnostics; investigate before retrying |
 
 Exit `2` means an abort or CLI error. Check stderr and the available run records. Configuration schema `2` and report schema `3` are required; unsupported formats produce an error without changing the file. A missing or invalid report is not proof that a run succeeded.
@@ -211,7 +213,9 @@ refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe
 ```
 
-An upgrade affects every project using this executable. Update Skills separately with the installation command in step 2, after checking local changes. Do not update Skills during a run.
+The [Beta.5 upgrade check](https://github.com/soom-kang/refactor-me/actions/runs/37625494290) preserved an edited schema-2 configuration and a seeded schema-3 report byte for byte through upgrade, `init` and `report`. It also rejected an unsupported report without changing it. This provider-free compatibility check does not represent a previous live run.
+
+An upgrade affects every project using this executable. Manage Skills separately with the [pinned installation steps](release/INSTALL.md#skill-reference), after checking local changes and preserving existing/custom installations. Do not update Skills during a run.
 
 Remove eligible finished worktrees with `refactor-me clean --repo /path/to/target-repo`. Partial and safety-halted worktrees remain available for investigation.
 

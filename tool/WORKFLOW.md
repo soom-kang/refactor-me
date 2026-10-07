@@ -4,7 +4,7 @@
 
 You set the limits and start `run`. The controller then checks each phase without asking for approval between steps. Changes happen in an isolated Git worktree; accepted commits appear on a local result branch.
 
-In public Beta `0.10.0-beta.5`, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
+In public Beta `0.10.0-beta.6`, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
 
 The CLI resolves run time before calling providers or preparing worktrees: `--max-minutes` overrides terminal selection, which overrides project/default configuration. Selection occurs only on macOS with terminal stdin and stderr, without `--json`; Enter keeps the existing limit. The clock includes preparation after selection. Checks before audit and before a new candidate prevent starting another work unit after the limit. A running candidate finishes validation, review and commit or rollback, so the limit can be exceeded. See [time selection](README.md#run-time-selection).
 
@@ -24,13 +24,17 @@ Codex receives the absolute paths of the selected global Skills. Claude receives
 | --- | --- | --- |
 | Prepare | Clean source, valid global Skills, selected models and available provider; at least one passing baseline command | Doctor and baseline results |
 | Choose | Audit scope, risk and candidate history; deep check produces a ready task packet | `audits/`, `packet.json` |
-| Refine | Optional characterization tests; preflight rejects unresolved failure hypotheses; execution stays within the packet | `preflight.json`, `execution.json` |
+| Refine | Optional characterization diff gate and validation; preflight rejects unresolved failure hypotheses; execution stays within the packet | `characterization-gate.json`, `characterization-validation.json`, `preflight.json`, `execution.json` |
 | Validate and review | Diff gate, no validation regression, separate review session | `gate.json`, `validation.json`, `review.json` |
 | Publish and repeat | Commit tree matches the reviewed tree, source unchanged and result ref matches the expected OID | `state.json`, final reports |
 
 Characterization records existing behavior in tests before production edits. When enabled, these tests must pass against unchanged production code and may form a separate commit. A later rejected refactor can leave that test commit on the result branch. `max_commits` counts refactor commits only.
 
-The controller passes measured baseline results to deep check, characterization, preflight and execution. After a characterization commit, preflight and execution also receive its commit, files and validation results. A filename collision check made before test creation does not reject files recorded as newly created by this step; pre-existing files retain their collision checks. Missing evidence remains unknown, and existing baseline failures are still reported as failures. Characterization checks are saved in `cycles/*/characterization-validation.json`.
+The controller passes measured baseline results to deep check, characterization, preflight and execution. After a characterization commit, preflight and execution also receive its commit, files and validation results. A filename collision check made before test creation does not reject files recorded as newly created by this step; pre-existing files retain their collision checks. Missing evidence remains unknown, and existing baseline failures are still reported as failures. Characterization validation results, when produced, are saved in `cycles/*/characterization-validation.json`.
+
+Before committing characterization tests, the controller checks the measured diff against the test-only allowlist, forbidden paths and binaries, file/line limits and test-integrity rules. Source, HEAD and tree invariants also apply. Ordinary gate violations roll back the attempt; unsafe invariant failures retain the worktree. Tests may live outside the production target and need not reduce production code size. `cycles/*/characterization-gate.json` and `cycles/*/characterization.patch` retain the verdict and attempted edits, including rejected attempts.
+
+Declared deletions must be allowlisted local file paths. Deletion is confined to the worktree root, rejects directories and removes a final symlink itself rather than following it.
 
 Execution instructions require preserving unrelated bytes, including line endings and trailing blank lines. An incidental whitespace change introduced by the editing tool in the same allowed production file may be corrected once before the final diff is judged. Unresolved mismatches, scope expansion and behavior changes still reject the candidate. Validation after the edit remains the controller's responsibility.
 
@@ -42,7 +46,7 @@ Commit hooks run. Hook changes to the reviewed tree or residual working changes 
 
 ### Progress follows confirmed state
 
-Public Beta `0.10.0-beta.5` announces these stages using `--lang en|ko`, defaulting to English. The controller emits progress at the actual stage boundary; it does not infer an action from shell commands. Each audit reports its proposed and eligible counts and, when capped, the number inspected. After an accepted change it audits again, so the display has no fixed candidate total or completion percentage.
+Public Beta `0.10.0-beta.6` announces these stages using `--lang en|ko`, defaulting to English. The controller emits progress at the actual stage boundary; it does not infer an action from shell commands. Each audit reports its proposed and eligible counts and, when capped, the number inspected. After an accepted change it audits again, so the display has no fixed candidate total or completion percentage.
 
 Validation messages use the command name and area. Baseline results show their measured status; later results show the final comparison with the baseline. An unchanged readable failure is not a pass. Candidate exclusions, rejected execution and no changes are separate outcomes. Rollback completion requires successful restoration, and commit completion requires successful local branch publication and state storage.
 
@@ -65,7 +69,8 @@ After an edit, checks select the deepest affected area for each path and the roo
 | Unknown risk | Set aside by default. `unknown_risk: deep_check` admits only `UNKNOWN` + `NEEDS_EVIDENCE`; the resulting packet must still pass the risk policy |
 | Gate, validation or review rejection | Restore candidate edits in the owned worktree; preserve any earlier accepted commits |
 | Invalid JSON or response schema | Try one read-only repair; if it still fails with `SCHEMA`, try another available provider |
-| Timeout or process failure | Retry after 5 and 20 seconds, then try another available provider; timeouts terminate the process group with SIGTERM then SIGKILL after a grace period |
+| Timeout or process failure | Retry after 5 and 20 seconds, then try another available provider; timeouts use SIGTERM then SIGKILL for the process group, including remaining descendants if the leader exits first |
+| Ctrl-C or SIGTERM | Cancel managed provider and validation processes; stop repair, retries and fallback; preserve accepted commits and the unfinished worktree |
 | Quota or authentication failure | Mark provider availability and attempt a handoff; continue the phase with another available provider |
 
 Fatal provider errors abort. Exhausted providers, cycle/commit/time limits, repeated failures or enough empty audits stop the loop. Safety violations preserve the worktree for investigation.
@@ -84,6 +89,9 @@ All paths below are relative to `.refactor/runs/<id>/`.
 | `state.json` | Counters, terminal status, worktree and published OID |
 | `audits/<cycle>/`, `cycles/*/` | Prompts, responses, task packets and phase checks |
 | `cycles/*/accepted.patch` | Diff sent to review; it may belong to a rejected candidate |
+| `cycles/*/characterization-gate.json`, `cycles/*/characterization.patch` | Measured characterization safety verdict and attempted diff; the attempt may have been rejected |
+
+A recorded controller preparation failure takes precedence when viewing a report. See [failure-marker rules](README.md#interruption-and-failed-attempts) for the saved-marker requirement, exit `2` and exceptions. Previous completed reports remain in their original run directories; a later completed run clears the failure marker.
 
 A missing comparison is recorded as `UNAVAILABLE` and does not change the run's exit code. Viewing a report does not regenerate a diff. Exit `0` includes partial completion; [inspect the result](TUTORIAL.md#read-the-result) before merging.
 

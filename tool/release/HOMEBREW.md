@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.5`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5), commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.6`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6), commit `01b407ce81e9803878c003c181860e499718b0fa`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Optional local candidate
 
@@ -88,22 +88,37 @@ refactor-me version --json
 
 `brew test` already checks version, commit, help, repository selection, configuration defaults and preservation across repeated `init`. The workflow also compares the installed version and commit with the selected release tag. Do not repeat these checks locally or add live provider calls for installation verification. Preserve the user's installed package and unrelated Homebrew trust.
 
-For a release ref containing the optional upgrade check, run a separate dispatch with the full prior tap commit SHA. For example, this starts from the Beta.4 formula:
+For a release ref containing the optional upgrade check, run a separate dispatch with the full prior tap commit SHA. For example, this starts from the Beta.5 formula:
 
 ```sh
 gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
-  -f upgrade_from_formula=cbc9b49c967869d674c6bf48b0876d6514bb3cce
+  -f upgrade_from_formula=9d5c3011ee78152379b932dbbd222ba4e86d107b
 ```
 
 This installs the prior formula on the disposable runner, restores the current formula and runs `brew upgrade` with automatic updates disabled. It checks byte preservation of an edited config schema 2 and a seeded report schema 3 through `init`/`report`, plus non-destructive rejection of an unsupported report schema. The report is a compatibility fixture, not evidence of a previous provider run. The existing final version/commit check still applies. Keep fresh-install and upgrade run URLs/results separate; adding this check does not establish an upgrade PASS. No provider is called or additional tap trusted.
 
 Only after public installation passes, update the published version and commit in English/Korean installation documents and both tap READMEs, remove candidate notices, and add a `Verify` badge linked to the actual main-repository workflow. These changes update the repository documents, not an already published archive's enclosed guide. A tap README should label that badge `CLI Verify`; it does not certify tap CI or live provider execution. Keep the title image. Existing users may then run `brew upgrade refactor-me` themselves. Documentation-only changes do not require a new tag, asset or formula version.
 
-## Development Skill reference (RM-PRE-009)
+## Published Skill reference (RM-PRE-009)
 
 The new diagnostic embeds `tool/go/internal/catalog/reference.json`: sharpen-me revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, eight full-tree SHA-256 hashes, live compatibility `NOT_RUN`. On 2026-10-07, all 24 checked-in Skill files and their modes matched the complete GitHub tree at that revision. These hashes use the runtime's sorted path/byte-length/executable-bit/content framing (`catalog-tree-sha256-v1`), not `skills-lock.json` installer hashes. See the [pinned installation path](INSTALL.md#skill-reference).
 
-This adds a content reference to subsequent builds; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+Beta.6 embeds this content reference; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+
+## Beta.6 verification record
+
+Release commit: `01b407ce81e9803878c003c181860e499718b0fa`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37625020035) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/37625488585) · [Beta.5 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/37625494290).
+
+- Main CI: `PASS` for the exact release commit, covering formatting, Go tests, vet, CLI build and the four Python packaging tests. The local suite and tag CI were not repeated. Source and actual standalone binary archives were built once each from the tagged commit.
+- Fresh installation: `PASS` for `brew install refactor-me` and `brew test`. Installed JSON reported version `0.10.0-beta.6`, commit `01b407ce81e9803878c003c181860e499718b0fa`, platform `darwin` and architecture `arm64`.
+- Upgrade: `PASS` from Beta.5 commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`, prior tap commit `9d5c3011ee78152379b932dbbd222ba4e86d107b`. Edited config schema 2 and a seeded report schema 3 retained identical bytes; unsupported report schema 2 was rejected without changing project files. Both dispatches passed `public-install` and aggregate `verify`, with `go` and `js-fixture` skipped.
+- Both archives and combined `SHA256SUMS` matched the uploaded GitHub digests. The public source URL returned HTTP 200. [Formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/3a33e5bbb94a2a2e633db7edef848ed1bb7c1050) fixes the source hash and CLI commit. The user's local Homebrew package, trust settings and global Skills were preserved.
+- Live Codex/Claude calls and Skill loading: `NOT_RUN`. The upgrade report is a seeded compatibility fixture, not a past provider-run result. The embedded Skill manifest records revision `fbb88aea30ff46ade265607ea6572be7cc642a4c` and eight content hashes; content matching is separate from live compatibility. Repository documentation updates do not alter the published archives; signing, notarization and bottles remain unavailable.
+
+```text
+4aa48a1d9870831493b70b04220859f367cb1586cfeca47c3609ca7576c3236f  refactor-me_0.10.0-beta.6_source.tar.gz
+b2e70150e681a730e155370a91031df94b6a5fe1cb7d1843d2437fba60a97ed5  refactor-me_0.10.0-beta.6_darwin_arm64.zip
+```
 
 ## Beta.5 verification record
 

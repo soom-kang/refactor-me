@@ -4,7 +4,7 @@
 
 실행 제한을 설정하고 `run`을 시작하면 단계마다 승인하지 않아도 컨트롤러가 검사와 실행을 이어갑니다. 코드는 격리된 Git worktree에서 수정하며, 통과한 커밋을 로컬 결과 branch에 발행합니다.
 
-공개 Beta `0.10.0-beta.5`에서는 모델을 호출하기 전에 primary와 fallback provider마다 모델을 선택합니다. 명령의 모델 옵션이 프로젝트 설정보다 우선하며 해당 명령에만 적용됩니다. 추론 수준 옵션은 선택한 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. [모델과 추론 수준 선택](README.ko.md#model-and-effort-selection)을 참고하세요.
+공개 Beta `0.10.0-beta.6`에서는 모델을 호출하기 전에 primary와 fallback provider마다 모델을 선택합니다. 명령의 모델 옵션이 프로젝트 설정보다 우선하며 해당 명령에만 적용됩니다. 추론 수준 옵션은 선택한 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. [모델과 추론 수준 선택](README.ko.md#model-and-effort-selection)을 참고하세요.
 
 CLI는 provider 호출이나 worktree 준비 전에 실행 시간을 정합니다. `--max-minutes`, 터미널 선택, 프로젝트 또는 기본 설정 순으로 우선합니다. macOS에서 stdin과 stderr가 터미널이며 `--json`이 없을 때만 묻고, Enter는 기존 한도를 유지합니다. 선택 후 준비 단계부터 시간을 계산하며 audit 전과 새 후보 시작 전에 확인합니다. 진행 중인 후보는 검증과 검토, 커밋 또는 복원을 마치므로 한도를 초과할 수 있습니다. [시간 선택](README.ko.md#run-time-selection)을 참고하세요.
 
@@ -16,6 +16,8 @@ CLI는 provider 호출이나 worktree 준비 전에 실행 시간을 정합니�
 
 Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude에는 실행별 `.claude/skills` 복사본을 `--add-dir`로 제공하며, 프로젝트 설정만 읽도록 하고 도구·MCP 접근을 제한합니다. provider 호출 전후 원본과 복사본의 hash를 확인하고, 예상하지 못한 변경이 있으면 결과 발행을 중단합니다. 자세한 내용은 [Skill 해석](README.ko.md#skill-availability)을 참고하세요.
 
+<a id="from-checks-to-a-local-branch"></a>
+
 ## 검사부터 로컬 branch 발행까지
 
 ![실행 준비 후 격리된 리팩토링 과정을 거쳐 결과를 저장하고, 발행한 변경은 사람이 검토합니다.](../docs/assets/workflow/execution.ko.png)
@@ -24,13 +26,17 @@ Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude�
 | --- | --- | --- |
 | 준비 | 깨끗한 원본, 유효한 전역 Skills, 선택한 모델, 사용 가능한 provider, 기준선 명령 하나 이상 통과 | doctor와 기준선 결과 |
 | 후보 선택 | 조사 범위·위험·시도 이력 확인, deep check에서 실행 가능한 작업 명세 확정 | `audits/`, `packet.json` |
-| 수정 | 필요하면 characterization 테스트 추가, preflight 통과, 명세 범위 안에서 실행 | `preflight.json`, `execution.json` |
+| 수정 | 필요하면 characterization diff 검사와 검증, preflight 통과, 명세 범위 안에서 실행 | `characterization-gate.json`, `characterization-validation.json`, `preflight.json`, `execution.json` |
 | 검증·검토 | diff 검사, 검증 결과 악화 없음, 별도 세션 검토 통과 | `gate.json`, `validation.json`, `review.json` |
 | 발행·반복 | 검토한 tree와 커밋 tree 일치, 원본 불변, 결과 ref의 이전 OID 일치 | `state.json`, 최종 보고서 |
 
 characterization은 소스를 수정하기 전에 기존 동작을 테스트로 기록하는 단계입니다. 활성화하면 변경 전 소스에서 테스트를 통과해야 하며 별도 커밋을 만들 수 있습니다. 이후 리팩토링이 거부되어도 이 테스트 커밋은 결과 branch에 남을 수 있습니다. `max_commits`는 리팩토링 커밋만 계산합니다.
 
-컨트롤러는 실제 기준선 결과를 deep check, characterization, preflight, execution에 전달합니다. characterization 커밋을 만들면 preflight와 execution에 해당 커밋, 파일, 검증 결과도 전달합니다. 테스트 생성 전의 파일명 충돌 조건은 이 단계에서 새로 만들었다고 기록된 파일에만 예외를 적용하며, 기존 파일의 충돌 조건은 유지합니다. 근거가 없으면 미확인으로 남기며 기존 기준선 실패는 그대로 실패로 표시합니다. characterization 검사는 `cycles/*/characterization-validation.json`에 저장합니다.
+컨트롤러는 실제 기준선 결과를 deep check, characterization, preflight, execution에 전달합니다. characterization 커밋을 만들면 preflight와 execution에 해당 커밋, 파일, 검증 결과도 전달합니다. 테스트 생성 전의 파일명 충돌 조건은 이 단계에서 새로 만들었다고 기록된 파일에만 예외를 적용하며, 기존 파일의 충돌 조건은 유지합니다. 근거가 없으면 미확인으로 남기며 기존 기준선 실패는 그대로 실패로 표시합니다. characterization 검증을 진행했다면 결과를 `cycles/*/characterization-validation.json`에 저장합니다.
+
+characterization 테스트를 커밋하기 전에 실제 diff를 테스트 전용 허용 목록, 금지 경로와 바이너리, 파일과 줄 수 제한, 테스트 무결성 규칙으로 검사합니다. 원본, HEAD, tree 불변식도 적용합니다. 일반적인 검사 위반은 해당 시도를 되돌리고, 안전 불변식 실패는 worktree를 보존합니다. 테스트는 소스 target 밖에 있을 수 있으며 소스 코드 크기를 줄일 필요는 없습니다. `cycles/*/characterization-gate.json`과 `cycles/*/characterization.patch`에 판정과 시도한 변경을 저장하며 거부된 시도도 포함합니다.
+
+선언된 삭제는 허용 목록 안의 로컬 파일 경로여야 합니다. 삭제는 worktree 루트 안으로 제한하며 디렉터리는 거부하고, 마지막 경로가 심볼릭 링크이면 링크 자체를 제거합니다.
 
 execution 지침은 줄바꿈과 파일 끝의 빈 줄을 포함해 관련 없는 바이트를 보존하도록 요구합니다. 편집 도구가 같은 허용 소스 파일에 부수적인 공백 변경을 만들면 최종 diff를 판정하기 전에 한 번 바로잡을 수 있습니다. 남은 불일치, 범위 확장, 동작 변경은 여전히 후보를 거부하는 사유입니다. 수정 후 검증은 컨트롤러가 담당합니다.
 
@@ -42,7 +48,7 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 
 ### 확인된 상태를 안내하는 진행 로그
 
-공개 Beta `0.10.0-beta.5`는 `--lang en|ko`로 위 단계의 안내 언어를 선택하며 기본값은 영어입니다. 컨트롤러는 실제 단계가 시작되거나 끝날 때 안내하며 shell 명령에서 작업 목적을 추측하지 않습니다. 조사할 때마다 제안된 수와 진행 가능한 수를 알리고, 한도가 적용되면 확인한 수도 표시합니다. 수락한 변경 이후에 다시 조사하므로 전체 후보 수나 완료율을 고정하지 않습니다.
+공개 Beta `0.10.0-beta.6`은 `--lang en|ko`로 위 단계의 안내 언어를 선택하며 기본값은 영어입니다. 컨트롤러는 실제 단계가 시작되거나 끝날 때 안내하며 shell 명령에서 작업 목적을 추측하지 않습니다. 조사할 때마다 제안된 수와 진행 가능한 수를 알리고, 한도가 적용되면 확인한 수도 표시합니다. 수락한 변경 이후에 다시 조사하므로 전체 후보 수나 완료율을 고정하지 않습니다.
 
 검증 안내에는 명령 이름과 영역을 표시합니다. 기준선은 실제 실행 상태를, 변경 후에는 기준선과 비교한 최종 판정을 알립니다. 기존과 같은 실패는 통과가 아닙니다. 정책 제외, 구현 거절과 변경 없음은 각각 구분합니다. 복원에 성공해야 되돌리기 완료를 알리고, 로컬 branch 반영과 state 저장이 끝나야 커밋 완료를 알립니다.
 
@@ -65,7 +71,8 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 | 위험 판단 불가 | 기본값은 보류. `unknown_risk: deep_check`는 `UNKNOWN` + `NEEDS_EVIDENCE`만 허용하며 최종 명세는 다시 위험 정책 검사 |
 | diff·검증·검토 거부 | 도구 소유 worktree에서 해당 후보의 수정을 되돌리고, 앞서 수락한 커밋은 보존 |
 | 잘못된 JSON 또는 응답 schema | 읽기 전용 복구 한 번 시도. 다시 `SCHEMA` 오류이면 다른 가용 provider 시도 |
-| timeout 또는 프로세스 실패 | 5초, 20초 뒤 재시도 후 다른 가용 provider 시도. timeout은 프로세스 그룹에 SIGTERM을 보내고 유예 후 SIGKILL |
+| timeout 또는 프로세스 실패 | 5초, 20초 뒤 재시도 후 다른 가용 provider 시도. timeout은 프로세스 그룹에 SIGTERM 후 SIGKILL을 보내며 주 프로세스가 먼저 끝나도 남은 자식 프로세스를 종료 |
+| Ctrl-C 또는 SIGTERM | 관리 중인 provider와 검증 프로세스 취소. 복구, 재시도와 fallback 중단. 수락한 커밋과 미완료 worktree 보존 |
 | 사용량 소진 또는 인증 실패 | provider 상태를 기록하고 handoff 시도 후 다른 가용 provider로 같은 단계 계속 |
 
 복구할 수 없는 provider 오류는 실행을 중단합니다. 가용 provider 소진, cycle·커밋·시간 제한, 연속 실패, 충분한 횟수의 빈 조사 결과도 종료 조건입니다. 안전 조건 위반 시에는 조사할 수 있도록 worktree를 보존합니다.
@@ -84,6 +91,9 @@ provider를 바꾸면 단계 입력을 전달한 새 세션을 시작합니다. 
 | `state.json` | 카운터, 종료 상태, worktree, 발행 OID |
 | `audits/<cycle>/`, `cycles/*/` | 프롬프트, 응답, 작업 명세, 단계별 검사 |
 | `cycles/*/accepted.patch` | 검토에 제출한 diff. 거부된 후보의 자료일 수도 있음 |
+| `cycles/*/characterization-gate.json`, `cycles/*/characterization.patch` | 실제 characterization 안전 판정과 시도한 diff. 거부된 시도의 자료일 수도 있음 |
+
+기록된 컨트롤러 준비 실패는 보고서 조회에서 우선합니다. 실패 표시 저장 조건, 종료 코드 `2`와 예외는 [실패 표시 규칙](README.ko.md#interruption-and-failed-attempts)을 참고하세요. 이전 완료 보고서는 기존 run 디렉터리에 보존하며 다음 실행이 완료되면 실패 표시를 지웁니다.
 
 비교 자료를 만들지 못하면 `UNAVAILABLE`로 이유를 기록하며 실행 종료 코드는 바꾸지 않습니다. 보고서 조회도 diff를 다시 수집하지 않습니다. 종료 코드 `0`에는 부분 완료가 포함되므로 병합 전에 [결과를 확인](TUTORIAL.ko.md#read-the-result)하세요.
 

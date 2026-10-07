@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.5-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.6-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
 
 Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동화합니다. 격리된 Git worktree에서 후보를 수정하고 검증한 뒤, 통과한 커밋을 검토용 로컬 branch에 저장합니다.
 
@@ -10,9 +10,9 @@ Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동
 
 ## 설치
 
-공개 Beta **0.10.0-beta.5**는 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
+공개 Beta **0.10.0-beta.6**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
-릴리스 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573194052)과 [공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)이 통과했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
+릴리스 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625020035), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625488585), [Beta.5에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625494290)이 통과했습니다. 설치 검증은 모델을 호출하지 않았으며 upgrade에는 저장된 프로젝트 상태를 확인하는 seeded 호환성 보고서를 사용했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
 
 <a id="quick-start"></a>
 
@@ -33,7 +33,7 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.5`를 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
+아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.6`을 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
 
 아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 
@@ -58,19 +58,23 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 ## 읽기 쉬운 진행 로그
 
-공개 Beta `0.10.0-beta.5`는 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
+공개 Beta `0.10.0-beta.6`은 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
 
 진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)를 참고하세요.
 
-## Beta.5의 변경 사항
+## 실행 제한과 보고서
 
-공개 Beta `0.10.0-beta.5`에는 아래 실행 및 보고서 기능이 포함됩니다.
+실행과 결과 검토에 아래 기능을 사용합니다.
 
 - `--max-minutes 60`으로 이번 실행의 시간을 정합니다. macOS 터미널에서는 30, 60, 180, 360분이나 custom을 선택하며 Enter는 프로젝트의 기존 한도를 유지합니다. JSON 출력이나 입출력 리다이렉션에서는 질문하지 않습니다. 진행 중인 작업 단위를 마치는 동안 한도를 초과할 수 있습니다.
 - 기본 진행 로그에 경과 시간, 단계, provider와 안전한 파일 및 도구 작업을 표시합니다. 명령 원문, 출력과 민감 경로는 작업 로그에 표시하지 않습니다.
 - `changes.md`에서 파일 검토 체크리스트와 커밋된 전체 텍스트 diff를 확인합니다. 비용은 provider 보고값을 우선하고, 지원하는 모델의 미보고 비용에는 확인 날짜를 기록한 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 추정값을 사용합니다. 구독 청구액과 구분하며 알 수 없는 사용량은 그대로 표시합니다.
 
 [시간 선택](../tool/README.ko.md#run-time-selection), [코드 비교](../tool/README.ko.md#code-comparison), [사용량](../tool/README.ko.md#usage-and-exit-codes)에서 세부 동작을 확인하세요.
+
+## 안전 검사와 중단 처리
+
+Beta.6은 characterization 테스트 변경을 커밋 전에 검사하고, 선언된 파일 삭제를 worktree 안으로 제한합니다. Ctrl-C 또는 SIGTERM을 받으면 관리 중인 provider와 검증 프로세스를 취소하고, 수락한 커밋과 미완료 작업은 보존합니다. 컨트롤러 준비 실패가 기록되면 `report`는 이전 성공 대신 해당 실패를 안내합니다. [중단과 실패한 실행](../tool/README.ko.md#interruption-and-failed-attempts), [실행 과정의 검사](../tool/WORKFLOW.ko.md#from-checks-to-a-local-branch)를 참고하세요.
 
 ## 상세 문서
 

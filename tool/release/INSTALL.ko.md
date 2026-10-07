@@ -4,7 +4,7 @@
 
 이 Beta는 macOS Apple Silicon(`darwin/arm64`)만 지원합니다. Homebrew로 전역 실행 파일을 설치하고 sharpen-me Skills는 따로 설치합니다.
 
-Beta `0.10.0-beta.6` 배포 파일을 위한 안내입니다. 릴리스 게시나 설치 검증 통과를 뜻하지 않습니다. Beta.6 formula가 공개된 뒤 Homebrew 절차를, [릴리스 파일](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6)이 공개된 뒤 다운로드 절차를 사용하세요. 아래 절차에 따라 버전과 commit을 `BUILD-INFO.txt`, 실행 파일의 JSON 출력, annotated 릴리스 태그와 비교합니다.
+공개 릴리스 [`0.10.0-beta.6`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6)의 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 공개 태그와 Homebrew formula의 [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/37625488585)와 [Beta.5 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/37625494290) 검증을 통과했습니다. 아래 절차에 따라 압축파일의 버전과 commit을 `BUILD-INFO.txt`, 실행 파일의 JSON 출력, annotated 릴리스 태그와 비교하세요.
 
 ## 이미 압축을 푼 경우
 

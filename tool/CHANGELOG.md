@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.10.0-beta.6
+
+- Distinguish a failed latest run attempt from earlier completed reports without replacing those saved reports. Explain at run startup that the selected time limit is soft and is not a spending cap.
+- Propagate Ctrl-C and SIGTERM through run and doctor and stop retries and fallback after cancellation. On timeout or cancellation, terminate provider descendants even if their leader exits first. Preserve accepted commits and unfinished worktrees for inspection.
+- Confine declared deletions to the worktree and check the actual characterization diff before creating its commit, recording the gate and patch evidence.
+- Build public standalone binaries from isolated tagged Git objects and ignore ambient Go workspace, settings and overlay flags. Keep archive version, commit, architecture and dirty-state checks.
+- Embed a reproducible sharpen-me content reference and report custom or changed catalogs without claiming live compatibility. Add optional Beta-to-Beta Homebrew upgrade checks for config/report byte preservation and non-destructive rejection of unsupported reports.
+
 ## 0.10.0-beta.5
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37573464996). Release commit: `8bfebe90b04e54cf1ef843915aad2901be0db41d`.

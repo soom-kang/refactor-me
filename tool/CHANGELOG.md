@@ -4,6 +4,8 @@
 
 ## 0.10.0-beta.5
 
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5) · [Public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37573464996). Release commit: `8bfebe90b04e54cf1ef843915aad2901be0db41d`.
+
 - Add run-only `--max-minutes` and a macOS terminal time selector with 30/60/180/360/custom choices, configured-default Enter, safe cancellation and no prompt for JSON or redirected input/output. Keep overrides in memory and report selected/actual time; stop before new work at safe boundaries while an in-flight candidate finishes.
 - Add default elapsed-time and stage/provider context with structured, safe read/search/edit/write/delete and generic command/tool activity. Preserve stderr-only progress, raw transcript storage, tool-call accounting and suppression of commands, output, prose and sensitive paths.
 - Save `changes.md` with file review checkboxes and the full committed text diff, including rename, binary and mode metadata. Keep `changes.patch` unchanged and preserve reviewed checkboxes when viewing reports.

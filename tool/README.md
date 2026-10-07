@@ -22,13 +22,13 @@ Follow the [guide](TUTORIAL.md) for installation.
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
-Time selection, detailed activity logs, Markdown change checklists and standard API cost estimates below describe **Unreleased development builds**. Public Beta `0.10.0-beta.4` keeps its documented release behavior.
+This reference covers public Beta `0.10.0-beta.5`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
 
 <a id="run-time-selection"></a>
 
 ## Run time selection
 
-Development builds accept `run --max-minutes <n>`, a positive whole number of minutes that fits a Go time duration. The option overrides `policy.max_wall_clock_min` for this run without saving the choice. It is rejected on other commands.
+`run` accepts `--max-minutes <n>`, a positive whole number of minutes that fits a Go time duration. The option overrides `policy.max_wall_clock_min` for this run without saving the choice. It is rejected on other commands.
 
 Without the option, a macOS run prompts only when both stdin and stderr are terminals and `--json` is absent. Choose `30`, `60`, `180`, `360`, or `custom`; Enter keeps the project/default limit. Invalid input retries; `q`, `cancel`, or end of input aborts before providers or worktrees start. Other platforms and redirected/JSON runs use configuration without prompting.
 
@@ -36,7 +36,7 @@ Priority is CLI option, terminal selection, then project/default configuration (
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.4`.
+These options are available in public Beta `0.10.0-beta.5`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -223,7 +223,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.4`.
+The following behavior is included in public Beta `0.10.0-beta.5`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.
@@ -233,7 +233,7 @@ The following behavior is included in public Beta `0.10.0-beta.4`.
 
 Dynamic display values are reduced to one line, stripped of terminal control sequences and limited to 160 Unicode characters. If this formatting would change an absolute diagnostic path, the CLI shows a path relative to the selected repository and labels it accordingly. Original provider transcripts, tool-call accounting and validation output remain in the local run records; this display limit does not truncate those saved originals. Protect and inspect records before sharing them.
 
-Development builds add elapsed time and stage/provider context to these logs by default. Structured provider events identify read, search, edit, write, deletion and generic command/tool activity, with safe worktree-relative paths when available. Codex command events stay generic; the CLI does not interpret shell text to guess what was read. Sensitive or outside-worktree paths, search patterns, command arguments, output and provider prose are omitted. Provider completion reports measured duration, recognized tool-event count and exit status. A Claude assistant event containing one or more tool uses counts once. Tool activity is separate from validated changes and accepted commits; existing tool-call accounting is preserved.
+The CLI adds elapsed time and stage/provider context to these logs by default. Structured provider events identify read, search, edit, write, deletion and generic command/tool activity, with safe worktree-relative paths when available. Codex command events stay generic; the CLI does not interpret shell text to guess what was read. Sensitive or outside-worktree paths, search patterns, command arguments, output and provider prose are omitted. Provider completion reports measured duration, recognized tool-event count and exit status. A Claude assistant event containing one or more tool uses counts once. Tool activity is separate from validated changes and accepted commits; existing tool-call accounting is preserved.
 
 <a id="code-comparison"></a>
 
@@ -243,7 +243,7 @@ Compare `state.baseOid` with `state.publishedOid` in the source repository. The 
 
 - Preview: file statistics and three context lines; at most 200 complete lines or UTF-8 32 KiB.
 - `changes.patch`: the full text patch, omitting binary bodies while retaining binary and file-mode metadata. External diff and textconv are disabled.
-- Development builds also save `changes.md`: a file review checklist with status, additions/deletions, rename and mode metadata, followed by the complete text patch. Checkboxes record human review; they do not select changes or modify the result branch. Editing the checklist leaves `changes.patch` unchanged.
+- `changes.md`: a file review checklist with status, additions/deletions, rename and mode metadata, followed by the complete text patch. Checkboxes record human review; they do not select changes or modify the result branch. Editing the checklist leaves `changes.patch` unchanged.
 
 The optional `codeComparison` object in `report.json` contains:
 
@@ -254,7 +254,7 @@ The optional `codeComparison` object in `report.json` contains:
 | `files` | Path, old path for a rename, Git status, old/new mode, insertions, deletions and binary flag |
 | `totals` | File count, text insertions/deletions and binary-file count; binary line counts are null per file |
 | `patchFile` | `changes.patch`, relative to the run directory, or null if no patch was saved |
-| `markdownFile`, `markdownError` | Development builds: `changes.md` if saved, and a separate Markdown write error if any |
+| `markdownFile`, `markdownError` | `changes.md` if saved, and a separate Markdown write error if any |
 | `preview`, `truncated` | Stored diff excerpt and whether the full patch exceeds it |
 | `error` | Original collection/storage error, or null |
 
@@ -273,9 +273,9 @@ Viewing a report does not recollect the comparison. `accepted.patch` is a pre-re
 
 ### Usage and exit codes
 
-Failed calls and schema-repair processes count toward usage. Provider-reported USD totals include only calls that supplied a price. Missing prices are unknown rather than zero; the development estimates below are shown separately.
+Failed calls and schema-repair processes count toward usage. Provider-reported USD totals include only calls that supplied a price. Missing prices are unknown rather than zero; the estimates below are shown separately.
 
-Development builds use provider-reported USD first. A missing price can receive an offline standard API estimate from bundled rates checked on **2026-10-07**, using [Artificial Analysis](https://artificialanalysis.ai/) with provider documentation for cache rates. Exact supported IDs are Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, and Claude `claude-sonnet-5-5`; aliases are not guessed. Pricing is not fetched during a run or report viewing.
+The CLI uses provider-reported USD first. A missing price can receive an offline standard API estimate from bundled rates checked on **2026-10-07**, using [Artificial Analysis](https://artificialanalysis.ai/) with provider documentation for cache rates. Exact supported IDs are Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, and Claude `claude-sonnet-5-5`; aliases are not guessed. Pricing is not fetched during a run or report viewing.
 
 Each estimate records the requested model, token categories, rates, source URLs, checked date and assumptions. Cached input and cache writes use separate rates. Reasoning output is included in output tokens and is not charged twice. Missing cache fields are assumed zero and noted; missing Claude cache-write TTL assumes five minutes and is noted. Estimates assume standard API pricing without speed, region, batch or long-context modifiers and do not calculate ChatGPT/Codex/Claude subscription charges. Requested models do not prove executed models.
 

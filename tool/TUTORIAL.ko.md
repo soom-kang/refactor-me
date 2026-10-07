@@ -4,9 +4,7 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-macOS Apple Silicon용 공개 Beta `0.10.0-beta.4` 사용법입니다. 릴리스 commit은 `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`입니다. 공개 태그와 Homebrew formula는 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37208178549)에서 확인합니다.
-
-개발 빌드로 표시한 내용은 **Unreleased** 변경입니다. 해당 명령은 [개발 실행 파일](DEVELOPMENT.md)로 사용하며 위 공개 Beta에 포함됐다는 뜻은 아닙니다.
+macOS Apple Silicon용 공개 Beta `0.10.0-beta.5` 사용법입니다. 릴리스 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573194052)과 [공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)이 통과했습니다.
 
 <a id="prepare-the-target"></a>
 
@@ -45,7 +43,7 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.4`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.5`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
 이전 버전이라면 먼저 업데이트하세요. 독립 실행 파일 압축파일은 [설치 검사](release/INSTALL.ko.md)를 마친 뒤 아래 명령의 `refactor-me`를 해당 실행 파일의 절대 경로로 바꿉니다. 실행 파일은 대상 저장소 밖에 보관하세요.
 
@@ -116,12 +114,12 @@ refactor-me run --repo /path/to/target-repo \
 
 모델 ID와 `xhigh`는 예시의 선택값이며 기본값이 아닙니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정에 모델이 있어야 합니다. CLI 값이 우선하며 설정 파일은 바꾸지 않습니다. 추론 수준을 지정하면 해당 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. 모델 접근 권한과 지원하는 추론 수준은 인증한 CLI에 따라 다릅니다. [선택 규칙](README.ko.md#model-and-effort-selection)을 참고하세요. `--lang ko`를 추가하면 진행 로그, 보고서와 최종 요약을 한글로 표시합니다.
 
-### 개발 빌드: 실행 시간 선택
+### 실행 시간 선택
 
 프로젝트 설정 파일을 바꾸지 않고 이번 실행의 한도를 정합니다.
 
 ```sh
-/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+refactor-me run --repo /path/to/target-repo \
   --provider codex --fallback none \
   --model gpt-6.1-sol --max-minutes 60
 ```
@@ -151,7 +149,7 @@ refactor-me run --repo /path/to/target-repo \
 
 ### 진행 로그 확인
 
-공개 Beta `0.10.0-beta.4`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
+공개 Beta `0.10.0-beta.5`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -163,7 +161,7 @@ refactor-me run --repo /path/to/target-repo \
 
 진행 로그는 `stderr`로 출력합니다. `--json`을 추가하면 `stdout`에는 보고서 JSON만 출력합니다. shell 명령, provider 설명과 검증 출력은 터미널 대신 로컬 실행 기록에 보존합니다. 실패하면 CLI가 안내한 진단 경로를 열어 확인하세요. 기록이 생성되지 않았다면 그 사실을 알립니다. 제외, 되돌리기와 provider 복구 안내는 [진행 로그](README.ko.md#progress-logs)를 참고하세요.
 
-개발 빌드는 기본 로그에 경과 시간, 단계, provider, 안전한 읽기, 검색, 수정 작업과 확인 가능한 worktree 상대 경로를 표시합니다. 일반 명령 작업 메시지는 shell 원문이나 출력을 보여 주지 않습니다. provider 완료 시에는 실제 소요 시간, 도구 이벤트 수와 종료 상태를 알립니다.
+기본 로그에는 경과 시간, 단계, provider, 안전한 읽기, 검색, 수정 작업과 확인 가능한 worktree 상대 경로를 표시합니다. 일반 명령 작업 메시지는 shell 원문이나 출력을 보여 주지 않습니다. provider 완료 시에는 실제 소요 시간, 도구 이벤트 수와 종료 상태를 알립니다.
 
 <a id="read-the-result"></a>
 
@@ -186,9 +184,9 @@ refactor-me report --repo /path/to/target-repo --json
 
 결과 branch는 `refactor/auto-*` 형식입니다. CLI는 자동 병합, push, 배포를 하지 않습니다. `accepted.patch`는 중간 검토 자료이며, 최종 발행한 변경은 `changes.patch`로 확인합니다.
 
-개발 빌드는 `.refactor/runs/<id>/changes.md`도 저장합니다. Markdown 편집기에서 파일 체크리스트와 전체 텍스트 diff를 읽으세요. 체크는 검토 진행 표시이며 branch에 반영할 변경을 선택하거나 제외하지 않습니다. `changes.patch`는 그대로 보존하고 바이너리 변경은 메타데이터로 표시합니다. 보고서를 조회해도 체크리스트와 저장된 근거는 바뀌지 않습니다.
+CLI는 `.refactor/runs/<id>/changes.md`도 저장합니다. Markdown 편집기에서 파일 체크리스트와 전체 텍스트 diff를 읽으세요. 체크는 검토 진행 표시이며 branch에 반영할 변경을 선택하거나 제외하지 않습니다. `changes.patch`는 그대로 보존하고 바이너리 변경은 메타데이터로 표시합니다. 보고서를 조회해도 체크리스트와 저장된 근거는 바뀌지 않습니다.
 
-개발 보고서의 provider 보고액과 추정액은 따로 읽으세요. 지원하는 정확한 모델에서 비용을 보고하지 않으면 오프라인 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 단가를 사용하고 출처, 확인 날짜와 가정을 기록합니다. 구독 청구액이 아니며 알 수 없는 모델이나 누락된 사용량은 미확인으로 남습니다. 일부 금액만 있는 합계를 읽기 전에 [사용량 규칙](README.ko.md#usage-and-exit-codes)을 확인하세요.
+보고서의 provider 보고액과 추정액은 따로 읽으세요. 지원하는 정확한 모델에서 비용을 보고하지 않으면 오프라인 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 단가를 사용하고 출처, 확인 날짜와 가정을 기록합니다. 구독 청구액이 아니며 알 수 없는 모델이나 누락된 사용량은 미확인으로 남습니다. 일부 금액만 있는 합계를 읽기 전에 [사용량 규칙](README.ko.md#usage-and-exit-codes)을 확인하세요.
 
 ## 중단했을 때
 

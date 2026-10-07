@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.4`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.4)이며 commit은 `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.5`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)이며 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 선택 검사: 로컬 후보 생성
 
@@ -89,6 +89,20 @@ refactor-me version --json
 `brew test`가 버전, commit, 도움말, 대상 저장소 선택, 기본 설정과 반복 `init`의 설정 보존을 이미 검사합니다. workflow는 설치된 버전과 commit을 선택한 릴리스 태그와도 비교합니다. 로컬에서 같은 검사를 반복하거나 설치 확인을 위해 실제 provider를 호출하지 않습니다. 사용자의 기존 설치와 관련 없는 Homebrew trust는 보존합니다.
 
 공개 설치를 통과한 뒤에만 영·한 설치 문서와 tap README 두 개의 공개 버전과 commit을 갱신하고 후보 안내를 제거합니다. 이는 저장소 문서를 갱신하며 이미 게시한 압축파일의 동봉 안내는 바꾸지 않습니다. 실제 main 저장소 workflow를 연결하는 `Verify` badge도 그때 추가합니다. tap README에는 `CLI Verify`로 표시하며 tap CI나 실제 provider 실행을 입증하는 배지로 안내하지 않습니다. 기존 타이틀 이미지를 유지합니다. 기존 사용자는 이후 `brew upgrade refactor-me`를 직접 실행할 수 있습니다. 문서만 갱신할 때는 태그, 자산, formula 버전을 새로 만들 필요가 없습니다.
+
+## Beta.5 검증 기록
+
+릴리스 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/37573194052)와 [선택한 태그의 공개 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)을 확인하세요.
+
+- Main CI: 릴리스 commit과 같은 SHA에서 `PASS`. formatting, Go tests, vet, CLI build와 Python release test 4개를 검사했습니다. 로컬 전체 검사와 태그 CI는 반복하지 않았습니다.
+- 공개 설치: `PASS`. `brew install`과 `brew test`를 통과했습니다. 설치된 JSON은 버전 `0.10.0-beta.5`, commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`, 플랫폼 `darwin`, 아키텍처 `arm64`를 보고했습니다. `public-install`과 집계 `verify`가 성공했고 `go`와 `js-fixture`는 생략됐습니다.
+- 두 압축파일과 통합 `SHA256SUMS`가 GitHub에 업로드한 자산의 digest와 일치했습니다. 공개 소스 URL은 HTTP 200을 반환했습니다. [Formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/9d5c3011ee78152379b932dbbd222ba4e86d107b)은 해당 소스 hash와 릴리스 commit을 고정합니다. 사용자의 로컬 Homebrew 설치와 trust 설정은 보존했습니다.
+- 이번 릴리스의 실제 Codex/Claude fixture는 `NOT_RUN`입니다. 공개 설치는 provider를 호출하지 않으며 모델의 실제 판단을 검증하지 않습니다. 동봉한 실행 파일 안내는 게시 전에 Beta.5용으로 준비했으며 이후 저장소 문서 갱신은 압축파일을 바꾸지 않습니다.
+
+```text
+4191884590936feee28263d3982091444c4ccf23d8218b68f410827ca96b680f  refactor-me_0.10.0-beta.5_source.tar.gz
+babef59255a77e8fe56743e050c5c7353fa91c801efd9a76d575ccd01e0b6b4e  refactor-me_0.10.0-beta.5_darwin_arm64.zip
+```
 
 ## Beta.4 검증 기록
 

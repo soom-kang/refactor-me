@@ -4,7 +4,7 @@
 
 이 Beta는 macOS Apple Silicon(`darwin/arm64`)만 지원합니다. Homebrew로 전역 실행 파일을 설치하고 sharpen-me Skills는 따로 설치합니다.
 
-Beta `0.10.0-beta.5` 배포 파일을 위한 안내입니다. 릴리스 게시나 공개 설치 검증 통과를 뜻하지 않습니다. 이 버전의 formula가 공개된 뒤 Homebrew 절차를, [릴리스 파일](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)이 공개된 뒤 다운로드 절차를 사용하세요. 아래 절차에 따라 버전과 commit을 `BUILD-INFO.txt`, 실행 파일의 JSON 출력, annotated tag의 peeled commit과 비교합니다.
+공개 릴리스 [`0.10.0-beta.5`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)의 commit은 `8bfebe90b04e54cf1ef843915aad2901be0db41d`입니다. 공개 태그와 Homebrew formula의 [설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37573464996)을 통과했습니다. 아래 절차에 따라 압축파일의 버전과 commit을 `BUILD-INFO.txt`, 실행 파일의 JSON 출력, 릴리스 태그와 비교하세요.
 
 ## 이미 압축을 푼 경우
 
@@ -38,11 +38,11 @@ Homebrew는 고정한 릴리스 소스를 Go로 빌드합니다. 필수 Skills�
 
 Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 새 환경에서는 먼저 설정해야 `brew install refactor-me`가 외부 formula를 찾을 수 있습니다. 해당 formula만 신뢰하면 되며 tap 전체의 trust 설정은 필요하지 않습니다.
 
-버전 `0.10.0-beta.5`와 실행 파일의 commit을 annotated tag의 peeled commit과 비교한 뒤 계속하세요. 이전 버전이라면 formula가 공개된 뒤 업데이트합니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정합니다. 고정 기본 모델은 없습니다. `doctor --no-live-probe`에는 모델이 필요하지 않으며 모델을 호출하지 않습니다. 깨끗한 Git 저장소를 선택하고 제한을 설정한 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
+버전 `0.10.0-beta.5`와 실행 파일의 commit을 annotated tag의 peeled commit과 비교한 뒤 계속하세요. 이전 버전이라면 먼저 업데이트합니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정합니다. 고정 기본 모델은 없습니다. `doctor --no-live-probe`에는 모델이 필요하지 않으며 모델을 호출하지 않습니다. 깨끗한 Git 저장소를 선택하고 제한을 설정한 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
 
 ## 직접 다운로드
 
-릴리스 파일이 공개된 뒤 새 빈 디렉터리를 준비합니다. [GitHub 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)의 압축파일과 checksum을 그 디렉터리에 내려받으세요.
+새 빈 디렉터리를 준비합니다. [GitHub 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.5)의 압축파일과 checksum을 그 디렉터리에 내려받으세요.
 
 ```sh
 release_url=https://github.com/soom-kang/refactor-me/releases/download

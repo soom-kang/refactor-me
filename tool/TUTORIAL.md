@@ -4,9 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-This guide covers public Beta `0.10.0-beta.4` for macOS Apple Silicon. Release commit: `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549) verifies the published tag and Homebrew formula.
-
-Sections labeled development builds describe **Unreleased** changes. Use the [development binary](DEVELOPMENT.md) for those commands; they are not included in the published Beta above.
+This guide covers public Beta `0.10.0-beta.5` for macOS Apple Silicon. Release commit: `8bfebe90b04e54cf1ef843915aad2901be0db41d`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/37573194052) and the [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37573464996) passed for this version.
 
 <a id="prepare-the-target"></a>
 
@@ -45,7 +43,7 @@ npx skills add soom-kang/sharpen-me \
   --global --skill '*' --agent codex claude-code
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.4`, platform `darwin`, architecture `arm64` and commit `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.5`, platform `darwin`, architecture `arm64` and commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
 Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
@@ -116,12 +114,12 @@ refactor-me run --repo /path/to/target-repo \
 
 The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for Korean progress logs, report and final summary.
 
-### Development builds: choose the run time
+### Choose the run time
 
 Set a limit for one run without editing the project configuration:
 
 ```sh
-/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+refactor-me run --repo /path/to/target-repo \
   --provider codex --fallback none \
   --model gpt-6.1-sol --max-minutes 60
 ```
@@ -151,7 +149,7 @@ Paths resolving outside the repository are rejected. **Targets limit candidate d
 
 ### Read progress logs
 
-In public Beta `0.10.0-beta.4`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
+In public Beta `0.10.0-beta.5`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -163,7 +161,7 @@ Omit `--lang ko` for English. The terminal names the current candidate and stage
 
 Progress goes to `stderr`. Add `--json` to keep `stdout` limited to report JSON. Shell commands, provider notes and validation output remain in local run records instead of filling the terminal. On failure, open the saved diagnostic path shown by the CLI; if no record was created, it says so. See [progress logs](README.md#progress-logs) for exclusions, rollback and provider recovery messages.
 
-Development builds show elapsed time, stage/provider, safe read/search/edit activity and available worktree-relative paths by default. A generic command activity message does not reveal shell text or its output. Provider completion shows measured duration, recognized tool-event count and exit status.
+The default logs show elapsed time, stage/provider, safe read/search/edit activity and available worktree-relative paths. A generic command activity message does not reveal shell text or its output. Provider completion shows measured duration, recognized tool-event count and exit status.
 
 <a id="read-the-result"></a>
 
@@ -186,9 +184,9 @@ Report viewing makes no model calls. Language selection does not rewrite the sav
 
 Results use local `refactor/auto-*` branches. The CLI does not merge, push or deploy. `accepted.patch` is intermediate review input; use `changes.patch` for the final published comparison.
 
-Development builds also write `.refactor/runs/<id>/changes.md`. Review its file checklist and full text diff in your Markdown editor. Checkboxes mark review progress; they do not include/exclude changes from the branch, and `changes.patch` remains unchanged. Binary changes show metadata. Viewing reports preserves the checklist and saved evidence.
+The CLI also writes `.refactor/runs/<id>/changes.md`. Review its file checklist and full text diff in your Markdown editor. Checkboxes mark review progress; they do not include/exclude changes from the branch, and `changes.patch` remains unchanged. Binary changes show metadata. Viewing reports preserves the checklist and saved evidence.
 
-In development reports, read provider-reported and estimated USD separately. Supported exact models with missing provider prices use offline [Artificial Analysis](https://artificialanalysis.ai/) standard API rates with sources, checked dates and assumptions. The estimate is not a subscription bill; unknown models or missing usage remain unpriced. See [usage rules](README.md#usage-and-exit-codes) before interpreting a partial total.
+Read provider-reported and estimated USD separately in the report. Supported exact models with missing provider prices use offline [Artificial Analysis](https://artificialanalysis.ai/) standard API rates with sources, checked dates and assumptions. The estimate is not a subscription bill; unknown models or missing usage remain unpriced. See [usage rules](README.md#usage-and-exit-codes) before interpreting a partial total.
 
 ## When a run stops
 

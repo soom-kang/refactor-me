@@ -48,8 +48,11 @@ if [[ "$dirty" == true && ${RELEASE_CANDIDATE:-0} != 1 ]]; then
   exit 2
 fi
 if [[ ${RELEASE_CANDIDATE:-0} != 1 ]]; then
-  local_tag=$(git -C "$root" tag --list "v$version")
-  if [[ -n "$local_tag" && $(git -C "$root" rev-list -n 1 "v$version") != "$commit" ]]; then
+  if ! tag_commit=$(git -C "$root" rev-parse --verify "refs/tags/v$version^{commit}" 2>/dev/null); then
+    echo "local release tag v$version is missing" >&2
+    exit 2
+  fi
+  if [[ "$tag_commit" != "$commit" ]]; then
     echo "local release tag points to another commit" >&2
     exit 2
   fi
@@ -66,8 +69,26 @@ fi
 stage=$(mktemp -d)
 trap 'if [[ -d "$stage" ]]; then rm -r "$stage"; fi' EXIT
 
+# Public builds consume only the tagged Git objects, including embedded files.
+# Explicit local candidates keep their working-tree edits for preflight.
+build_root=$root
+if [[ ${RELEASE_CANDIDATE:-0} != 1 ]]; then
+  build_root="$stage/source"
+  (
+    export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
+    git -c core.hooksPath=/dev/null clone --quiet --no-local --no-checkout --template= "$root" "$build_root"
+    git -C "$build_root" -c core.hooksPath=/dev/null -c core.autocrlf=false checkout --quiet --detach "$commit"
+  )
+  if [[ $(cat "$build_root/tool/RELEASE_VERSION") != "$version" ]] || ! grep -Fqx "## $version" "$build_root/tool/CHANGELOG.md"; then
+    echo "release metadata differs from tagged source" >&2
+    exit 2
+  fi
+fi
+
+# Ignore ambient workspaces, persisted settings and GOFLAGS overlays.
+export GOENV=off GOWORK=off GOFLAGS= GOTOOLCHAIN=local GO111MODULE=on
 (
-  cd "$root/tool/go"
+  cd "$build_root/tool/go"
   CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -buildvcs=true \
     -ldflags "-X main.version=$version -X main.commit=$commit" -o "$stage/refactor-me" ./cmd/refactor-me
 )
@@ -87,8 +108,8 @@ if [[ $(lipo -archs "$stage/refactor-me") != arm64 ]]; then
 fi
 python3 -c 'import json,subprocess,sys; d=json.loads(subprocess.check_output([sys.argv[1], "version", "--json"])); assert (d["name"],d["version"],d["platform"],d["arch"],d["commit"]) == ("refactor-me",sys.argv[2],"darwin","arm64",sys.argv[3])' "$stage/refactor-me" "$version" "$commit"
 
-cp "$root/LICENSE" "$stage/LICENSE"
-cp "$root/tool/release/INSTALL.md" "$stage/INSTALL.md"
+cp "$build_root/LICENSE" "$stage/LICENSE"
+cp "$build_root/tool/release/INSTALL.md" "$stage/INSTALL.md"
 cat > "$stage/BUILD-INFO.txt" <<EOF
 name=refactor-me
 version=$version

@@ -148,26 +148,41 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if err := r.sweep(); err != nil {
 		return false, err
 	}
-	changed, err := workspace.ChangedPaths(r.wt)
+	facts, err := workspace.CollectFacts(r.wt, r.surface.Repo, preOID, r.state.BaseOID, r.sourceFingerprint, workspace.Packet{Allowlist: files})
 	if err != nil {
 		return false, err
 	}
-	var outside []string
-	for _, path := range changed {
-		if !slices.Contains(files, path) {
-			outside = append(outside, path)
-		}
+	cfgPolicy := obj(r.surface.Config["policy"])
+	policy := workspace.Policy{MaxFilesPerCandidate: r.policy.MaxFilesPerCandidate,
+		MaxChangedLines: integer(cfgPolicy["max_changed_lines"], 600), ExtraForbiddenGlobs: stringsOf(cfgPolicy["extra_forbidden_globs"])}
+	result := workspace.RunCharacterizationChecks(facts, files, policy, r.state.TreeHashes)
+	if err := writeJSONAtomic(filepath.Join(dir, "characterization-gate.json"), result); err != nil {
+		return false, err
 	}
-	if verdict != "PASS" || len(outside) > 0 {
+	patch, err := workspace.Git(r.wt, "diff", "--binary", "HEAD")
+	if err != nil {
+		return false, err
+	}
+	if err := writeText(filepath.Join(dir, "characterization.patch"), patch); err != nil {
+		return false, err
+	}
+	if result.Verdict == "HALT" {
+		return false, halt{"HALTED_UNSAFE", result.Violation.Code + ": " + result.Violation.Detail}
+	}
+	if verdict != "PASS" || result.Verdict == "VIOLATION" {
 		if err := r.rollback(preOID); err != nil {
 			return false, err
 		}
 		why := strings.Join(reasons, "; ")
-		if len(outside) > 0 {
-			why = "touched outside test allowlist: " + strings.Join(outside, ",")
+		var paths []string
+		if result.Violation != nil {
+			why = result.Violation.Code + ": " + result.Violation.Detail
+			paths = result.Violation.Paths
+			r.state.Counters.Violations++
 		}
-		return false, r.fail(str(packet["fp"]), "CHARACTERIZATION_REJECTED", why, outside, len(outside) > 0)
+		return false, r.fail(str(packet["fp"]), "CHARACTERIZATION_REJECTED", why, paths, result.Violation != nil)
 	}
+	changed := facts.Changed
 	if len(changed) == 0 {
 		return true, nil
 	}
@@ -187,6 +202,9 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	tree, err := workspace.WriteTree(r.wt)
 	if err != nil {
 		return false, err
+	}
+	if tree != facts.ProspectiveTree {
+		return false, halt{"HALTED_UNSAFE", "characterization changed between safety checks and commit"}
 	}
 	message := filepath.Join(dir, "characterization-message.txt")
 	if err := writeText(message, fmt.Sprintf("test(%s): characterize current behavior before refactor\n\nRefactor-Fingerprint: %s-char\n", str(packet["candidate_id"]), str(packet["fp"]))); err != nil {
@@ -299,27 +317,42 @@ func (r *runner) execute(packet map[string]any, dir, preOID string) (map[string]
 		}
 		return nil, false, r.fail(str(packet["fp"]), "OUT_OF_SCOPE", "declared deletion outside allowlist", outside, true)
 	}
-	for _, path := range stringsOf(data["deleted_files"]) {
-		abs := filepath.Join(r.wt, path)
-		rel, err := filepath.Rel(r.wt, abs)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-			return nil, false, halt{"HALTED_UNSAFE", "invalid declared deletion path"}
+	if err := removeDeclaredFiles(r.wt, stringsOf(data["deleted_files"])); err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
+}
+
+func removeDeclaredFiles(wt string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	root, err := os.OpenRoot(wt)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	for _, path := range paths {
+		if !filepath.IsLocal(path) {
+			return halt{"HALTED_UNSAFE", "invalid declared deletion path"}
 		}
-		info, err := os.Lstat(abs)
+		info, err := root.Lstat(path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return nil, false, err
+			return err
 		}
 		if info.IsDir() {
-			return nil, false, halt{"HALTED_UNSAFE", "declared deletion is a directory"}
+			return halt{"HALTED_UNSAFE", "declared deletion is a directory"}
 		}
-		if err := os.Remove(abs); err != nil {
-			return nil, false, err
+		// Root also enforces containment during removal if an intermediate
+		// symlink changes after Lstat. A final symlink is removed, not followed.
+		if err := root.Remove(path); err != nil {
+			return err
 		}
 	}
-	return data, true, nil
+	return nil
 }
 
 func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {

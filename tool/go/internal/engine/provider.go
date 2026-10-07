@@ -214,6 +214,10 @@ func (w *eventWriter) Write(p []byte) (int, error) {
 }
 func runProcess(ctx context.Context, bin string, args []string, req Request, onEvent func(map[string]any)) processResult {
 	var r processResult
+	if ctx.Err() != nil {
+		r.killed = true
+		return r
+	}
 	// CommandContext's default Cancel only kills the direct child. Manage the
 	// process group ourselves so descendants cannot outlive a timed-out call.
 	cmd := exec.Command(bin, args...)
@@ -245,6 +249,8 @@ func runProcess(ctx context.Context, bin string, args []string, req Request, onE
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 		select {
 		case waitErr = <-wait:
+			// The leader may exit before a TERM-resistant descendant.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		case <-time.After(processKillGrace):
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			waitErr = <-wait
@@ -254,6 +260,8 @@ func runProcess(ctx context.Context, bin string, args []string, req Request, onE
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 		select {
 		case waitErr = <-wait:
+			// The leader may exit before a TERM-resistant descendant.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		case <-time.After(processKillGrace):
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			waitErr = <-wait
@@ -531,6 +539,9 @@ func truncate(s string, n int) string {
 // CallProvider performs one isolated CLI invocation and stores its raw transcript
 // under req.RunDir. It never resumes a provider session.
 func CallProvider(ctx context.Context, provider string, req Request, cfg Config, log Logger) (Result, error) {
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
 	if provider != "claude" && provider != "codex" {
 		return Result{}, fmt.Errorf("unknown provider %q", provider)
 	}
@@ -711,6 +722,9 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 func CallWithRepair(ctx context.Context, provider string, req Request, cfg Config, log Logger) (Result, error) {
 	res, err := CallProvider(ctx, provider, req, cfg, log)
 	if err != nil {
+		return res, err
+	}
+	if err := ctx.Err(); err != nil {
 		return res, err
 	}
 	if res.OK && req.Schema != nil {

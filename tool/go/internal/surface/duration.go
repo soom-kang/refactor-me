@@ -95,7 +95,7 @@ func SelectMaxMinutes(stdin io.Reader, stderr io.Writer, defaultMinutes int, lan
 		}
 		return value, nil
 	}
-	if err := write("Maximum run time: 30 / 60 / 180 / 360 minutes / custom\nThe current work unit finishes before stopping.\n", "최대 실행 시간: 30 / 60 / 180 / 360분 / custom\n시간 한도에 도달하면 진행 중인 작업 단위를 마친 뒤 종료합니다.\n"); err != nil {
+	if err := write("Maximum run time: 30 / 60 / 180 / 360 minutes / custom\nThe current work unit finishes before stopping. This is a soft time limit, not a spending cap.\n", "최대 실행 시간: 30 / 60 / 180 / 360분 / custom\n시간 한도에 도달하면 진행 중인 작업 단위를 마친 뒤 종료합니다. 강제 종료 시각이나 비용 상한이 아닙니다.\n"); err != nil {
 		return 0, err
 	}
 	for {

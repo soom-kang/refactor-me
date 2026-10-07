@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
@@ -331,5 +332,23 @@ func TestContractHandoffSnapshot(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Fatal(string(data))
 		}
+	}
+}
+
+func TestCancelledRunDoesNotStartProvider(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := &runner{ctx: ctx, surface: surface.Context{Stderr: io.Discard},
+		state: newState("cancel", "", "", "", "main", "result", nil, []string{"codex"})}
+	_, err := r.callPhase("audit", t.TempDir(), "", engine.PromptArgs{})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled phase: %v", err)
+	}
+	if r.state.Providers["codex"].Calls != 0 {
+		t.Fatal("cancelled run started a provider")
+	}
+	r.stopFromError(err)
+	if r.state.Terminal.Status != "ABORTED" {
+		t.Fatalf("cancelled status: %s", r.state.Terminal.Status)
 	}
 }

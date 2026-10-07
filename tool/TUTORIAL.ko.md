@@ -32,15 +32,13 @@ claude auth status
 
 ## 2. CLI와 Skills 설치
 
-Homebrew와 Skill 설치기에 필요한 Node.js를 준비합니다. Homebrew가 CLI 빌드에 필요한 Go를 관리합니다. 설치된 CLI 실행에는 Go나 Node가 필요하지 않습니다.
+Homebrew와 Git을 준비합니다. Homebrew가 CLI 빌드에 필요한 Go를 관리합니다. 설치된 CLI 실행에는 Go나 Node가 필요하지 않습니다. CLI 설치 후 고정된 [Skill 기준 카탈로그](release/INSTALL.ko.md#skill-reference)를 별도로 설치하세요.
 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
 brew install refactor-me
 refactor-me version --json
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
 ```
 
 Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.5`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `8bfebe90b04e54cf1ef843915aad2901be0db41d`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.

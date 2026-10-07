@@ -160,7 +160,7 @@ case "$phase" in
     test ! -e test/entrypoint-characterization.test.mjs || exit 25
     mkdir -p test
     printf '%s\n' '// pinned entrypoint behavior' > test/entrypoint-characterization.test.mjs
-    printf '%s\n' '// additional coverage' >> test/existing.test.mjs
+    printf '%s\n' '// coverage 1' '// coverage 2' '// coverage 3' '// coverage 4' '// coverage 5' '// coverage 6' >> test/existing.test.mjs
     ;;
   execute|execute-second)
     printf '%s' "$prompt" | grep -Fq '"baseline_usable": true' || exit 26
@@ -197,6 +197,11 @@ esac
 	if err != nil || json.Unmarshal(data, &ladder) != nil || !ladder.OK || len(ladder.Checks) != 1 {
 		t.Fatalf("incomplete recorded evidence: %s: %v", data, err)
 	}
+	var gate workspace.GateResult
+	data, err = os.ReadFile(filepath.Join(filepath.Dir(paths[0]), "characterization-gate.json"))
+	if err != nil || json.Unmarshal(data, &gate) != nil || gate.Verdict != "PASS" {
+		t.Fatalf("valid test additions failed measured safety checks: %s: %v", data, err)
+	}
 	wt := str(report["worktree"])
 	if got := gitTest(t, wt, "show", "HEAD:"+testPath); got != "// pinned entrypoint behavior" {
 		t.Fatalf("execution changed the prepared tests: %q", got)
@@ -220,5 +225,72 @@ esac
 		if evidence.BaseCommit != f.base || evidence.Characterization == nil || evidence.Characterization.Commit != commits[0]["oid"] || len(evidence.Characterization.Files) != 2 || len(evidence.Characterization.CreatedFiles) != 1 || evidence.Characterization.CreatedFiles[0] != testPath {
 			t.Fatalf("%s lost provenance or exempted an existing file: %+v", phase, evidence)
 		}
+	}
+}
+
+func TestRunCharacterizationRejectsDishonestProvider(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, edit, code string
+	}{
+		{"assertion-removed", "test/existing.test.mjs", "printf '// removed assertion\\n' > test/existing.test.mjs", "TEST_WEAKENED"},
+		{"skip-added", "test/existing.test.mjs", "printf 'test.skip(() => {});\\n' >> test/existing.test.mjs", "TEST_WEAKENED"},
+		{"production", "src/index.mjs", "printf '// production changed\\n' >> src/index.mjs", "PRODUCTION_CHANGED"},
+		{"forbidden", "test/fixtures/data.test.mjs", "printf '// fixture changed\\n' >> test/fixtures/data.test.mjs", "FORBIDDEN_PATH"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newProgressRunFixture(t)
+			path := filepath.Join(f.repo, tc.path)
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			const original = "assert.equal(1, 1);\n"
+			if err := os.WriteFile(path, []byte(original), 0644); err != nil {
+				t.Fatal(err)
+			}
+			gitTest(t, f.repo, "add", tc.path)
+			gitTest(t, f.repo, "commit", "-qm", "characterization fixture")
+			f.base = gitTest(t, f.repo, "rev-parse", "HEAD")
+			f.responses["deep_check"]["characterization_needed"] = true
+			f.responses["deep_check"]["characterization_files"] = []string{tc.path}
+			f.responses["characterization"] = map[string]any{
+				"schema_version": "1", "candidate_id": "dead-legacy-parser", "changed_files": []string{tc.path},
+				"characterized_contracts": []string{"C1"}, "production_source_changed": false, "assertions_weakened": false,
+				"verdict": "PASS", "notes": "Claims safe tests despite the actual diff.",
+			}
+			f.prepare(t)
+			script, err := os.ReadFile(f.bin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := strings.Replace(string(script), "  */deep_check-last.json)", "  */characterization-last.json) phase=characterization ;;\n  */deep_check-last.json)", 1)
+			hook := "if [ \"$phase\" = characterization ]; then " + tc.edit + "; fi\n"
+			body = strings.Replace(body, "cp "+progressShellQuote(f.fixtures), hook+"cp "+progressShellQuote(f.fixtures), 1)
+			if err := os.WriteFile(f.bin, []byte(body), 0700); err != nil {
+				t.Fatal(err)
+			}
+			_, report, runDir := f.run(t, "")
+			skipped := mapsOf(report["skipped"])
+			if report["branch"] != nil || len(skipped) != 1 || skipped[0]["reason"] != "CHARACTERIZATION_REJECTED" {
+				t.Fatalf("unsafe characterization was accepted: %#v", report)
+			}
+			paths, err := filepath.Glob(filepath.Join(runDir, "cycles", "01-*", "characterization-gate.json"))
+			if err != nil || len(paths) != 1 {
+				t.Fatalf("missing measured gate evidence: %v: %v", paths, err)
+			}
+			var gate workspace.GateResult
+			data, err := os.ReadFile(paths[0])
+			if err != nil || json.Unmarshal(data, &gate) != nil || gate.Violation == nil || gate.Violation.Code != tc.code {
+				t.Fatalf("wrong rejection evidence: %s: %v", data, err)
+			}
+			patch, err := os.ReadFile(filepath.Join(filepath.Dir(paths[0]), "characterization.patch"))
+			if err != nil || !bytes.Contains(patch, []byte(tc.path)) {
+				t.Fatalf("missing rejected diff: %s: %v", patch, err)
+			}
+			wt := str(report["worktree"])
+			data, err = os.ReadFile(filepath.Join(wt, tc.path))
+			if err != nil || string(data) != original || gitTest(t, wt, "rev-parse", "HEAD") != f.base {
+				t.Fatalf("rejected characterization was not rolled back: %s: %v", data, err)
+			}
+		})
 	}
 }

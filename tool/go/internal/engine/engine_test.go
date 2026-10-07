@@ -259,3 +259,38 @@ func TestCallProviderEscalatesToKill(t *testing.T) {
 		t.Fatal("SIGKILL escalation did not complete")
 	}
 }
+
+func TestRunProcessKillsChildAfterLeaderExit(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "early-exit")
+	body := "#!/bin/sh\necho $$ > leader.pid\ntrap 'exit 0' TERM\nsh -c 'trap \"\" TERM; while :; do echo alive >> marker; sleep 0.02; done' >/dev/null 2>&1 &\nwait\n"
+	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
+		t.Fatal(err)
+	}
+	result := runProcess(context.Background(), script, nil, Request{CWD: dir, Timeout: time.Second}, nil)
+	if !result.killed {
+		t.Fatal("provider did not time out")
+	}
+	pidData, err := os.ReadFile(filepath.Join(dir, "leader.pid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pid int
+	if _, err := fmt.Sscan(string(pidData), &pid); err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.Kill(-pid, syscall.SIGKILL)
+	marker := filepath.Join(dir, "marker")
+	before, err := os.ReadFile(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+	after, err := os.ReadFile(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("descendant continued writing after provider timeout")
+	}
+}

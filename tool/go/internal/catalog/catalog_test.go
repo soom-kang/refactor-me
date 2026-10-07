@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,9 @@ func TestLoadSnapshotAndDrift(t *testing.T) {
 	if len(c.Entries) != 8 {
 		t.Fatal(c)
 	}
+	if status, detail := c.ReferenceCheck(); status != "WARN" || !strings.Contains(detail, "unverified/custom") {
+		t.Fatal(status, detail)
+	}
 	if err := c.Snapshot(t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +56,34 @@ func TestLoadSnapshotAndDrift(t *testing.T) {
 	put(t, filepath.Join(c.Entries[0].Path, "references", "guide.md"), "global changed")
 	if err := c.Verify(); err == nil || !strings.Contains(err.Error(), "global skill changed") {
 		t.Fatal(err)
+	}
+}
+
+func TestReferenceCheck(t *testing.T) {
+	var ref referenceManifest
+	if err := json.Unmarshal(referenceJSON, &ref); err != nil {
+		t.Fatal(err)
+	}
+	if len(ref.Skills) != len(Required) || ref.HashAlgorithm != "catalog-tree-sha256-v1" || ref.LiveCompatibility != "NOT_RUN" {
+		t.Fatal(ref)
+	}
+	c := &Catalog{}
+	for _, name := range Required {
+		if len(ref.Skills[name]) != 64 {
+			t.Fatal("missing reference hash", name)
+		}
+		c.Entries = append(c.Entries, Entry{Name: name, SHA256: ref.Skills[name]})
+	}
+	if status, detail := c.ReferenceCheck(); status != "PASS" || !strings.Contains(detail, ref.Revision) || !strings.Contains(detail, "NOT_RUN") {
+		t.Fatal(status, detail)
+	}
+	c.Entries[0].SHA256 = "changed"
+	if status, detail := c.ReferenceCheck(); status != "WARN" || !strings.Contains(detail, Required[0]) {
+		t.Fatal(status, detail)
+	}
+	c = nil
+	if status, _ := c.ReferenceCheck(); status != "FAIL" {
+		t.Fatal(status)
 	}
 }
 func TestInvalidCatalog(t *testing.T) {

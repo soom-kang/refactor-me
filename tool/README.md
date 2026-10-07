@@ -296,3 +296,7 @@ Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation e
 ## Local development checks
 
 Build and test with Go using the [development guide](DEVELOPMENT.md). Generate disposable repositories with the [fixture guide](fixtures/README.md). Live provider loading and model decisions require separate checks.
+
+Ctrl-C or SIGTERM during `run`/`doctor` cancels managed provider and validation processes. Cancellation stops retries and fallback; accepted commits remain intact and an unfinished worktree is retained for inspection. SIGKILL cannot provide cleanup guarantees.
+
+If run preparation fails before a final report, `report` returns exit 2 and shows the latest failure rather than a stale successful result. The previous completed report stays in its original run directory; a later completed run clears the failure marker.

@@ -23,22 +23,62 @@ Checksums verify archive bytes; `BUILD-INFO.txt` comparison detects a mismatched
 
 ## Homebrew
 
-Prepare Git, an authenticated Codex or Claude Code CLI, and the target project's validation tools. Node.js is needed for the Skill installer, not refactor-me itself.
+Prepare Git, an authenticated Codex or Claude Code CLI, and the target project's validation tools. The pinned Git-based Skill installation below needs no Node.js.
 
 ```sh
 brew tap soom-kang/refactor-me
 brew trust --formula soom-kang/refactor-me/refactor-me
 brew install refactor-me
 refactor-me version --json
-npx skills add soom-kang/sharpen-me \
-  --global --skill '*' --agent codex claude-code
 ```
 
-Homebrew builds fixed release source with Go as a build dependency. Required Skills resolve from `~/.agents/skills`. Homebrew does not install Skills or write project configuration.
+Homebrew builds fixed release source with Go as a build dependency. Required Skills resolve from `~/.agents/skills`. Homebrew does not install Skills or write project configuration. Install the [Skill reference](#skill-reference) below before the first doctor check.
 
 Tap registration and trust for this formula are one-time setup with Homebrew 6 or later. A new Homebrew environment needs them before `brew install refactor-me` can resolve the third-party formula. Trust only this formula; whole-tap trust is unnecessary.
 
 Confirm version `0.10.0-beta.5` and compare the executable's commit with the annotated tag's peeled commit before continuing; upgrade older installations first. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
+
+<a id="skill-reference"></a>
+
+## Pinned Skill reference
+
+The reference is [sharpen-me commit `fbb88aea30ff46ade265607ea6572be7cc642a4c`](https://github.com/soom-kang/sharpen-me/tree/fbb88aea30ff46ade265607ea6572be7cc642a4c). The embedded [manifest](https://github.com/soom-kang/refactor-me/blob/main/tool/go/internal/catalog/reference.json) records all eight full-tree SHA-256 hashes, including `LICENSE` and `agents/` files. This is a reproducible content reference; live provider compatibility is `NOT_RUN`.
+
+For a fresh Skill installation, use the following Git-only path. It pins the source commit without executing a moving `npx` installer. It stops when a named Skill or source checkout already exists; preserve existing/custom installations and review any replacement yourself, between runs. Keep the source checkout because the global paths link to it.
+
+```sh
+(
+  set -eu
+  revision=fbb88aea30ff46ade265607ea6572be7cc642a4c
+  source="$HOME/.local/share/refactor-me/sharpen-me-$revision"
+  names="sharpen-clarify sharpen-review sharpen-challenge sharpen-assess sharpen-refine sharpen-cold-review sharpen-brief sharpen-dedupe"
+  if test -e "$source" || test -L "$source"; then
+    echo "Existing source: $source; preserve it and resolve manually." >&2
+    exit 1
+  fi
+  for name in $names; do
+    for root in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills"; do
+      if test -e "$root/$name" || test -L "$root/$name"; then
+        echo "Existing Skill: $root/$name; preserve it and resolve manually." >&2
+        exit 1
+      fi
+    done
+  done
+  mkdir -p "$(dirname "$source")"
+  git -c core.autocrlf=false clone --no-checkout https://github.com/soom-kang/sharpen-me.git "$source"
+  git -C "$source" -c core.autocrlf=false checkout --detach "$revision"
+  test "$(git -C "$source" rev-parse HEAD)" = "$revision"
+  mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
+  for name in $names; do
+    ln -s "$source/skills/$name" "$HOME/.agents/skills/$name"
+    ln -s "$HOME/.agents/skills/$name" "$HOME/.claude/skills/$name"
+  done
+)
+```
+
+Run `refactor-me doctor --repo /path/to/target-repo --provider codex --fallback none --no-live-probe` afterward, using `--provider claude` instead if appropriate. Resolve discovery conflicts reported by doctor, including project-local copies or alternate provider configuration roots.
+
+Builds containing the new `skill-reference` diagnostic distinguish `PASS` (reference content match), nonblocking `WARN` (unverified/custom content, with differing names), and `FAIL` (catalog unavailable; the separate `global-skills` failure blocks execution). Valid custom catalogs remain supported, and existing in-run drift checks still apply. A content match never proves live Skill loading or model behavior. The already-published Beta.5 binary does not contain this new diagnostic; historical Beta.5 verification is unchanged.
 
 ## Standalone download
 

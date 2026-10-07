@@ -3,6 +3,7 @@ package surface
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -110,6 +111,20 @@ func TestReportJSONRawAndMarkdown(t *testing.T) {
 			t.Fatalf("raw report drift: %d %q", code, out.String())
 		}
 	}
+	if err := writeRunFailure(repo, errors.New("doctor failed")); err != nil {
+		t.Fatal(err)
+	}
+	var failedOut, failedErr bytes.Buffer
+	if code := executeReport(repo, Args{JSON: true}, &failedOut, &failedErr); code != ExitAborted || failedOut.Len() != 0 || !strings.Contains(failedErr.String(), "doctor failed") {
+		t.Fatalf("stale report returned after failure: %d %s %s", code, &failedOut, &failedErr)
+	}
+	if err := writeLastRun(repo, RunResult{RunID: "old", RunDir: runDir, Status: "NO_CHANGES"}); err != nil {
+		t.Fatal(err)
+	}
+	failedErr.Reset()
+	if code := executeReport(repo, Args{JSON: true}, &failedOut, &failedErr); code != ExitOK || failedOut.String() != report {
+		t.Fatalf("successful run did not clear failure: %d %s", code, &failedErr)
+	}
 	readBack, err := os.ReadFile(filepath.Join(runDir, "report.json"))
 	if err != nil || string(readBack) != report {
 		t.Fatal("report changed")
@@ -125,6 +140,9 @@ func TestReportRejectsCorruptPointerWithoutRewritingIt(t *testing.T) {
 	path := filepath.Join(dir, "last-run.json")
 	if err := os.WriteFile(path, []byte("{broken"), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	if err := writeRunFailure(repo, errors.New("preparation failed")); err == nil {
+		t.Fatal("failed attempt overwrote a corrupt previous pointer")
 	}
 	var out, stderr bytes.Buffer
 	if code := Execute([]string{"report", "--json"}, repo, &out, &stderr, Callbacks{}); code != ExitAborted {

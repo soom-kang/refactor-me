@@ -455,6 +455,9 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 	}
 	result, e := callbacks.Run(ctx)
 	if e != nil {
+		if recordErr := writeRunFailure(repo, e); recordErr != nil {
+			fmt.Fprintln(stderr, "refactor-me: could not record failed attempt:", recordErr)
+		}
 		fmt.Fprintln(stderr, "refactor-me:", e)
 		return ExitAborted
 	}
@@ -482,6 +485,38 @@ func writeLastRun(repo string, r RunResult) error {
 		return errors.New("missing run directory")
 	}
 	ptr := map[string]any{"schemaVersion": LastRunSchemaVersion, "runId": r.RunID, "toolVersion": Version, "runDir": r.RunDir, "status": r.Status, "branch": r.Branch, "finishedAt": time.Now().UTC().Format(time.RFC3339Nano)}
+	return writeRunPointer(repo, ptr)
+}
+
+func writeRunFailure(repo string, failure error) error {
+	path := filepath.Join(repo, ".refactor", "last-run.json")
+	if err := checkDirectory(filepath.Dir(path)); err != nil {
+		return err
+	}
+	if err := checkRegularFile(path); err != nil {
+		return err
+	}
+	ptr := map[string]any{"schemaVersion": LastRunSchemaVersion}
+	data, err := os.ReadFile(path)
+	if err == nil {
+		if err := json.Unmarshal(data, &ptr); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if ptr == nil || ptr["schemaVersion"] != float64(LastRunSchemaVersion) {
+		// Fresh pointers use an int; existing JSON pointers use float64.
+		if ptr == nil || ptr["schemaVersion"] != LastRunSchemaVersion {
+			return errors.New("last-run.json: unsupported or empty pointer")
+		}
+	}
+	ptr["lastAttemptError"] = failure.Error()
+	ptr["lastAttemptAt"] = time.Now().UTC().Format(time.RFC3339Nano)
+	return writeRunPointer(repo, ptr)
+}
+
+func writeRunPointer(repo string, ptr map[string]any) error {
 	data, e := json.MarshalIndent(ptr, "", "  ")
 	if e != nil {
 		return e

@@ -45,6 +45,13 @@ func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "refactor-me: last-run.json: unsupported schemaVersion")
 		return ExitAborted
 	}
+	if failure, ok := last["lastAttemptError"].(string); ok {
+		fmt.Fprintln(stderr, "latest run failed before a final report:", DisplayText(failure))
+		if previous, _ := last["runDir"].(string); previous != "" {
+			fmt.Fprintln(stderr, "previous completed report remains at:", DisplayText(filepath.Join(previous, "report.json")))
+		}
+		return ExitAborted
+	}
 	runDir, _ := last["runDir"].(string)
 	if runDir == "" {
 		fmt.Fprintln(stderr, "refactor-me: last-run.json has no runDir")

@@ -245,6 +245,8 @@ func runProcess(ctx context.Context, bin string, args []string, req Request, onE
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 		select {
 		case waitErr = <-wait:
+			// The leader may exit before a TERM-resistant descendant.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		case <-time.After(processKillGrace):
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			waitErr = <-wait
@@ -254,6 +256,8 @@ func runProcess(ctx context.Context, bin string, args []string, req Request, onE
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 		select {
 		case waitErr = <-wait:
+			// The leader may exit before a TERM-resistant descendant.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		case <-time.After(processKillGrace):
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			waitErr = <-wait

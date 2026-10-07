@@ -14,6 +14,54 @@ import (
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 )
 
+func TestDeclaredDeletionStaysWithinWorktree(t *testing.T) {
+	for _, name := range []string{"file", "missing", "final-symlink", "intermediate-symlink", "parent", "absolute", "directory"} {
+		t.Run(name, func(t *testing.T) {
+			base := t.TempDir()
+			wt := filepath.Join(base, "worktree")
+			if err := os.Mkdir(wt, 0755); err != nil {
+				t.Fatal(err)
+			}
+			sentinel := filepath.Join(base, "sentinel.txt")
+			if err := os.WriteFile(sentinel, []byte("preserve\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			path, wantError := "file.txt", false
+			switch name {
+			case "file":
+				if err := os.WriteFile(filepath.Join(wt, path), []byte("remove\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			case "final-symlink", "intermediate-symlink":
+				if err := os.Symlink(base, filepath.Join(wt, "link")); err != nil {
+					t.Fatal(err)
+				}
+				path = "link"
+				if name == "intermediate-symlink" {
+					path, wantError = "link/sentinel.txt", true
+				}
+			case "parent":
+				path, wantError = "../sentinel.txt", true
+			case "absolute":
+				path, wantError = sentinel, true
+			case "directory":
+				path, wantError = ".", true
+			}
+			if err := removeDeclaredFiles(wt, []string{path}); (err != nil) != wantError {
+				t.Fatalf("deletion error = %v, want error %v", err, wantError)
+			}
+			if data, err := os.ReadFile(sentinel); err != nil || string(data) != "preserve\n" {
+				t.Fatalf("external file changed: %q: %v", data, err)
+			}
+			if !wantError {
+				if _, err := os.Lstat(filepath.Join(wt, path)); !os.IsNotExist(err) {
+					t.Fatalf("declared file remains: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func comparisonFixture(t *testing.T) (*runner, func(string, string), func() string) {
 	t.Helper()
 	repo := t.TempDir()

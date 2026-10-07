@@ -299,27 +299,42 @@ func (r *runner) execute(packet map[string]any, dir, preOID string) (map[string]
 		}
 		return nil, false, r.fail(str(packet["fp"]), "OUT_OF_SCOPE", "declared deletion outside allowlist", outside, true)
 	}
-	for _, path := range stringsOf(data["deleted_files"]) {
-		abs := filepath.Join(r.wt, path)
-		rel, err := filepath.Rel(r.wt, abs)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-			return nil, false, halt{"HALTED_UNSAFE", "invalid declared deletion path"}
+	if err := removeDeclaredFiles(r.wt, stringsOf(data["deleted_files"])); err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
+}
+
+func removeDeclaredFiles(wt string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	root, err := os.OpenRoot(wt)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	for _, path := range paths {
+		if !filepath.IsLocal(path) {
+			return halt{"HALTED_UNSAFE", "invalid declared deletion path"}
 		}
-		info, err := os.Lstat(abs)
+		info, err := root.Lstat(path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return nil, false, err
+			return err
 		}
 		if info.IsDir() {
-			return nil, false, halt{"HALTED_UNSAFE", "declared deletion is a directory"}
+			return halt{"HALTED_UNSAFE", "declared deletion is a directory"}
 		}
-		if err := os.Remove(abs); err != nil {
-			return nil, false, err
+		// Root also enforces containment during removal if an intermediate
+		// symlink changes after Lstat. A final symlink is removed, not followed.
+		if err := root.Remove(path); err != nil {
+			return err
 		}
 	}
-	return data, true, nil
+	return nil
 }
 
 func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {

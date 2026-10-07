@@ -6,6 +6,8 @@ You set the limits and start `run`. The controller then checks each phase withou
 
 In public Beta `0.10.0-beta.4`, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
 
+**Unreleased development builds** resolve run time before calling providers or preparing worktrees: `--max-minutes` overrides terminal selection, which overrides project/default configuration. Selection occurs only on macOS with terminal stdin and stderr, without `--json`; Enter keeps the existing limit. The clock includes preparation after selection. Checks before audit and before a new candidate prevent starting another work unit after the limit. A running candidate finishes validation, review and commit or rollback, so the limit can be exceeded. See [time selection](README.md#run-time-selection).
+
 ## Global installation, separate project state
 
 ![Homebrew and global Skills are shared; configuration and reports belong to the selected repository.](../docs/assets/workflow/installation.en.png)
@@ -46,6 +48,8 @@ Validation messages use the command name and area. Baseline results show their m
 
 Long stages emit their name and elapsed time every 30 seconds. Updates stop before the stage ends or the command returns. All progress uses `stderr`, including with `run --json`; raw provider/tool output remains in local records and `stdout` keeps report JSON alone. Schema repair, permission denial, retry and provider transitions are announced without changing the recovery policy. See [progress logs](README.md#progress-logs).
 
+Development builds add elapsed time, stage/provider, safe structured tool activity and permitted relative paths by default. Commands, search patterns, tool output, provider prose and sensitive paths are not displayed. Codex command activity remains generic. A tool event is an observation of activity, not confirmation of a validated edit or accepted commit; existing tool-call accounting is unchanged.
+
 ## Validation scope
 
 Baseline checks cover discovered areas, or the locked list in `.refactor/commands.json`. At least one command must pass before audit starts.
@@ -75,12 +79,17 @@ All paths below are relative to `.refactor/runs/<id>/`.
 | File | Use |
 | --- | --- |
 | `report.md`, `report.json` | Outcome, stop reason, validation and usage |
+| `changes.md` | Development builds: review checklist and full committed text diff, including rename, binary and mode metadata |
 | `changes.patch` | Net published text changes from the recorded base to final published commit |
 | `state.json` | Counters, terminal status, worktree and published OID |
 | `audits/<cycle>/`, `cycles/*/` | Prompts, responses, task packets and phase checks |
 | `cycles/*/accepted.patch` | Diff sent to review; it may belong to a rejected candidate |
 
 A missing comparison is recorded as `UNAVAILABLE` and does not change the run's exit code. Viewing a report does not regenerate a diff. Exit `0` includes partial completion; [inspect the result](TUTORIAL.md#read-the-result) before merging.
+
+Development checkboxes mark review progress; they do not change the result branch or `changes.patch`. Markdown write errors are separate from comparison errors. Viewing reports preserves edited checkboxes, stored patches and pricing snapshots.
+
+Development reports keep provider-reported USD first, then estimate unreported calls only for exact supported models with valid usage. Bundled [Artificial Analysis](https://artificialanalysis.ai/) standard API rates and cache-rate sources are dated; each call retains its model, token categories and assumptions. Missing cache categories use stated assumptions, reasoning output is not added twice, and unknown models or missing usage remain unpriced. These estimates are not subscription charges or a monetary budget. Report schema 3 remains supported; old reports are not repriced.
 
 The worktree can contain copied gitignored build inputs, including local environment files. Apply the source repository's access controls to it and the run records.
 

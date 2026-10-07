@@ -45,6 +45,9 @@ func TestComparisonContracts(t *testing.T) {
 	if got := r.collectComparison()["status"]; got != "NO_CHANGES" {
 		t.Fatal(got)
 	}
+	if md, err := os.ReadFile(filepath.Join(r.runDir, "changes.md")); err != nil || !strings.Contains(string(md), "No committed code changes") {
+		t.Fatal("missing no-change Markdown", err)
+	}
 	write("modify.txt", "old\n")
 	write("remove.txt", "remove me\n")
 	write("rename.txt", "rename stays\n")
@@ -81,6 +84,10 @@ func TestComparisonContracts(t *testing.T) {
 	if strings.Contains(string(patch), "intermediate") || strings.Contains(string(patch), "GIT binary patch") || !strings.Contains(string(patch), "+final") {
 		t.Fatal(string(patch))
 	}
+	markdown, err := os.ReadFile(filepath.Join(r.runDir, "changes.md"))
+	if err != nil || c["markdownFile"] != "changes.md" || strings.Count(string(markdown), "- [ ]") != 6 || !strings.Contains(string(markdown), string(patch)) || !strings.Contains(string(markdown), "binary") || !strings.Contains(string(markdown), "파일 6개") && !strings.Contains(string(markdown), "6 files") {
+		t.Fatal("invalid complete changes Markdown", err)
+	}
 	write("rejected.txt", "uncommitted\n")
 	if !reflect.DeepEqual(c, r.collectComparison()) {
 		t.Fatal("dirty checkout changed comparison")
@@ -113,6 +120,10 @@ func TestComparisonLimitsAndFailures(t *testing.T) {
 			if err != nil || !strings.HasPrefix(string(patch), p) {
 				t.Fatal("patch mismatch", err)
 			}
+			markdown, err := os.ReadFile(filepath.Join(r.runDir, "changes.md"))
+			if err != nil || !strings.Contains(string(markdown), string(patch)) {
+				t.Fatal("Markdown truncated the full patch", err)
+			}
 		})
 	}
 	r, write, commit := comparisonFixture(t)
@@ -128,6 +139,18 @@ func TestComparisonLimitsAndFailures(t *testing.T) {
 		}
 	}
 	r.state.PublishedOID = valid
+	if err := os.Remove(filepath.Join(r.runDir, "changes.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(r.runDir, "changes.md"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if c := r.collectComparison(); c["status"] != "AVAILABLE" || c["markdownFile"] != nil || c["markdownError"] == nil || c["patchFile"] != "changes.patch" {
+		t.Fatal("Markdown failure hid or altered the committed comparison", c)
+	}
+	if err := os.Remove(filepath.Join(r.runDir, "changes.patch")); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.Mkdir(filepath.Join(r.runDir, "changes.patch"), 0755); err != nil {
 		t.Fatal(err)
 	}

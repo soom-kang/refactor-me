@@ -30,6 +30,10 @@ type progressLogger struct {
 	writer        io.Writer
 	language      string
 	now           func() time.Time
+	started       time.Time
+	contextMu     sync.Mutex
+	phase         string
+	provider      string
 	ticker        func() (<-chan time.Time, func())
 	stopHeartbeat func()
 }
@@ -38,7 +42,7 @@ func newProgress(writer io.Writer, language string) *progressLogger {
 	if writer == nil {
 		writer = io.Discard
 	}
-	return &progressLogger{writer: &progressWriter{w: writer}, language: language, now: time.Now,
+	return &progressLogger{writer: &progressWriter{w: writer}, language: language, now: time.Now, started: time.Now(),
 		ticker: func() (<-chan time.Time, func()) {
 			t := time.NewTicker(30 * time.Second)
 			return t.C, t.Stop
@@ -53,7 +57,23 @@ func (p *progressLogger) text(en, ko string) string {
 }
 
 func (p *progressLogger) line(en, ko string, args ...any) {
-	fmt.Fprintln(p.writer, fmt.Sprintf(p.text(en, ko), args...))
+	p.contextMu.Lock()
+	phase, provider := p.phase, p.provider
+	p.contextMu.Unlock()
+	if phase == "" {
+		phase = "SETUP"
+	}
+	if provider != "" {
+		phase += "/" + provider
+	}
+	elapsed := int64(max(time.Duration(0), p.now().Sub(p.started)) / time.Second)
+	fmt.Fprintf(p.writer, "[%02d:%02d] [%s] %s\n", elapsed/60, elapsed%60, phase, fmt.Sprintf(p.text(en, ko), args...))
+}
+
+func (p *progressLogger) setContext(phase, provider string) {
+	p.contextMu.Lock()
+	p.phase, p.provider = phase, provider
+	p.contextMu.Unlock()
 }
 
 // Only the controller starts/stops stages. The goroutine uses an immutable label
@@ -61,7 +81,7 @@ func (p *progressLogger) line(en, ko string, args ...any) {
 func (p *progressLogger) begin(en, ko string, args ...any) {
 	p.stop()
 	message := fmt.Sprintf(p.text(en, ko), args...)
-	fmt.Fprintln(p.writer, message)
+	p.line("%s", "%s", message)
 	started := p.now()
 	ticks, cancel := p.ticker()
 	stop, done := make(chan struct{}), make(chan struct{})
@@ -113,6 +133,8 @@ func (r *runner) begin(en, ko string, args ...any)  { r.progressLog().begin(en, 
 func (r *runner) notice(en, ko string, args ...any) { r.progressLog().line(en, ko, args...) }
 
 func (r *runner) startPhase(phase string) {
+	r.endProgress()
+	r.progressLog().setContext(phase, "")
 	label := r.candidateLabel
 	if label == "" {
 		label = r.progressLog().text("selected candidate", "선택한 항목")
@@ -168,7 +190,54 @@ func candidateDescription(candidate map[string]any, language string) string {
 }
 
 func (r *runner) OnProviderEvent(event engine.ProviderEvent) {
+	p := r.progressLog()
+	p.setContext(strings.ToUpper(event.Phase), surface.DisplayText(event.Provider))
 	switch event.Kind {
+	case "activity":
+		actions := map[string][2]string{
+			"provider": {"Provider call", "provider 호출"},
+			"read":     {"File read", "파일 읽기"},
+			"search":   {"File search", "파일 검색"},
+			"edit":     {"File edit", "파일 수정"},
+			"write":    {"File write", "파일 작성"},
+			"delete":   {"File deletion", "파일 삭제"},
+			"command":  {"Command execution", "명령 실행"},
+			"tool":     {"Tool operation", "도구 작업"},
+		}
+		statuses := map[string][2]string{
+			"started":   {"started", "시작"},
+			"completed": {"completed", "완료"},
+			"failed":    {"failed", "실패"},
+		}
+		action, actionOK := actions[event.Action]
+		status, statusOK := statuses[event.Status]
+		if !actionOK || !statusOK {
+			return
+		}
+		message := p.text(action[0], action[1]) + ": " + p.text(status[0], status[1])
+		if event.Path != "" {
+			message += " — " + surface.DisplayText(event.Path)
+		}
+		if event.Action == "provider" && event.Status != "started" {
+			var details []string
+			if event.DurationMS != nil {
+				details = append(details, (time.Duration(max(int64(0), *event.DurationMS)) * time.Millisecond).String())
+			}
+			if event.ToolCalls != nil {
+				details = append(details, fmt.Sprintf(p.text("tool events %d", "도구 이벤트 %d회"), max(0, *event.ToolCalls)))
+			}
+			if event.DurationMS != nil || event.ToolCalls != nil || event.ExitCode != nil {
+				exit := p.text("not recorded", "기록 없음")
+				if event.ExitCode != nil {
+					exit = fmt.Sprint(*event.ExitCode)
+				}
+				details = append(details, "exit "+exit)
+			}
+			if len(details) > 0 {
+				message += " (" + strings.Join(details, "; ") + ")"
+			}
+		}
+		p.line("%s", "%s", message)
 	case "schema_repair":
 		r.notice("%s returned an invalid response format; trying one read-only repair.", "%s 응답 형식이 맞지 않아 읽기 전용으로 한 번 보정합니다.", surface.DisplayText(event.Provider))
 	case "permission_denied":
@@ -179,28 +248,38 @@ func (r *runner) OnProviderEvent(event engine.ProviderEvent) {
 func (r *runner) observeCommand(event workspace.CommandEvent) {
 	name, area := surface.DisplayText(event.Command.Name), surface.DisplayText(event.Command.Area)
 	if event.Kind == "started" {
-		r.notice("Running %s check. Area: %s", "%s 검사를 실행하고 있습니다. 대상: %s", name, area)
+		r.notice("Running %s check. Area: %s; tier: %s; limit: %s", "%s 검사를 실행하고 있습니다. 대상: %s; tier: %s; 제한: %s", name, area,
+			surface.DisplayText(event.Command.Tier), (time.Duration(max(0, event.Command.TimeoutMS)) * time.Millisecond).String())
 		return
 	}
 	if event.Kind != "completed" {
 		return
 	}
 	result := event.Result
+	duration := (time.Duration(max(int64(0), result.DurationMS)) * time.Millisecond).String()
+	exit := r.progressLog().text("not recorded", "기록 없음")
+	if result.ExitCode != nil {
+		exit = fmt.Sprint(*result.ExitCode)
+	}
+	notice := func(en, ko string, args ...any) {
+		args = append(args, duration, exit)
+		r.notice(en+" (%s; exit %s)", ko+" (%s; exit %s)", args...)
+	}
 	switch {
 	case result.TimedOut || result.Status == workspace.StatusTimeout:
-		r.notice("%s check timed out. Area: %s", "%s 검사가 제한 시간을 초과했습니다. 대상: %s", name, area)
+		notice("%s check timed out. Area: %s", "%s 검사가 제한 시간을 초과했습니다. 대상: %s", name, area)
 	case result.SpawnError != "" || result.Status == workspace.StatusUnrunnable:
-		r.notice("Could not start %s check. Area: %s", "%s 검사를 시작하지 못했습니다. 대상: %s", name, area)
+		notice("Could not start %s check. Area: %s", "%s 검사를 시작하지 못했습니다. 대상: %s", name, area)
 	case result.Status == workspace.StatusGreen:
-		r.notice("%s check passed. Area: %s", "%s 검사가 통과했습니다. 대상: %s", name, area)
+		notice("%s check passed. Area: %s", "%s 검사가 통과했습니다. 대상: %s", name, area)
 	case !event.Baseline && result.OK && result.Delta != nil:
-		r.notice("%s still fails as at baseline; no new errors. Area: %s", "%s 검사는 변경 전과 같이 실패했습니다. 새 오류는 없습니다. 대상: %s", name, area)
+		notice("%s still fails as at baseline; no new errors. Area: %s", "%s 검사는 변경 전과 같이 실패했습니다. 새 오류는 없습니다. 대상: %s", name, area)
 	case result.Status == workspace.StatusOpaque:
-		r.notice("%s failed without a usable error signature. Area: %s", "%s 검사가 실패했지만 비교할 오류 정보를 얻지 못했습니다. 대상: %s", name, area)
+		notice("%s failed without a usable error signature. Area: %s", "%s 검사가 실패했지만 비교할 오류 정보를 얻지 못했습니다. 대상: %s", name, area)
 	case event.Baseline:
-		r.notice("%s fails before changes; recording errors for comparison. Area: %s", "%s 검사는 변경 전부터 실패합니다. 비교할 오류를 기록합니다. 대상: %s", name, area)
+		notice("%s fails before changes; recording errors for comparison. Area: %s", "%s 검사는 변경 전부터 실패합니다. 비교할 오류를 기록합니다. 대상: %s", name, area)
 	default:
-		r.notice("%s check failed validation. Area: %s [%s]", "%s 검사에서 검증에 실패했습니다. 대상: %s [%s]", name, area, surface.DisplayText(result.FailureKind))
+		notice("%s check failed validation. Area: %s [%s]", "%s 검사에서 검증에 실패했습니다. 대상: %s [%s]", name, area, surface.DisplayText(result.FailureKind))
 	}
 }
 

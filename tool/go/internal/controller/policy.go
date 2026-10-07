@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 type policy struct {
@@ -45,6 +46,9 @@ func readPolicy(config map[string]any) (policy, error) {
 	}
 	if p.MaxCycles < 1 || p.MaxCommits < 1 || p.EmptyAuditsToStop < 1 || p.MaxWallClockMin < 1 {
 		return p, fmt.Errorf("policy limits must be positive")
+	}
+	if p.MaxWallClockMin > int(time.Duration(1<<63-1)/time.Minute) {
+		return p, fmt.Errorf("policy.max_wall_clock_min exceeds the supported duration")
 	}
 	return p, nil
 }

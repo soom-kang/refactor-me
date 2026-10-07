@@ -158,6 +158,39 @@ func TestContractPolicyAndHistory(t *testing.T) {
 	}
 }
 
+func TestWallClockBoundaryAndCostReport(t *testing.T) {
+	r := &runner{started: time.Now(), runDir: t.TempDir(), policy: policy{MaxWallClockMin: 1, MaxCycles: 1},
+		surface: surface.Context{Args: surface.Args{Language: "en"}, RunLimitSource: "cli"}, state: newState("limits", "", "", "", "main", "result", nil, []string{"codex", "claude"})}
+	r.state.Counters.Cycles = 1
+	if err := r.wallClockCheck(); err != nil {
+		t.Fatal("last allowed cycle was blocked by the time-only boundary", err)
+	}
+	r.started = time.Now().Add(-2 * time.Minute)
+	if err := r.wallClockCheck(); err == nil || !strings.Contains(err.Error(), "wall clock (1m)") {
+		t.Fatal("expired audit boundary did not stop", err)
+	}
+	reported, estimated := 0.25, 0.1
+	r.noteUsage("claude", "audit", engine.Result{OK: true, Processes: 1, Usage: engine.Usage{CostUSD: &reported}})
+	r.noteUsage("codex", "audit", engine.Result{Processes: 2, Usage: engine.Usage{EstimatedCostUSD: &estimated, EstimateMissing: 1}})
+	r.state.finish("DONE_PARTIAL", "stopped on wall clock (1m)")
+	result, err := r.result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report map[string]any
+	if err := json.Unmarshal(result.Report, &report); err != nil {
+		t.Fatal(err)
+	}
+	total := obj(obj(report["usage"])["totals"])
+	if total["costUsd"] != reported || total["estimatedCostUsd"] != estimated || total["estimateMissing"] != float64(1) || total["costMissing"] != float64(2) || total["processes"] != float64(3) || total["calls"] != float64(2) {
+		t.Fatal("controller dropped or duplicated accounting", total)
+	}
+	limits := obj(report["runLimits"])
+	if limits["maxMinutes"] != float64(1) || limits["source"] != "cli" || limits["exceeded"] != true || report["schemaVersion"] != float64(3) {
+		t.Fatal("missing effective run limit", limits)
+	}
+}
+
 func TestContractPacketRiskGate(t *testing.T) {
 	for _, risk := range []string{"UNKNOWN", "L3_CRITICAL"} {
 		t.Run(risk, func(t *testing.T) {

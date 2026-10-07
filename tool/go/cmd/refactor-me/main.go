@@ -18,7 +18,13 @@ func main() {
 	if err != nil {
 		os.Exit(surface.ExitAborted)
 	}
-	os.Exit(surface.Execute(os.Args[1:], cwd, os.Stdout, os.Stderr, surface.Callbacks{
+	callbacks := surface.Callbacks{
 		Run: controller.Run, Doctor: controller.Doctor, Clean: controller.Clean,
-	}))
+	}
+	if surface.InteractiveTerminal(os.Stdin, os.Stderr) {
+		callbacks.SelectMaxMinutes = func(defaultMinutes int, language string) (int, error) {
+			return surface.SelectMaxMinutes(os.Stdin, os.Stderr, defaultMinutes, language)
+		}
+	}
+	os.Exit(surface.Execute(os.Args[1:], cwd, os.Stdout, os.Stderr, callbacks))
 }

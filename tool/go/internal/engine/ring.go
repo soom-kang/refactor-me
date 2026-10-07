@@ -24,14 +24,23 @@ type RingUsage struct {
 	ByPhase map[string]UsageSummary `json:"byPhase"`
 }
 type UsageSummary struct {
-	Processes    int      `json:"processes"`
-	MS           int64    `json:"ms"`
-	InputTokens  int64    `json:"inputTokens"`
-	OutputTokens int64    `json:"outputTokens"`
-	CostUSD      *float64 `json:"costUsd"`
-	CostMissing  int      `json:"costMissing"`
-	FailedCalls  int      `json:"failedCalls"`
-	Calls        int      `json:"calls,omitempty"`
+	Processes               int                   `json:"processes"`
+	MS                      int64                 `json:"ms"`
+	InputTokens             int64                 `json:"inputTokens"`
+	OutputTokens            int64                 `json:"outputTokens"`
+	UncachedInputTokens     int64                 `json:"uncachedInputTokens,omitempty"`
+	CachedInputTokens       int64                 `json:"cachedInputTokens,omitempty"`
+	CacheWriteInputTokens   int64                 `json:"cacheWriteInputTokens,omitempty"`
+	CacheWrite1hInputTokens int64                 `json:"cacheWrite1hInputTokens,omitempty"`
+	ReasoningOutputTokens   int64                 `json:"reasoningOutputTokens,omitempty"`
+	CostUSD                 *float64              `json:"costUsd"`
+	CostMissing             int                   `json:"costMissing"`
+	EstimatedCostUSD        *float64              `json:"estimatedCostUsd,omitempty"`
+	EstimateMissing         int                   `json:"estimateMissing,omitempty"`
+	CostEstimates           []CostEstimate        `json:"costEstimates,omitempty"`
+	EstimateMissingReasons  []CostEstimateMissing `json:"estimateMissingReasons,omitempty"`
+	FailedCalls             int                   `json:"failedCalls"`
+	Calls                   int                   `json:"calls,omitempty"`
 }
 
 func NewProviderRing(names []string) map[string]*ProviderState {
@@ -130,21 +139,23 @@ func NoteCall(state *RingState, provider string) {
 	}
 	state.ActiveProvider = provider
 }
-func mergeSummary(a, b UsageSummary) UsageSummary {
-	u := UsageSummary{Processes: a.Processes + b.Processes, MS: a.MS + b.MS, InputTokens: a.InputTokens + b.InputTokens, OutputTokens: a.OutputTokens + b.OutputTokens, CostMissing: a.CostMissing + b.CostMissing, FailedCalls: a.FailedCalls + b.FailedCalls, Calls: a.Calls + b.Calls}
-	if a.CostUSD != nil || b.CostUSD != nil {
-		cost := 0.0
-		if a.CostUSD != nil {
-			cost += *a.CostUSD
-		}
-		if b.CostUSD != nil {
-			cost += *b.CostUSD
-		}
-		u.CostUSD = &cost
-	}
-	return u
+
+// MergeUsageSummaries sums already accounted calls without inferring a price.
+func MergeUsageSummaries(a, b UsageSummary) UsageSummary {
+	return UsageSummary{Processes: a.Processes + b.Processes, MS: a.MS + b.MS, InputTokens: a.InputTokens + b.InputTokens,
+		OutputTokens: a.OutputTokens + b.OutputTokens, UncachedInputTokens: a.UncachedInputTokens + b.UncachedInputTokens,
+		CachedInputTokens: a.CachedInputTokens + b.CachedInputTokens, CacheWriteInputTokens: a.CacheWriteInputTokens + b.CacheWriteInputTokens,
+		CacheWrite1hInputTokens: a.CacheWrite1hInputTokens + b.CacheWrite1hInputTokens, ReasoningOutputTokens: a.ReasoningOutputTokens + b.ReasoningOutputTokens,
+		CostUSD: sumCost(a.CostUSD, b.CostUSD), CostMissing: a.CostMissing + b.CostMissing,
+		EstimatedCostUSD: sumCost(a.EstimatedCostUSD, b.EstimatedCostUSD), EstimateMissing: a.EstimateMissing + b.EstimateMissing,
+		CostEstimates:          append(append([]CostEstimate{}, a.CostEstimates...), b.CostEstimates...),
+		EstimateMissingReasons: append(append([]CostEstimateMissing{}, a.EstimateMissingReasons...), b.EstimateMissingReasons...),
+		FailedCalls:            a.FailedCalls + b.FailedCalls, Calls: a.Calls + b.Calls}
 }
-func NoteUsage(state *RingState, provider, phase string, result Result) {
+
+// UsageSummaryForResult preserves provider-reported and estimated amounts as
+// separate totals, including calls merged by schema repair.
+func UsageSummaryForResult(result Result) UsageSummary {
 	missing := result.Usage.CostMissing
 	if result.Usage.CostUSD == nil && missing == 0 {
 		missing = result.Processes
@@ -153,9 +164,19 @@ func NoteUsage(state *RingState, provider, phase string, result Result) {
 	if !result.OK {
 		failed = 1
 	}
-	one := UsageSummary{Processes: result.Processes, MS: result.DurationMS, InputTokens: result.Usage.InputTokens, OutputTokens: result.Usage.OutputTokens, CostUSD: result.Usage.CostUSD, CostMissing: missing, FailedCalls: failed, Calls: 1}
+	u := result.Usage
+	return UsageSummary{Processes: result.Processes, MS: result.DurationMS, InputTokens: u.InputTokens, OutputTokens: u.OutputTokens,
+		UncachedInputTokens: u.UncachedInputTokens, CachedInputTokens: u.CachedInputTokens, CacheWriteInputTokens: u.CacheWriteInputTokens,
+		CacheWrite1hInputTokens: u.CacheWrite1hInputTokens, ReasoningOutputTokens: u.ReasoningOutputTokens,
+		CostUSD: u.CostUSD, CostMissing: missing, EstimatedCostUSD: u.EstimatedCostUSD, EstimateMissing: u.EstimateMissing,
+		CostEstimates: append([]CostEstimate{}, u.CostEstimates...), EstimateMissingReasons: append([]CostEstimateMissing{}, u.EstimateMissingReasons...),
+		FailedCalls: failed, Calls: 1}
+}
+
+func NoteUsage(state *RingState, provider, phase string, result Result) {
+	one := UsageSummaryForResult(result)
 	if p := state.Providers[provider]; p != nil {
-		p.Usage = mergeSummary(p.Usage, one)
+		p.Usage = MergeUsageSummaries(p.Usage, one)
 	}
 	if state.Usage == nil {
 		state.Usage = &RingUsage{ByPhase: map[string]UsageSummary{}}
@@ -163,7 +184,7 @@ func NoteUsage(state *RingState, provider, phase string, result Result) {
 	if state.Usage.ByPhase == nil {
 		state.Usage.ByPhase = map[string]UsageSummary{}
 	}
-	state.Usage.ByPhase[phase] = mergeSummary(state.Usage.ByPhase[phase], one)
+	state.Usage.ByPhase[phase] = MergeUsageSummaries(state.Usage.ByPhase[phase], one)
 }
 func FmtTokens(n int64) string {
 	if n < 1000 {

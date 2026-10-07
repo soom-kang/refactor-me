@@ -298,33 +298,29 @@ func (r *runner) result() (surface.RunResult, error) {
 	}
 	usageTotals := engine.UsageSummary{}
 	for _, u := range state.Usage.ByPhase {
-		usageTotals.Processes += u.Processes
-		usageTotals.MS += u.MS
-		usageTotals.InputTokens += u.InputTokens
-		usageTotals.OutputTokens += u.OutputTokens
-		usageTotals.CostMissing += u.CostMissing
-		usageTotals.FailedCalls += u.FailedCalls
-		usageTotals.Calls += u.Calls
-		if u.CostUSD != nil {
-			v := *u.CostUSD
-			if usageTotals.CostUSD != nil {
-				v += *usageTotals.CostUSD
-			}
-			usageTotals.CostUSD = &v
-		}
+		usageTotals = engine.MergeUsageSummaries(usageTotals, u)
 	}
 	providerMinutes := int(float64(usageTotals.MS)/60000 + 0.5)
+	elapsed := time.Since(r.started)
+	limitSource := r.surface.RunLimitSource
+	if limitSource == "" {
+		limitSource = "config"
+	}
 	report := map[string]any{
 		"schemaVersion": surface.ReportSchemaVersion, "runId": state.RunID, "toolVersion": state.ToolVersion,
 		"status": status, "reason": state.Terminal.Reason,
-		"durationMinutes": int(time.Since(r.started).Minutes() + 0.5), "providerMinutes": providerMinutes,
+		"durationMinutes": int(elapsed.Minutes() + 0.5), "providerMinutes": providerMinutes,
+		"runLimits": map[string]any{"maxMinutes": r.policy.MaxWallClockMin, "source": limitSource,
+			"stopMode": "candidate_boundary", "actualSeconds": int64(elapsed.Seconds()),
+			"exceeded": elapsed >= time.Duration(r.policy.MaxWallClockMin)*time.Minute},
 		"repoRoot": state.RepoRoot, "targets": state.Targets, "baseCommit": state.BaseOID,
 		"baseBranch": state.BaseBranch, "branch": branch, "worktree": state.Worktree,
 		"skills": r.doctor.Skills, "providerVersions": r.doctor.ProviderVersions, "skillLiveProbe": r.doctor.LiveProbe,
 		"providerSettings": r.doctor.ProviderSettings,
 		"providers":        state.Providers, "providerOrder": state.ProviderOrder,
-		"usage":    map[string]any{"totals": usageTotals, "byPhase": state.Usage.ByPhase},
-		"counters": state.Counters, "commits": state.Commits, "skipped": state.Seen.Skipped,
+		"usage":      map[string]any{"totals": usageTotals, "byPhase": state.Usage.ByPhase},
+		"costPolicy": "provider_reported_then_standard_estimate",
+		"counters":   state.Counters, "commits": state.Commits, "skipped": state.Seen.Skipped,
 		"codeComparison": r.collectComparison(),
 		"validation":     map[string]any{"describe": r.baseline.Describe, "ran": r.commandDescriptions(), "notRun": r.skippedDescriptions()},
 	}

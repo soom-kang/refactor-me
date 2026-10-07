@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,10 +68,25 @@ type Request struct {
 	Effort  string
 }
 type Usage struct {
-	InputTokens  int64    `json:"inputTokens"`
-	OutputTokens int64    `json:"outputTokens"`
-	CostUSD      *float64 `json:"costUsd"`
-	CostMissing  int      `json:"costMissing,omitempty"`
+	InputTokens             int64                 `json:"inputTokens"`
+	OutputTokens            int64                 `json:"outputTokens"`
+	UncachedInputTokens     int64                 `json:"uncachedInputTokens,omitempty"`
+	CachedInputTokens       int64                 `json:"cachedInputTokens,omitempty"`
+	CacheWriteInputTokens   int64                 `json:"cacheWriteInputTokens,omitempty"`
+	CacheWrite1hInputTokens int64                 `json:"cacheWrite1hInputTokens,omitempty"`
+	ReasoningOutputTokens   int64                 `json:"reasoningOutputTokens,omitempty"`
+	CostUSD                 *float64              `json:"costUsd"`
+	CostMissing             int                   `json:"costMissing,omitempty"`
+	EstimatedCostUSD        *float64              `json:"estimatedCostUsd,omitempty"`
+	EstimateMissing         int                   `json:"estimateMissing,omitempty"`
+	CostEstimates           []CostEstimate        `json:"costEstimates,omitempty"`
+	EstimateMissingReasons  []CostEstimateMissing `json:"estimateMissingReasons,omitempty"`
+	usageReported           bool
+	invalidUsage            bool
+	cacheReadReported       bool
+	cacheWriteReported      bool
+	cacheWriteTTLReported   bool
+	invalidReportedCost     bool
 }
 type Result struct {
 	OK                bool   `json:"ok"`
@@ -93,10 +109,16 @@ type Result struct {
 
 // ProviderEvent carries only fixed event metadata, never tool arguments or output.
 type ProviderEvent struct {
-	Kind     string
-	Provider string
-	Phase    string
-	Count    int
+	Kind       string
+	Provider   string
+	Phase      string
+	Count      int
+	Action     string
+	Status     string
+	Path       string
+	DurationMS *int64
+	ToolCalls  *int
+	ExitCode   *int
 }
 
 // Logger receives provider state transitions, never prompt or environment values.
@@ -341,27 +363,20 @@ func parseClaude(stdout string) Result {
 	r.Text, _ = env["result"].(string)
 	r.Data = env["structured_output"]
 	r.SessionID, _ = env["session_id"].(string)
-	r.Usage.InputTokens = number(envUsage(env, "input_tokens")) + number(envUsage(env, "cache_read_input_tokens")) + number(envUsage(env, "cache_creation_input_tokens"))
-	r.Usage.OutputTokens = number(envUsage(env, "output_tokens"))
-	if cost, ok := env["total_cost_usd"].(float64); ok {
-		r.Usage.CostUSD = &cost
+	if usage, ok := env["usage"].(map[string]any); ok {
+		r.Usage = parseTokenUsage(usage, "claude")
+	}
+	if value, present := env["total_cost_usd"]; present && value != nil {
+		if cost, ok := value.(float64); ok && cost >= 0 && !math.IsNaN(cost) && !math.IsInf(cost, 0) {
+			r.Usage.CostUSD = &cost
+		} else {
+			r.Usage.invalidReportedCost = true
+		}
 	}
 	if d, ok := env["permission_denials"].([]any); ok {
 		r.PermissionDenials = len(d)
 	}
 	return r
-}
-func envUsage(env map[string]any, key string) any {
-	if u, ok := env["usage"].(map[string]any); ok {
-		return u[key]
-	}
-	return nil
-}
-func number(v any) int64 {
-	if f, ok := v.(float64); ok {
-		return int64(f)
-	}
-	return 0
 }
 func parseCodex(stdout, outPath string) Result {
 	var r Result
@@ -381,18 +396,18 @@ func parseCodex(stdout, outPath string) Result {
 		}
 		if ev["type"] == "turn.completed" {
 			if u, ok := ev["usage"].(map[string]any); ok {
-				r.Usage.InputTokens = number(u["input_tokens"])
-				r.Usage.OutputTokens = number(u["output_tokens"])
+				// Codex reports the session total; the last completed turn replaces it.
+				r.Usage = parseTokenUsage(u, "codex")
 			}
 		}
 	}
 	return r
 }
 func classifyClaude(res processResult, requested bool) classification {
-	if res.killed {
-		return classification{failure: "TIMEOUT", detail: "killed after timeout"}
-	}
 	p := parseClaude(res.stdout)
+	if res.killed {
+		return classification{failure: "TIMEOUT", detail: "killed after timeout", parsed: p}
+	}
 	env := LastJSONObject(res.stdout)
 	for _, line := range strings.Split(res.stdout, "\n") {
 		var ev map[string]any
@@ -439,25 +454,26 @@ func classifyClaude(res processResult, requested bool) classification {
 	return classification{failure: "OK", parsed: p}
 }
 func classifyCodex(res processResult, outPath string, requested bool) classification {
+	p := parseCodex(res.stdout, outPath)
 	if res.killed {
-		return classification{failure: "TIMEOUT", detail: "killed after timeout"}
+		return classification{failure: "TIMEOUT", detail: "killed after timeout", parsed: p}
 	}
 	msg := res.stderr + "\n" + res.stdout
 	if res.exitCode == nil || *res.exitCode != 0 {
 		if schemaReject.MatchString(res.stderr) {
-			return classification{failure: "PROCESS", detail: "schema file rejected by codex", fatal: true}
+			return classification{failure: "PROCESS", detail: "schema file rejected by codex", fatal: true, parsed: p}
 		}
 		if quotaHard.MatchString(msg) {
-			return classification{failure: "QUOTA", hard: true, detail: firstLine(res.stderr)}
+			return classification{failure: "QUOTA", hard: true, detail: firstLine(res.stderr), parsed: p}
 		}
 		if auth.MatchString(msg) {
-			return classification{failure: "AUTH", detail: firstLine(res.stderr)}
+			return classification{failure: "AUTH", detail: firstLine(res.stderr), parsed: p}
 		}
 		if quotaSoft.MatchString(msg) {
-			return classification{failure: "QUOTA", detail: firstLine(res.stderr)}
+			return classification{failure: "QUOTA", detail: firstLine(res.stderr), parsed: p}
 		}
 		if missingCLI.MatchString(msg) {
-			return classification{failure: "PROCESS", detail: "cli_missing", fatal: true}
+			return classification{failure: "PROCESS", detail: "cli_missing", fatal: true, parsed: p}
 		}
 		detail := firstLine(res.stderr)
 		if detail == "" {
@@ -466,9 +482,8 @@ func classifyCodex(res processResult, outPath string, requested bool) classifica
 				detail = fmt.Sprintf("exit %d", *res.exitCode)
 			}
 		}
-		return classification{failure: "PROCESS", detail: detail}
+		return classification{failure: "PROCESS", detail: detail, parsed: p}
 	}
-	p := parseCodex(res.stdout, outPath)
 	if requested {
 		if strings.TrimSpace(p.Text) == "" {
 			return classification{failure: "SCHEMA", detail: "empty last message", parsed: p}
@@ -600,9 +615,17 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	}
 	tools := 0
 	started := time.Now()
+	if log != nil {
+		log.OnProviderEvent(ProviderEvent{Kind: "activity", Provider: provider, Phase: req.Phase, Action: "provider", Status: "started"})
+	}
 	proc := runProcess(ctx, bin, args, req, func(ev map[string]any) {
 		if recognizedToolEvent(ev) {
 			tools++
+		}
+		if log != nil {
+			for _, activity := range ActivityEvents(provider, req.Phase, req.CWD, ev) {
+				log.OnProviderEvent(activity)
+			}
 		}
 	})
 	duration := time.Since(started).Milliseconds()
@@ -616,20 +639,6 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 		}
 	}
 	rawBase := filepath.Join(req.RunDir, "provider", fmt.Sprintf("%s-%s-%s", req.Phase, provider, attempt))
-	if err := os.MkdirAll(filepath.Dir(rawBase), 0700); err != nil {
-		return Result{}, fmt.Errorf("create transcript directory: %w", err)
-	}
-	if err := os.WriteFile(rawBase+".prompt.md", []byte(req.Body), 0600); err != nil {
-		return Result{}, fmt.Errorf("write prompt transcript: %w", err)
-	}
-	if err := os.WriteFile(rawBase+".stdout.jsonl", []byte(proc.stdout), 0600); err != nil {
-		return Result{}, fmt.Errorf("write stdout transcript: %w", err)
-	}
-	if strings.TrimSpace(proc.stderr) != "" {
-		if err := os.WriteFile(rawBase+".stderr.log", []byte(proc.stderr), 0600); err != nil {
-			return Result{}, fmt.Errorf("write stderr transcript: %w", err)
-		}
-	}
 	var cls classification
 	if provider == "claude" {
 		cls = classifyClaude(proc, req.Schema != nil)
@@ -651,13 +660,50 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	p.ToolCalls = tools
 	p.DurationMS = duration
 	p.Processes = 1
+	p.Usage = EstimateUsage(p.Usage, provider, agent.Model, req.Phase)
 	if unsafeErr != nil {
 		p.OK = false
 		p.Failure = "UNSAFE"
 		p.Fatal = true
 		p.Detail = unsafeErr.Error()
 	}
-	return p, unsafeErr
+	// Account for the completed invocation before storing transcripts. A storage
+	// failure must preserve observed usage and any independent safety failure.
+	writeTranscripts := func() error {
+		if err := os.MkdirAll(filepath.Dir(rawBase), 0700); err != nil {
+			return fmt.Errorf("create transcript directory: %w", err)
+		}
+		if err := os.WriteFile(rawBase+".prompt.md", []byte(req.Body), 0600); err != nil {
+			return fmt.Errorf("write prompt transcript: %w", err)
+		}
+		if err := os.WriteFile(rawBase+".stdout.jsonl", []byte(proc.stdout), 0600); err != nil {
+			return fmt.Errorf("write stdout transcript: %w", err)
+		}
+		if strings.TrimSpace(proc.stderr) != "" {
+			if err := os.WriteFile(rawBase+".stderr.log", []byte(proc.stderr), 0600); err != nil {
+				return fmt.Errorf("write stderr transcript: %w", err)
+			}
+		}
+		return nil
+	}
+	callErr := unsafeErr
+	if err := writeTranscripts(); err != nil {
+		callErr = errors.Join(callErr, err)
+		p.OK = false
+		if unsafeErr == nil {
+			p.Failure = "PROCESS"
+		}
+		p.Detail = callErr.Error()
+	}
+	if log != nil {
+		status := "completed"
+		if !p.OK {
+			status = "failed"
+		}
+		log.OnProviderEvent(ProviderEvent{Kind: "activity", Provider: provider, Phase: req.Phase, Action: "provider", Status: status,
+			DurationMS: &p.DurationMS, ToolCalls: &p.ToolCalls, ExitCode: p.ExitCode})
+	}
+	return p, callErr
 }
 
 // CallWithRepair checks the schema and makes at most one read-only repair call.
@@ -705,22 +751,18 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 	return repair, nil
 }
 func MergeUsage(a, b Usage) Usage {
-	u := Usage{InputTokens: a.InputTokens + b.InputTokens, OutputTokens: a.OutputTokens + b.OutputTokens, CostMissing: a.CostMissing + b.CostMissing}
+	u := Usage{InputTokens: a.InputTokens + b.InputTokens, OutputTokens: a.OutputTokens + b.OutputTokens,
+		UncachedInputTokens: a.UncachedInputTokens + b.UncachedInputTokens, CachedInputTokens: a.CachedInputTokens + b.CachedInputTokens,
+		CacheWriteInputTokens: a.CacheWriteInputTokens + b.CacheWriteInputTokens, CacheWrite1hInputTokens: a.CacheWrite1hInputTokens + b.CacheWrite1hInputTokens,
+		ReasoningOutputTokens: a.ReasoningOutputTokens + b.ReasoningOutputTokens, CostUSD: sumCost(a.CostUSD, b.CostUSD), CostMissing: a.CostMissing + b.CostMissing,
+		EstimatedCostUSD: sumCost(a.EstimatedCostUSD, b.EstimatedCostUSD), EstimateMissing: a.EstimateMissing + b.EstimateMissing,
+		CostEstimates:          append(append([]CostEstimate{}, a.CostEstimates...), b.CostEstimates...),
+		EstimateMissingReasons: append(append([]CostEstimateMissing{}, a.EstimateMissingReasons...), b.EstimateMissingReasons...)}
 	if a.CostUSD == nil && a.CostMissing == 0 {
 		u.CostMissing++
 	}
 	if b.CostUSD == nil && b.CostMissing == 0 {
 		u.CostMissing++
-	}
-	if a.CostUSD != nil || b.CostUSD != nil {
-		cost := 0.0
-		if a.CostUSD != nil {
-			cost += *a.CostUSD
-		}
-		if b.CostUSD != nil {
-			cost += *b.CostUSD
-		}
-		u.CostUSD = &cost
 	}
 	return u
 }

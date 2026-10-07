@@ -6,6 +6,8 @@
 
 공개 Beta `0.10.0-beta.4`에서는 모델을 호출하기 전에 primary와 fallback provider마다 모델을 선택합니다. 명령의 모델 옵션이 프로젝트 설정보다 우선하며 해당 명령에만 적용됩니다. 추론 수준 옵션은 선택한 provider의 모든 단계에 적용하고, 생략하면 기존 단계 정책을 유지합니다. [모델과 추론 수준 선택](README.ko.md#model-and-effort-selection)을 참고하세요.
 
+**Unreleased 개발 빌드**는 provider 호출이나 worktree 준비 전에 실행 시간을 정합니다. `--max-minutes`, 터미널 선택, 프로젝트 또는 기본 설정 순으로 우선합니다. macOS에서 stdin과 stderr가 터미널이며 `--json`이 없을 때만 묻고, Enter는 기존 한도를 유지합니다. 선택 후 준비 단계부터 시간을 계산하며 audit 전과 새 후보 시작 전에 확인합니다. 진행 중인 후보는 검증과 검토, 커밋 또는 복원을 마치므로 한도를 초과할 수 있습니다. [시간 선택](README.ko.md#run-time-selection)을 참고하세요.
+
 ## 전역 설치와 프로젝트별 상태
 
 ![Homebrew와 전역 Skills는 공유하고, 설정과 보고서는 선택한 저장소에 따로 저장합니다.](../docs/assets/workflow/installation.ko.png)
@@ -46,6 +48,8 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 
 긴 단계에서는 30초마다 단계 이름과 경과 시간을 출력하고 단계 종료나 명령 반환 전에 이 안내를 중단합니다. `run --json`에서도 모든 진행 로그는 `stderr`로 출력하며 provider와 도구 원문은 로컬 기록에 보존합니다. `stdout`에는 보고서 JSON만 출력합니다. 기존 복구 정책을 유지하면서 schema 복구, 권한 거절, 재시도와 provider 전환을 안내합니다. 자세한 내용은 [진행 로그](README.ko.md#progress-logs)를 참고하세요.
 
+개발 빌드는 경과 시간, 단계, provider, 안전한 구조화 도구 작업과 허용된 상대 경로를 기본 로그에 표시합니다. 명령, 검색어, 도구 출력, provider 설명과 민감 경로는 표시하지 않으며 Codex 명령은 일반 명령 작업으로 알립니다. 도구 이벤트는 작업을 관측했다는 뜻이며 검증된 수정이나 수락한 커밋을 뜻하지 않습니다. 기존 도구 호출 집계는 유지합니다.
+
 ## 검증 범위
 
 기준선은 탐지한 영역의 명령 또는 `.refactor/commands.json`에 고정한 명령으로 검사합니다. 명령 하나 이상이 통과해야 후보 조사를 시작합니다.
@@ -75,12 +79,17 @@ provider를 바꾸면 단계 입력을 전달한 새 세션을 시작합니다. 
 | 파일 | 용도 |
 | --- | --- |
 | `report.md`, `report.json` | 결과, 중단 이유, 검증, 사용량 |
+| `changes.md` | 개발 빌드의 검토 체크리스트와 커밋된 전체 텍스트 diff. 이름 변경, 바이너리, 모드 메타데이터 포함 |
 | `changes.patch` | 기록된 시작 커밋부터 마지막 발행 커밋까지의 순수 텍스트 변경 |
 | `state.json` | 카운터, 종료 상태, worktree, 발행 OID |
 | `audits/<cycle>/`, `cycles/*/` | 프롬프트, 응답, 작업 명세, 단계별 검사 |
 | `cycles/*/accepted.patch` | 검토에 제출한 diff. 거부된 후보의 자료일 수도 있음 |
 
 비교 자료를 만들지 못하면 `UNAVAILABLE`로 이유를 기록하며 실행 종료 코드는 바꾸지 않습니다. 보고서 조회도 diff를 다시 수집하지 않습니다. 종료 코드 `0`에는 부분 완료가 포함되므로 병합 전에 [결과를 확인](TUTORIAL.ko.md#read-the-result)하세요.
+
+개발 체크리스트의 체크는 검토 진행 표시이며 결과 branch나 `changes.patch`를 바꾸지 않습니다. Markdown 저장 오류는 비교 수집 오류와 따로 기록합니다. 보고서 조회는 편집한 체크, 저장된 patch와 가격 자료를 유지합니다.
+
+개발 보고서는 provider 보고액을 우선하고, 정확히 지원하는 모델의 유효한 사용량에서만 미보고 비용을 추정합니다. 내장 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 단가와 cache 단가 출처에는 확인 날짜를 기록하며 호출별 모델, 토큰 구분과 가정을 보존합니다. cache 정보가 없으면 적용한 가정을 알리고 reasoning output은 중복 계산하지 않습니다. 알 수 없는 모델이나 누락된 사용량은 미확인으로 남습니다. 구독 청구액이나 금액 예산을 뜻하지 않으며 보고서 schema 3을 유지합니다. 과거 보고서의 비용을 다시 계산하지 않습니다.
 
 worktree에는 로컬 환경 파일 등 Git이 무시하는 빌드 입력을 복사할 수 있습니다. 원본 저장소와 같은 접근 통제를 worktree와 실행 기록에도 적용하세요.
 

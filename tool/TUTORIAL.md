@@ -6,6 +6,8 @@ Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` w
 
 This guide covers public Beta `0.10.0-beta.4` for macOS Apple Silicon. Release commit: `0032e594eaab3240d4dee1aa133be5b9d6eb3c42`. The [public installation check](https://github.com/soom-kang/refactor-me/actions/runs/37208178549) verifies the published tag and Homebrew formula.
 
+Sections labeled development builds describe **Unreleased** changes. Use the [development binary](DEVELOPMENT.md) for those commands; they are not included in the published Beta above.
+
 <a id="prepare-the-target"></a>
 
 ## 1. Prepare the repository
@@ -114,6 +116,18 @@ refactor-me run --repo /path/to/target-repo \
 
 The IDs and `xhigh` are example choices, not defaults. Each selected provider needs a model from its CLI option or project configuration. CLI values take precedence and do not change the configuration file. An explicit effort applies to every phase for that provider; omit it to keep the existing phase policy. Provider access and supported effort values depend on the authenticated CLI. See [selection rules](README.md#model-and-effort-selection). Add `--lang ko` for Korean progress logs, report and final summary.
 
+### Development builds: choose the run time
+
+Set a limit for one run without editing the project configuration:
+
+```sh
+/private/tmp/refactor-me-dev run --repo /path/to/target-repo \
+  --provider codex --fallback none \
+  --model gpt-6.1-sol --max-minutes 60
+```
+
+Omit `--max-minutes` in a macOS terminal to choose `30`, `60`, `180`, `360` or `custom`; Enter keeps the existing limit. `q`, `cancel` or end of input cancels before the run starts. Both stdin and stderr must be terminals. Redirected and `--json` runs use the configured limit without prompting. This is a soft limit: an in-flight work unit can finish after it. Read the selected and actual time in the report; see [time selection](README.md#run-time-selection).
+
 To search for candidates in selected directories:
 
 ```sh
@@ -149,6 +163,8 @@ Omit `--lang ko` for English. The terminal names the current candidate and stage
 
 Progress goes to `stderr`. Add `--json` to keep `stdout` limited to report JSON. Shell commands, provider notes and validation output remain in local run records instead of filling the terminal. On failure, open the saved diagnostic path shown by the CLI; if no record was created, it says so. See [progress logs](README.md#progress-logs) for exclusions, rollback and provider recovery messages.
 
+Development builds show elapsed time, stage/provider, safe read/search/edit activity and available worktree-relative paths by default. A generic command activity message does not reveal shell text or its output. Provider completion shows measured duration, recognized tool-event count and exit status.
+
 <a id="read-the-result"></a>
 
 ## 5. Inspect the result
@@ -169,6 +185,10 @@ Report viewing makes no model calls. Language selection does not rewrite the sav
 4. Review the diff and run any omitted integration or browser checks before merging yourself.
 
 Results use local `refactor/auto-*` branches. The CLI does not merge, push or deploy. `accepted.patch` is intermediate review input; use `changes.patch` for the final published comparison.
+
+Development builds also write `.refactor/runs/<id>/changes.md`. Review its file checklist and full text diff in your Markdown editor. Checkboxes mark review progress; they do not include/exclude changes from the branch, and `changes.patch` remains unchanged. Binary changes show metadata. Viewing reports preserves the checklist and saved evidence.
+
+In development reports, read provider-reported and estimated USD separately. Supported exact models with missing provider prices use offline [Artificial Analysis](https://artificialanalysis.ai/) standard API rates with sources, checked dates and assumptions. The estimate is not a subscription bill; unknown models or missing usage remain unpriced. See [usage rules](README.md#usage-and-exit-codes) before interpreting a partial total.
 
 ## When a run stops
 

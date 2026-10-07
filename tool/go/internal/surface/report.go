@@ -161,8 +161,10 @@ func RenderReport(data []byte, language string) (string, error) {
 	} else {
 		lines = append(lines, "- "+label(language, "Result branch", "결과 브랜치")+": `"+branch+"`")
 	}
-	lines = append(lines, "- "+label(language, "Stop reason", "종료 사유")+": "+translateReason(val(report, "reason"), language), "",
-		label(language, "## Committed changes", "## 커밋된 변경"), "")
+	lines = append(lines, "- "+label(language, "Stop reason", "종료 사유")+": "+translateReason(val(report, "reason"), language), "")
+	lines = append(lines, renderRunLimits(obj(report["runLimits"]), language)...)
+	lines = append(lines, renderUsage(report, language)...)
+	lines = append(lines, label(language, "## Committed changes", "## 커밋된 변경"), "")
 	if none, filtered := numeric(counters["auditsNoProposals"]), numeric(counters["auditsAllFiltered"]); none+filtered > 0 {
 		line := fmt.Sprintf("- Audits with no eligible candidate: %d proposed nothing, %d had every proposal filtered by policy", none, filtered)
 		if language == "ko" {
@@ -250,7 +252,6 @@ func RenderReport(data []byte, language string) (string, error) {
 	}
 	lines = append(lines, renderProviderSettings(obj(report["providerSettings"]), language)...)
 	lines = append(lines, "")
-	lines = append(lines, renderUsage(report, language)...)
 	lines = append(lines, label(language, "## Next steps", "## 다음 단계"), "")
 	if branch != "" {
 		lines = append(lines, "```bash", "git log --oneline "+base+".."+branch, "git diff --stat "+base+" "+branch, "```", "", label(language, "Review the local branch before merging. refactor-me does not merge, push, or deploy.", "로컬 브랜치를 검토한 뒤 병합하세요. refactor-me는 merge, push, 배포를 수행하지 않습니다."))
@@ -365,6 +366,12 @@ func renderCodeComparison(comparison map[string]any, language string) []string {
 	}
 	lines = append(lines, label(language, "Base commit", "시작 커밋")+": `"+fallback(val(comparison, "baseCommit"), "-")+"`", "",
 		label(language, "Published commit", "최종 반영 커밋")+": `"+fallback(val(comparison, "resultCommit"), "-")+"`", "")
+	if markdown := val(comparison, "markdownFile"); markdown != "" {
+		lines = append(lines, "["+label(language, "Full changes and review checklist", "전체 변경과 검토 체크리스트")+"]("+markdown+")", "")
+	}
+	if markdownError := val(comparison, "markdownError"); markdownError != "" {
+		lines = append(lines, label(language, "Could not save the changes Markdown. The committed result is unchanged.", "변경 Markdown을 저장하지 못했습니다. 확정된 커밋은 유지됩니다."), "", fencedEvidence(markdownError, ""), "")
+	}
 	switch val(comparison, "status") {
 	case "UNAVAILABLE":
 		return append(lines, label(language, "Code comparison is unavailable. The run result is unchanged.", "코드 비교를 수집하지 못했습니다. 실행 결과에는 영향을 주지 않습니다."), "", fencedEvidence(val(comparison, "error"), ""))
@@ -408,6 +415,59 @@ func renderCodeComparison(comparison map[string]any, language string) []string {
 	return comparisonPatchLink(lines, comparison, language)
 }
 
+// RenderChanges uses the exact captured patch, without truncation or Git reads.
+// Checkboxes are human review notes and never control which commits are applied.
+func RenderChanges(comparison map[string]any, patch, language string) string {
+	lines := []string{label(language, "# Changes for review", "# 변경 검토"), "",
+		label(language, "Base commit", "시작 커밋") + ": `" + fallback(val(comparison, "baseCommit"), "-") + "`", "",
+		label(language, "Published commit", "최종 반영 커밋") + ": `" + fallback(val(comparison, "resultCommit"), "-") + "`", ""}
+	if val(comparison, "status") == "UNAVAILABLE" {
+		lines = append(lines, label(language, "Code comparison is unavailable. The committed result is unchanged.", "코드 비교를 수집하지 못했습니다. 확정된 커밋은 유지됩니다."), "", fencedEvidence(val(comparison, "error"), ""))
+		return strings.Join(lines, "\n") + "\n"
+	}
+	totals := obj(comparison["totals"])
+	if typed, ok := comparison["totals"].(map[string]int); ok {
+		for key, value := range typed {
+			totals[key] = value
+		}
+	}
+	lines = append(lines, fmt.Sprintf(label(language, "%s files; +%s / -%s text lines; %s binary files.", "파일 %s개 · 텍스트 +%s줄 / -%s줄 · 바이너리 %s개"), val(totals, "files"), val(totals, "insertions"), val(totals, "deletions"), val(totals, "binary")), "",
+		label(language, "## Review checklist", "## 검토 체크리스트"), "",
+		label(language, "Check a file after reviewing it. These marks do not include, exclude or apply changes.", "파일을 검토한 뒤 체크하세요. 체크 상태는 변경의 포함·제외·적용에 영향을 주지 않습니다."), "")
+	// The controller supplies typed maps; saved report JSON supplies []any.
+	var files []map[string]any
+	if typed, ok := comparison["files"].([]map[string]any); ok {
+		files = typed
+	} else {
+		for _, raw := range arr(comparison["files"]) {
+			files = append(files, obj(raw))
+		}
+	}
+	statuses := map[byte][2]string{'A': {"Added", "추가"}, 'D': {"Deleted", "삭제"}, 'M': {"Modified", "수정"}, 'R': {"Renamed", "이름 변경"}, 'C': {"Copied", "복사"}, 'T': {"Type changed", "유형 변경"}}
+	for _, file := range files {
+		name := tableCode(val(file, "path"))
+		if old := val(file, "oldPath"); old != "" {
+			name = tableCode(old) + " → " + name
+		}
+		status := val(file, "status")
+		if len(status) > 0 {
+			if text, ok := statuses[status[0]]; ok {
+				status = label(language, text[0], text[1])
+			}
+		}
+		if file["binary"] == true {
+			status += label(language, " (binary)", " (바이너리)")
+		}
+		lines = append(lines, fmt.Sprintf("- [ ] %s — %s; +%s / -%s; %s → %s", name, status, displayNumber(file["insertions"]), displayNumber(file["deletions"]), val(file, "oldMode"), val(file, "newMode")))
+	}
+	if len(files) == 0 {
+		lines = append(lines, label(language, "No committed code changes.", "커밋된 코드 변경이 없습니다."))
+	}
+	lines = append(lines, "", label(language, "## Full diff", "## 전체 diff"), "",
+		label(language, "Published characterization commits are included. Rejected or rolled-back edits are excluded. Binary bodies are omitted; binary, rename and mode changes remain as metadata.", "최종 반영된 characterization 커밋을 포함합니다. 거절되거나 롤백된 수정은 제외합니다. 바이너리 본문은 생략하며 바이너리·이름·파일 모드 변경은 메타데이터로 표시합니다."), "", fencedEvidence(patch, "diff"))
+	return strings.Join(lines, "\n") + "\n"
+}
+
 func displayNumber(value any) string {
 	if value == nil {
 		return "—"
@@ -415,8 +475,26 @@ func displayNumber(value any) string {
 	return str(value)
 }
 func tableCode(value string) string {
-	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "`", "&#96;", "|", "&#124;", "\n", "&#92;n", "\r", "&#92;r", "\t", "&#92;t")
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "`", "&#96;", "|", "&#124;", "[", "&#91;", "]", "&#93;", "*", "&#42;", "_", "&#95;", "\\", "&#92;", "\n", "&#92;n", "\r", "&#92;r", "\t", "&#92;t")
 	return "<code>" + r.Replace(value) + "</code>"
+}
+
+func renderRunLimits(limits map[string]any, language string) []string {
+	if len(limits) == 0 {
+		return nil
+	}
+	source := val(limits, "source")
+	sources := map[string][2]string{"cli": {"CLI option", "CLI 옵션"}, "interactive": {"terminal selection", "터미널 선택"}, "config": {"project/default configuration", "프로젝트·기본 설정"}}
+	if text, ok := sources[source]; ok {
+		source = label(language, text[0], text[1])
+	}
+	lines := []string{fmt.Sprintf(label(language, "- Selected time limit: %d min (%s); actual elapsed: %s", "- 선택한 시간 한도: %d분 (%s), 실제 경과: %s"), numeric(limits["maxMinutes"]), source, formatMS(numeric(limits["actualSeconds"])*1000))}
+	if limits["exceeded"] == true {
+		lines = append(lines, label(language, "- The selected time was exceeded. No new candidate starts after the limit; an in-flight candidate finishes validation and commit or rollback.", "- 선택한 시간을 초과했습니다. 한도 이후 새 후보를 시작하지 않으며 진행 중인 후보는 검증과 commit 또는 rollback까지 마칩니다."))
+	} else {
+		lines = append(lines, label(language, "- The time limit is checked at safe task boundaries; an in-flight candidate may finish after it.", "- 시간 한도는 안전한 작업 경계에서 확인하며 진행 중인 후보를 마치는 동안 초과할 수 있습니다."))
+	}
+	return append(lines, "")
 }
 func fencedEvidence(value, language string) string {
 	width := 3
@@ -460,7 +538,10 @@ func renderUsage(report map[string]any, language string) []string {
 		lines = append(lines, fmt.Sprintf("- Duration: %s min (%s min in providers; the remainder includes validation and Git)", val(report, "durationMinutes"), val(report, "providerMinutes")), fmt.Sprintf("- Providers: %d calls, %d CLI processes, %d failed calls", numeric(total["calls"]), numeric(total["processes"]), numeric(total["failedCalls"])), fmt.Sprintf("- Tokens: %s input, %s output", commas(numeric(total["inputTokens"])), commas(numeric(total["outputTokens"]))))
 	}
 	cost := costText(total)
-	if cost == "" {
+	estimates := val(report, "costPolicy") != "" || total["estimatedCostUsd"] != nil || total["estimateMissing"] != nil
+	if estimates {
+		lines = append(lines, renderAccountedCost(total, language)...)
+	} else if cost == "" {
 		lines = append(lines, label(language, "- Cost: **Not reported**. No monetary total is available for these calls.", "- 비용: **미보고**. 이 호출의 비용 합계를 확인할 수 없습니다."))
 	} else if numeric(total["costMissing"]) > 0 {
 		if language == "ko" {
@@ -471,7 +552,11 @@ func renderUsage(report map[string]any, language string) []string {
 	} else {
 		lines = append(lines, "- "+label(language, "Cost", "비용")+": **"+cost+"**")
 	}
-	lines = append(lines, "", label(language, "| Phase | Default effort | Calls | Duration | Input | Output | Cost |", "| 단계 | 기본 추론 수준 | 호출 | 소요 | 입력 | 출력 | 비용 |"), "|---|---|---|---|---|---|---|")
+	if estimates {
+		lines = append(lines, "", label(language, "| Phase | Default effort | Calls | Duration | Input | Output | Reported | Estimated | Unpriced |", "| 단계 | 기본 추론 수준 | 호출 | 소요 | 입력 | 출력 | 보고액 | 추정액 | 미산정 |"), "|---|---|---|---|---|---|---|---|---|")
+	} else {
+		lines = append(lines, "", label(language, "| Phase | Default effort | Calls | Duration | Input | Output | Cost |", "| 단계 | 기본 추론 수준 | 호출 | 소요 | 입력 | 출력 | 비용 |"), "|---|---|---|---|---|---|---|")
+	}
 	byPhase := obj(usage["byPhase"])
 	phaseOrder := []string{"doctor", "audit", "deep_check", "characterization", "preflight", "execute", "review", "handoff"}
 	seen := map[string]bool{}
@@ -497,6 +582,10 @@ func renderUsage(report map[string]any, language string) []string {
 		if phase == "audit" && numeric(u["calls"]) > 1 {
 			effort = "high→medium"
 		}
+		if estimates {
+			lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s | %s | %d |", phase, effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), optionalMoney(u["costUsd"]), optionalMoney(u["estimatedCostUsd"]), numeric(u["estimateMissing"])))
+			continue
+		}
 		cost := costText(u)
 		if cost == "" {
 			cost = label(language, "Not reported", "미보고")
@@ -505,7 +594,90 @@ func renderUsage(report map[string]any, language string) []string {
 		}
 		lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s |", phase, effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), cost))
 	}
-	return append(lines, "", label(language, "Default effort shows the phase policy, not observed provider effort. CLI effort overrides every phase; without it, existing configuration and operational overrides apply. A plus sign marks a partial cost.", "기본 추론 수준은 단계별 정책이며 실제 provider의 추론 수준을 관측한 값이 아닙니다. CLI effort는 모든 단계에 우선 적용됩니다. 미지정 시 기존 설정과 운영 단계의 별도 값이 적용됩니다. 비용의 +는 일부 비용만 집계했음을 뜻합니다."), "")
+	lines = append(lines, "", label(language, "Default effort shows the phase policy, not observed provider effort. CLI effort overrides every phase; without it, existing configuration and operational overrides apply. A plus sign marks a partial cost.", "기본 추론 수준은 단계별 정책이며 실제 provider의 추론 수준을 관측한 값이 아닙니다. CLI effort는 모든 단계에 우선 적용됩니다. 미지정 시 기존 설정과 운영 단계의 별도 값이 적용됩니다. 비용의 +는 일부 비용만 집계했음을 뜻합니다."), "")
+	if estimates {
+		lines = append(lines, renderEstimateSources(total, language)...)
+	}
+	return lines
+}
+
+func optionalMoney(value any) string {
+	if value == nil {
+		return "—"
+	}
+	amount := decimal(value)
+	if amount > 0 && amount < 0.0001 {
+		return "<$0.0001"
+	}
+	return fmt.Sprintf("$%.4f", amount)
+}
+
+func renderAccountedCost(total map[string]any, language string) []string {
+	amount := label(language, "Unavailable", "확인 불가")
+	if total["costUsd"] != nil || total["estimatedCostUsd"] != nil {
+		amount = optionalMoney(decimal(total["costUsd"]) + decimal(total["estimatedCostUsd"]))
+	}
+	lines := []string{"- " + label(language, "Accounted amount including estimates", "추정 포함 집계 금액") + ": **" + amount + "**",
+		fmt.Sprintf(label(language, "- Provider reported: %s; estimated: %s; unpriced invocations: %d", "- provider 보고액: %s, 추정액: %s, 미산정 호출: %d회"), optionalMoney(total["costUsd"]), optionalMoney(total["estimatedCostUsd"]), numeric(total["estimateMissing"]))}
+	if numeric(total["estimateMissing"]) > 0 {
+		lines = append(lines, label(language, "- Partial accounting: unpriced invocations are excluded from the amount, not treated as zero.", "- 일부 호출이 미산정 상태입니다. 집계 금액에서 빠져 있으며 비용이 0이라는 뜻은 아닙니다."))
+	}
+	lines = append(lines, label(language, "- Missing provider prices use bundled Artificial Analysis rates for the requested model at Standard API pricing. This is an API-equivalent estimate, not a subscription or credit bill; speed, region, batch and long-context modifiers are not observed.", "- 미보고 금액은 요청한 모델의 Artificial Analysis 단가표와 Standard API 기준으로 환산합니다. 구독·credit 청구액과 다르며 속도·지역·Batch·긴 context의 추가 요금은 관측하지 않습니다."))
+	return lines
+}
+
+func renderEstimateSources(total map[string]any, language string) []string {
+	lines := []string{}
+	estimates := arr(total["costEstimates"])
+	if len(estimates) > 0 {
+		lines = append(lines, label(language, "### Estimate breakdown", "### 추정 내역"), "", label(language, "| Provider / phase | Requested model | Uncached input | Cache read | Cache write | Of which 1h | Output | Estimate |", "| Provider / 단계 | 요청한 모델 | 일반 입력 | Cache read | Cache write | 그중 1시간 | 출력 | 추정액 |"), "|---|---|---:|---:|---:|---:|---:|---:|")
+		seen := map[string]bool{}
+		var sources []string
+		for _, raw := range estimates {
+			e := obj(raw)
+			lines = append(lines, fmt.Sprintf("| %s / %s | %s | %s | %s | %s | %s | %s | %s |", tableCode(val(e, "provider")), tableCode(val(e, "phase")), tableCode(val(e, "requestedModel")), commas(numeric(e["uncachedInputTokens"])), commas(numeric(e["cachedInputTokens"])), commas(numeric(e["cacheWriteInputTokens"])), commas(numeric(e["cacheWrite1hInputTokens"])), commas(numeric(e["outputTokens"])), optionalMoney(e["costUsd"])))
+			rates := obj(e["rates"])
+			key := val(e, "requestedModel")
+			if !seen[key] {
+				seen[key] = true
+				sources = append(sources, fmt.Sprintf("- %s — %s: %s; input %s / cache read %s / cache write %s / output %s USD per million tokens. [Artificial Analysis](%s), [provider](%s)", tableCode(key), label(language, "checked", "확인일"), val(rates, "checkedAt"), val(rates, "inputUsdPerMillion"), val(rates, "cachedInputUsdPerMillion"), val(rates, "cacheWriteUsdPerMillion"), val(rates, "outputUsdPerMillion"), val(rates, "sourceUrl"), val(rates, "supplementalSourceUrl")))
+				if decimal(rates["cacheWrite1hUsdPerMillion"]) > 0 {
+					sources = append(sources, fmt.Sprintf(label(language, "- %s: 1h cache write %s USD per million tokens.", "- %s: 1시간 cache write 단가 %s USD / 100만 토큰."), tableCode(key), val(rates, "cacheWrite1hUsdPerMillion")))
+				}
+			}
+			if len(arr(e["notes"])) > 0 {
+				var notes []string
+				for _, note := range arr(e["notes"]) {
+					notes = append(notes, estimateExplanation(str(note), language))
+				}
+				sources = append(sources, "- "+tableCode(val(e, "provider")+"/"+val(e, "phase"))+": "+strings.Join(notes, ", "))
+			}
+		}
+		lines = append(lines, "", label(language, "Reasoning tokens are included in output. The 1h cache write count is included in cache write and uses its separate rate. Neither is charged twice. Missing cache categories are marked in the assumptions below.", "Reasoning 토큰은 출력에 포함됩니다. 1시간 cache write 토큰은 전체 cache write에 포함되며 별도 단가를 적용합니다. 두 항목 모두 중복 계산하지 않습니다. 누락된 캐시 항목의 가정은 아래에 표시합니다."), "")
+		lines = append(lines, sources...)
+		lines = append(lines, "")
+	}
+	for _, raw := range arr(total["estimateMissingReasons"]) {
+		e := obj(raw)
+		lines = append(lines, "- "+label(language, "Unpriced", "미산정")+": "+tableCode(val(e, "provider")+"/"+val(e, "phase"))+" "+tableCode(val(e, "requestedModel"))+" — "+estimateExplanation(val(e, "reason"), language))
+	}
+	return append(lines, "")
+}
+
+func estimateExplanation(code, language string) string {
+	explanations := map[string][2]string{
+		"UNKNOWN_MODEL":                    {"No bundled rate for this model", "단가표에 없는 모델"},
+		"MISSING_USAGE":                    {"Token usage not reported", "토큰 사용량 미보고"},
+		"INVALID_USAGE":                    {"Invalid token usage", "잘못된 토큰 사용량"},
+		"MISSING_CACHE_READ_ASSUMED_ZERO":  {"Cache read not reported; assumed zero tokens", "Cache read 미보고로 0개를 가정"},
+		"MISSING_CACHE_WRITE_ASSUMED_ZERO": {"Cache write not reported; assumed zero tokens", "Cache write 미보고로 0개를 가정"},
+		"CACHE_WRITE_TTL_ASSUMED_5M":       {"Cache write lifetime not reported; assumed 5 minutes", "Cache write 유지 시간 미보고로 5분을 가정"},
+		"INVALID_REPORTED_COST_IGNORED":    {"Invalid provider price ignored; token estimate used", "잘못된 provider 보고액 대신 토큰 추정치를 사용"},
+	}
+	if text, ok := explanations[code]; ok {
+		return label(language, text[0], text[1])
+	}
+	return tableCode(code)
 }
 
 func renderProviderSettings(settings map[string]any, language string) []string {

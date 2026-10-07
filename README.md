@@ -67,6 +67,16 @@ Public Beta `0.10.0-beta.4` shows the current stage, candidate and confirmed res
 
 Progress goes to `stderr`, so `run --json` keeps report JSON alone on `stdout`. Each audit reports its own proposed and eligible candidate counts; long stages report elapsed time every 30 seconds. Original provider transcripts and validation output remain in local run records. See [progress logs](tool/README.md#progress-logs).
 
+## Current development changes
+
+These changes are **Unreleased**; the published Homebrew Beta above remains `0.10.0-beta.4`. Build a [development binary](tool/DEVELOPMENT.md) to try them.
+
+- Choose a run limit with `--max-minutes 60`, or select 30, 60, 180, 360 or a custom number of minutes in a macOS terminal. Enter keeps the project limit; JSON and redirected runs do not prompt. A running work unit can finish after the limit.
+- Read elapsed time, stage, provider and safe file/tool activity in the default progress logs. Commands, output and sensitive paths stay out of terminal activity messages.
+- Open `changes.md` for a file review checklist and the full committed text diff. Cost reports use provider-reported prices first, then dated [Artificial Analysis](https://artificialanalysis.ai/) standard API estimates for supported models. Estimates are not subscription charges; unknown usage stays visible.
+
+See [time selection](tool/README.md#run-time-selection), [code comparison](tool/README.md#code-comparison) and [usage](tool/README.md#usage-and-exit-codes) for the contracts.
+
 ## Read next
 
 | Task | Document |

@@ -78,6 +78,7 @@ func TestProgressDiagnosticPreservesRepeatedSpacePaths(t *testing.T) {
 			}
 			found := false
 			for _, line := range strings.Split(output, "\n") {
+				line = progressBody(line)
 				if !strings.HasPrefix(line, prefix) {
 					continue
 				}

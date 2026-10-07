@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
@@ -17,6 +18,16 @@ import (
 type heartbeatCapture struct {
 	bytes.Buffer
 	writes chan struct{}
+}
+
+func progressBody(line string) string {
+	_, rest, ok := strings.Cut(line, "] ")
+	if ok && strings.HasPrefix(line, "[") && strings.HasPrefix(rest, "[") {
+		if _, body, ok := strings.Cut(rest, "] "); ok {
+			return body
+		}
+	}
+	return line
 }
 
 func (w *heartbeatCapture) Write(data []byte) (int, error) {
@@ -32,6 +43,7 @@ func TestProgressHeartbeatStopsBeforeNextStageAndReturn(t *testing.T) {
 	p := newProgress(output, "ko")
 	start := time.Unix(100, 0)
 	p.now = func() time.Time { return start }
+	p.started = start
 	first, second := make(chan time.Time), make(chan time.Time)
 	tickerCalls, cancelled := 0, 0
 	p.ticker = func() (<-chan time.Time, func()) {
@@ -92,8 +104,43 @@ func TestProgressSerializesHeartbeatAndOtherRunWriters(t *testing.T) {
 	writers.Wait()
 	p.stop()
 	for _, line := range strings.Split(strings.TrimSpace(output.String()), "\n") {
+		line = progressBody(line)
 		if line != "Validation" && line != "other run writer" && line != "event message" && !strings.HasPrefix(line, "Still working: Validation (") {
 			t.Fatal("interleaved line", line)
+		}
+	}
+}
+
+func TestDetailedProgressUsesFixedMetadataAndCheckResults(t *testing.T) {
+	for _, language := range []string{"en", "ko"} {
+		var output bytes.Buffer
+		r := &runner{surface: surface.Context{Stderr: &output, Args: surface.Args{Language: language}}}
+		p := r.progressLog()
+		p.started = time.Unix(100, 0)
+		p.now = func() time.Time { return p.started.Add(5 * time.Second) }
+		r.OnProviderEvent(engine.ProviderEvent{Kind: "activity", Phase: "execute", Provider: "codex", Action: "edit", Status: "completed", Path: "src/parser.go"})
+		r.OnProviderEvent(engine.ProviderEvent{Kind: "activity", Phase: "execute", Provider: "codex", Action: "RAW_COMMAND_FIXTURE", Status: "completed"})
+		exit := 0
+		duration, tools := int64(2500), 3
+		r.OnProviderEvent(engine.ProviderEvent{Kind: "activity", Phase: "execute", Provider: "codex", Action: "provider", Status: "completed",
+			DurationMS: &duration, ToolCalls: &tools, ExitCode: &exit})
+		r.OnProviderEvent(engine.ProviderEvent{Kind: "activity", Phase: "execute", Provider: "codex", Action: "provider", Status: "failed",
+			DurationMS: &duration, ToolCalls: &tools})
+		r.observeCommand(workspace.CommandEvent{Kind: "completed", Command: workspace.Command{Name: "test", Area: "src", Argv: []string{"RAW_COMMAND_FIXTURE"}},
+			Result: workspace.CommandResult{Status: workspace.StatusGreen, DurationMS: 1250, ExitCode: &exit, StdoutTail: "RAW_OUTPUT_FIXTURE", StderrTail: "RAW_ERROR_FIXTURE"}})
+		text := output.String()
+		for _, want := range []string{"[00:05] [EXECUTE/codex]", "src/parser.go", "1.25s; exit 0"} {
+			if !strings.Contains(text, want) {
+				t.Fatal("missing detailed metadata", language, want, text)
+			}
+		}
+		for _, want := range []string{"2.5s", p.text("tool events 3", "도구 이벤트 3회"), "exit " + p.text("not recorded", "기록 없음")} {
+			if !strings.Contains(text, want) {
+				t.Fatal("provider completion or failure lost measured metadata", language, want, text)
+			}
+		}
+		if strings.Contains(text, "RAW_") {
+			t.Fatal("raw content reached progress", text)
 		}
 	}
 }

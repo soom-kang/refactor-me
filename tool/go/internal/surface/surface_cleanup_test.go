@@ -76,6 +76,41 @@ func TestReportEvidence(t *testing.T) {
 	}
 }
 
+func TestChangesMarkdownEscapesAndKeepsFullDiff(t *testing.T) {
+	patch := strings.Repeat("+unchanged evidence\n", 400) + "+````\n-final line\n"
+	comparison := map[string]any{"baseCommit": strings.Repeat("a", 40), "resultCommit": strings.Repeat("b", 40), "status": "AVAILABLE",
+		"totals": map[string]int{"files": 1, "insertions": 401, "deletions": 1, "binary": 0},
+		"files":  []map[string]any{{"path": "[link](url)|`file`\n.txt", "status": "A", "insertions": 401, "deletions": 1, "oldMode": "000000", "newMode": "100644"}}}
+	for _, language := range []string{"en", "ko"} {
+		md := RenderChanges(comparison, patch, language)
+		if !strings.Contains(md, patch) || !strings.Contains(md, "`````diff\n") || !strings.Contains(md, "&#91;link&#93;") || strings.Count(md, "- [ ]") != 1 || !strings.Contains(md, "+401 / -1") {
+			t.Fatal("unsafe or incomplete Markdown", language)
+		}
+	}
+}
+
+func TestReportAccountedCostAndLimits(t *testing.T) {
+	report := []byte(`{"schemaVersion":3,"status":"DONE_PARTIAL","costPolicy":"provider_reported_then_standard_estimate","runLimits":{"maxMinutes":30,"source":"cli","actualSeconds":1802,"exceeded":true},"usage":{"totals":{"processes":3,"calls":3,"costUsd":0.3,"estimatedCostUsd":0.15,"estimateMissing":1,"costEstimates":[{"provider":"claude","phase":"audit","requestedModel":"claude-sonnet-5-5","costUsd":0.15,"uncachedInputTokens":50000,"cachedInputTokens":50000,"cacheWriteInputTokens":10000,"cacheWrite1hInputTokens":1000,"outputTokens":1350,"rates":{"inputUsdPerMillion":2,"cachedInputUsdPerMillion":0.2,"cacheWriteUsdPerMillion":2.5,"cacheWrite1hUsdPerMillion":4,"outputUsdPerMillion":10,"sourceUrl":"https://artificialanalysis.ai/","supplementalSourceUrl":"https://platform.claude.com/","checkedAt":"2026-10-07"}}],"estimateMissingReasons":[{"provider":"codex","phase":"audit","requestedModel":"unknown","reason":"UNKNOWN_MODEL"}]},"byPhase":{"audit":{"calls":3,"costUsd":0.3,"estimatedCostUsd":0.15,"estimateMissing":1}}}}`)
+	for i, lang := range []string{"en", "ko"} {
+		md, err := RenderReport(report, lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"$0.4500", "$0.3000", "$0.1500", "30m02s", "2026-10-07", "| 50,000 | 50,000 | 10,000 | 1,000 | 1,350 | $0.1500 |", []string{"Unpriced", "미산정"}[i], []string{"No bundled rate", "단가표에 없는 모델"}[i]} {
+			if !strings.Contains(md, want) {
+				t.Fatalf("%s report lacks %s", lang, want)
+			}
+		}
+		if strings.Index(md, "$0.4500") > strings.Index(md, []string{"## Committed changes", "## 커밋된 변경"}[i]) {
+			t.Fatal("cost summary is not before committed changes")
+		}
+	}
+	unknown, err := RenderReport([]byte(`{"schemaVersion":3,"status":"DONE","costPolicy":"provider_reported_then_standard_estimate","usage":{"totals":{"processes":1,"estimateMissing":1}}}`), "en")
+	if err != nil || !strings.Contains(unknown, "Unavailable") || strings.Contains(unknown, "$0.0000") {
+		t.Fatal("unknown cost became zero", err)
+	}
+}
+
 func TestReportViewsPreserveFiles(t *testing.T) {
 	repo := testRepo(t)
 	run := filepath.Join(repo, ".refactor", "runs", "old")
@@ -83,7 +118,7 @@ func TestReportViewsPreserveFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	report := []byte("{\n \"schemaVersion\": 3, \"status\": \"DONE\", \"codeComparison\": {\"status\":\"AVAILABLE\",\"preview\":\"+``````\\n\",\"patchFile\":\"changes.patch\",\"files\":[{\"path\":\"a|b\\n.txt\"}]}}\n")
-	snapshots := map[string][]byte{"report.json": report, "report.md": []byte("saved markdown\n"), "changes.patch": []byte("+evidence\n")}
+	snapshots := map[string][]byte{"report.json": report, "report.md": []byte("saved markdown\n"), "changes.patch": []byte("+evidence\n"), "changes.md": []byte("- [x] reviewed\n")}
 	for name, b := range snapshots {
 		if err := os.WriteFile(filepath.Join(run, name), b, 0644); err != nil {
 			t.Fatal(err)

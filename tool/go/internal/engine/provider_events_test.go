@@ -61,8 +61,25 @@ printf '%s\n' '{"answer":7}' > "$out"
 			if err != nil || !result.OK || result.ToolCalls != 2 {
 				t.Fatalf("provider=%+v, err=%v", result, err)
 			}
-			if !reflect.DeepEqual(log.events, wantEvents) {
-				t.Fatalf("events=%+v, want=%+v", log.events, wantEvents)
+			var transitions []ProviderEvent
+			activityCount := 0
+			for _, event := range log.events {
+				if event.Kind != "activity" {
+					transitions = append(transitions, event)
+					continue
+				}
+				activityCount++
+				if strings.Contains(event.Path, "RAW_") || strings.Contains(event.Action, "RAW_") {
+					t.Fatal("activity exposed unverified path or command", event)
+				}
+			}
+			if !reflect.DeepEqual(transitions, wantEvents) || activityCount == 0 {
+				t.Fatalf("events=%+v, want transitions=%+v and activity", log.events, wantEvents)
+			}
+			completed := log.events[len(log.events)-1]
+			if completed.Action != "provider" || completed.Status != "completed" || completed.DurationMS == nil || *completed.DurationMS != result.DurationMS ||
+				completed.ToolCalls == nil || *completed.ToolCalls != result.ToolCalls || completed.ExitCode == nil || *completed.ExitCode != *result.ExitCode {
+				t.Fatal("provider completion lost process metadata", completed, result)
 			}
 			transcript, err := os.ReadFile(result.RawPath)
 			if err != nil || string(transcript) != raw {
@@ -87,7 +104,13 @@ func TestSchemaRepairEventContainsMetadataAndStaysReadOnly(t *testing.T) {
 				t.Fatal(result, err)
 			}
 			want := []ProviderEvent{{Kind: "schema_repair", Provider: provider, Phase: "execute", Count: 1}}
-			if !reflect.DeepEqual(log.events, want) {
+			var transitions []ProviderEvent
+			for _, event := range log.events {
+				if event.Kind != "activity" {
+					transitions = append(transitions, event)
+				}
+			}
+			if !reflect.DeepEqual(transitions, want) {
 				t.Fatalf("events=%+v", log.events)
 			}
 			calls := capturedModelCalls(t, bin)
@@ -108,5 +131,51 @@ func TestSchemaRepairEventContainsMetadataAndStaysReadOnly(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestActivityEventsVerifyPathsAndExcludeSensitiveInputs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "src"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"src/parser.go", ".env.local"} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte("fixture\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "outside")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, ".env.local"), filepath.Join(root, "src", "alias.go")); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, tool, path, want string }{
+		{"read", "Read", filepath.Join(root, "src/parser.go"), "src/parser.go"},
+		{"new-file", "Write", "src/new.go", "src/new.go"},
+		{"absent-read", "Read", "RAW_PATH_FIXTURE", ""},
+		{"secret", "Read", ".env.local", ""},
+		{"secret-alias", "Read", "src/alias.go", ""},
+		{"outside", "Write", "outside/new.go", ""},
+		{"traversal", "Read", "../RAW_PRIVATE_PATH_FIXTURE", ""},
+		{"control", "Read", "src/parser.go\nRAW_TEXT_FIXTURE", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			event := map[string]any{"type": "assistant", "message": map[string]any{"content": []any{map[string]any{"type": "tool_use", "name": tc.tool,
+				"input": map[string]any{"file_path": tc.path, "pattern": "RAW_SEARCH_FIXTURE", "command": "RAW_COMMAND_FIXTURE", "content": "RAW_TEXT_FIXTURE"}}}}}
+			got := ActivityEvents("claude", "audit", root, event)
+			if len(got) != 1 || got[0].Path != tc.want || got[0].Status != "started" {
+				t.Fatalf("activity=%+v, want path=%q", got, tc.want)
+			}
+		})
+	}
+	command := ActivityEvents("codex", "execute", root, map[string]any{"type": "item.completed", "item": map[string]any{
+		"type": "command_execution", "command": "RAW_COMMAND_FIXTURE", "aggregated_output": "RAW_OUTPUT_FIXTURE", "exit_code": float64(1)}})
+	if len(command) != 1 || command[0].Action != "command" || command[0].Status != "failed" || command[0].Path != "" {
+		t.Fatal("command activity", command)
+	}
+	if got := ActivityEvents("codex", "execute", root, map[string]any{"type": "item.completed", "item": map[string]any{"type": "agent_message", "text": "RAW_PROSE_FIXTURE"}}); len(got) != 0 {
+		t.Fatal("prose generated an activity", got)
 	}
 }

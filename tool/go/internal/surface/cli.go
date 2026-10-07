@@ -34,6 +34,7 @@ type Args struct {
 	Model, FallbackModel, Effort, FallbackEffort              string
 	FallbackSet, JSON, Live, Version, LanguageSet             bool
 	Targets                                                   []string
+	MaxMinutes                                                int
 }
 
 type Context struct {
@@ -42,6 +43,7 @@ type Context struct {
 	Args               Args
 	Providers, Targets []string
 	ProviderSettings   map[string]ProviderSettings
+	RunLimitSource     string
 	Stdout, Stderr     io.Writer
 }
 
@@ -58,9 +60,10 @@ type DoctorResult struct {
 }
 
 type Callbacks struct {
-	Run    func(Context) (RunResult, error)
-	Doctor func(Context) (DoctorResult, error)
-	Clean  func(Context) (string, error)
+	Run              func(Context) (RunResult, error)
+	Doctor           func(Context) (DoctorResult, error)
+	Clean            func(Context) (string, error)
+	SelectMaxMinutes func(defaultMinutes int, language string) (int, error)
 }
 
 func Parse(argv []string) (Args, error) {
@@ -87,6 +90,15 @@ func Parse(argv []string) (Args, error) {
 				return args, e
 			}
 			args.Targets = append(args.Targets, v)
+		case "--max-minutes":
+			v, e := value(&i, "--max-minutes")
+			if e != nil {
+				return args, e
+			}
+			args.MaxMinutes, e = parseMaxMinutes(v)
+			if e != nil {
+				return args, fmt.Errorf("--max-minutes: %w", e)
+			}
 		case "--lang":
 			v, e := value(&i, "--lang")
 			if e != nil {
@@ -172,6 +184,9 @@ func Parse(argv []string) (Args, error) {
 	if hasProviderOptions(args) && (args.Version || (args.Command != "run" && args.Command != "doctor")) {
 		return args, errors.New("model and effort options are supported only for run and doctor")
 	}
+	if args.MaxMinutes != 0 && (args.Version || args.Command != "run") {
+		return args, errors.New("--max-minutes is supported only for run")
+	}
 	return args, nil
 }
 
@@ -195,6 +210,7 @@ OPTIONS
   --fallback-model <id>     model for the fallback provider
   --effort <level>          leading provider effort for every call, including doctor
   --fallback-effort <level> fallback provider effort for every call
+  --max-minutes <n>         positive run time limit in minutes (run only; overrides config)
   --json                    machine-readable stdout
   --lang en|ko              progress, summary and report language (run/report; default: en)
   --no-live-probe           skip live provider checks
@@ -206,6 +222,9 @@ Run and live doctor require a nonblank model for each selected provider,
 from these options or agents.<provider>.model in .refactor/config.json.
 Model and effort options apply only to run/doctor and are not saved.
 Effort options override phase policy; omission preserves existing effort settings.
+Run time selection is offered on macOS when stdin and stderr are terminals,
+unless --max-minutes or --json is given. Enter keeps the configured limit.
+The limit is checked between work units; an in-progress unit finishes first.
 
 EXIT CODES
   0  completed or partially completed
@@ -372,7 +391,12 @@ func Execute(argv []string, cwd string, stdout, stderr io.Writer, callbacks Call
 		fmt.Fprintln(stderr, "refactor-me:", err)
 		return ExitAborted
 	}
-	ctx := Context{Repo: repo, Config: cfg, Args: args, Providers: providers, ProviderSettings: settings, Targets: targets, Stdout: stdout, Stderr: stderr}
+	cfg, limitSource, err := runDurationOptions(cfg, args, callbacks.SelectMaxMinutes)
+	if err != nil {
+		fmt.Fprintln(stderr, "refactor-me:", err)
+		return ExitAborted
+	}
+	ctx := Context{Repo: repo, Config: cfg, Args: args, Providers: providers, ProviderSettings: settings, RunLimitSource: limitSource, Targets: targets, Stdout: stdout, Stderr: stderr}
 	if args.Command == "clean" {
 		if callbacks.Clean == nil {
 			fmt.Fprintln(stderr, "clean is unavailable")

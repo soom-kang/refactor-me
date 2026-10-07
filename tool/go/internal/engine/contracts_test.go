@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
 
 func TestContractProviderRing(t *testing.T) {
@@ -131,6 +136,129 @@ func TestContractUsageAccounting(t *testing.T) {
 	}
 	if !strings.Contains(UsageLine("audit", "codex", Result{}), "cost n/a") {
 		t.Fatal("unknown cost rendered zero")
+	}
+}
+
+func TestContractUsagePricing(t *testing.T) {
+	codexOutput := `{"type":"turn.completed","usage":{"input_tokens":1000000,"cached_input_tokens":600000,"cache_write_input_tokens":100000,"output_tokens":100000,"reasoning_output_tokens":20000}}`
+	codex := parseCodex(codexOutput, "").Usage
+	claudeOutput := `{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"output_tokens":100000}}`
+	claude := parseClaude(claudeOutput).Usage
+	for _, tc := range []struct {
+		provider, model string
+		usage           Usage
+		want            float64
+	}{
+		{"codex", "gpt-6.1-sol", codex, 1.91},
+		{"codex", "gpt-5.6-sol", codex, 3.94},
+		{"claude", "claude-sonnet-5-5", claude, 1.97},
+		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_5m_input_tokens":100000},"output_tokens":100000}}`).Usage, 1.97},
+		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_1h_input_tokens":50000},"output_tokens":100000}}`).Usage, 2.045},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			got := EstimateUsage(tc.usage, tc.provider, tc.model, "audit")
+			if got.CostUSD != nil || got.EstimatedCostUSD == nil || math.Abs(*got.EstimatedCostUSD-tc.want) > 1e-9 || len(got.CostEstimates) != 1 || got.EstimateMissing != 0 {
+				t.Fatalf("incorrect estimate: %+v", got)
+			}
+			detail := got.CostEstimates[0]
+			if detail.Rates.CheckedAt != "2026-10-07" || !strings.HasPrefix(detail.Rates.SourceURL, "https://artificialanalysis.ai/") || detail.Rates.SupplementalSourceURL == "" || detail.RequestedModel != tc.model || detail.Assumption == "" {
+				t.Fatalf("missing price provenance: %+v", detail)
+			}
+			if got.InputTokens != 1000000 || got.UncachedInputTokens != 300000 {
+				t.Fatalf("cache categories were double counted: %+v", got)
+			}
+		})
+	}
+	reported := parseClaude(`{"type":"result","usage":{"input_tokens":1,"output_tokens":1},"total_cost_usd":0.5488}`).Usage
+	if got := EstimateUsage(reported, "claude", "claude-sonnet-5-5", "review"); got.EstimatedCostUSD != nil || *got.CostUSD != 0.5488 || len(got.CostEstimates) != 0 {
+		t.Fatal("provider-reported price was replaced", got)
+	}
+	invalidPrice := EstimateUsage(parseClaude(`{"type":"result","usage":{"input_tokens":1000000,"output_tokens":0},"total_cost_usd":-1}`).Usage, "claude", "claude-sonnet-5-5", "audit")
+	if invalidPrice.CostUSD != nil || invalidPrice.EstimatedCostUSD == nil || *invalidPrice.EstimatedCostUSD != 2 || invalidPrice.CostEstimates[0].Notes[0] != "INVALID_REPORTED_COST_IGNORED" {
+		t.Fatal("invalid provider price bypassed token estimate", invalidPrice)
+	}
+	for _, tc := range []struct {
+		model, body, reason string
+	}{
+		{"custom-model", codexOutput, "UNKNOWN_MODEL"},
+		{"gpt-6.1-sol", `{}`, "MISSING_USAGE"},
+		{"gpt-6.1-sol", `{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":1,"cached_input_tokens":6}}`, "INVALID_USAGE"},
+		{"gpt-6.1-sol", `{"type":"turn.completed","usage":{"input_tokens":-1,"output_tokens":1}}`, "INVALID_USAGE"},
+	} {
+		got := EstimateUsage(parseCodex(tc.body, "").Usage, "codex", tc.model, "execute")
+		if got.EstimatedCostUSD != nil || got.EstimateMissing != 1 || len(got.EstimateMissingReasons) != 1 || got.EstimateMissingReasons[0].Reason != tc.reason {
+			t.Fatal("unknown usage became a zero estimate", got)
+		}
+	}
+	withoutCache := EstimateUsage(parseCodex(`{"type":"turn.completed","usage":{"input_tokens":1000000,"output_tokens":0}}`, "").Usage, "codex", "gpt-6.1-sol", "audit")
+	if withoutCache.EstimatedCostUSD == nil || *withoutCache.EstimatedCostUSD != 2 || len(withoutCache.CostEstimates[0].Notes) != 2 {
+		t.Fatal("missing cache counts were not qualified", withoutCache)
+	}
+	estimated := EstimateUsage(codex, "codex", "gpt-6.1-sol", "audit")
+	merged := MergeUsage(estimated, reported)
+	summary := UsageSummaryForResult(Result{OK: true, Usage: merged, Processes: 2})
+	missing := EstimateUsage(Usage{}, "codex", "gpt-6.1-sol", "execute")
+	summary = MergeUsageSummaries(summary, UsageSummaryForResult(Result{Usage: missing, Processes: 1}))
+	if summary.Processes != 3 || summary.Calls != 2 || summary.FailedCalls != 1 || summary.CostMissing != 2 || summary.EstimateMissing != 1 || len(summary.CostEstimates) != 1 || len(summary.EstimateMissingReasons) != 1 || *summary.CostUSD != 0.5488 || math.Abs(*summary.EstimatedCostUSD-1.91) > 1e-9 {
+		t.Fatalf("repair/provider summaries lost usage: %+v", summary)
+	}
+	one := 1
+	failed := classifyCodex(processResult{stdout: codexOutput, stderr: "invalid api key", exitCode: &one}, "", false)
+	if failed.failure != "AUTH" || failed.parsed.Usage.InputTokens != 1000000 {
+		t.Fatal("failure classification discarded reported usage", failed)
+	}
+	killed := classifyClaude(processResult{stdout: `{"type":"result","total_cost_usd":0.5488}`, killed: true}, false)
+	if killed.failure != "TIMEOUT" || killed.parsed.Usage.CostUSD == nil || *killed.parsed.Usage.CostUSD != 0.5488 {
+		t.Fatal("timeout discarded provider price", killed)
+	}
+}
+
+func TestContractProviderTranscriptFailure(t *testing.T) {
+	for _, scenario := range []string{"claude", "codex", "unsafe-claude"} {
+		t.Run(scenario, func(t *testing.T) {
+			provider := strings.TrimPrefix(scenario, "unsafe-")
+			repo, runDir := t.TempDir(), t.TempDir()
+			model := "gpt-6.1-sol"
+			body := "#!/bin/sh\ncat >/dev/null\n"
+			cfg := Config{Agents: map[string]AgentConfig{}}
+			if scenario == "unsafe-claude" {
+				c, fixtureRepo := catalogFixture(t)
+				cfg.Skills, repo = c, fixtureRepo
+				body += "echo changed >> '" + filepath.Join(c.Entries[0].Path, "SKILL.md") + "'\n"
+			}
+			if provider == "claude" {
+				model = "claude-sonnet-5-5"
+				body += "printf '%s\\n' '{\"type\":\"result\",\"is_error\":false,\"usage\":{\"input_tokens\":1000000,\"output_tokens\":0},\"total_cost_usd\":0.25}'\n"
+			} else {
+				body += "printf '%s\\n' '{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1000000,\"output_tokens\":0}}'\n"
+			}
+			bin := filepath.Join(t.TempDir(), "provider")
+			if err := os.WriteFile(bin, []byte(body), 0700); err != nil {
+				t.Fatal(err)
+			}
+			cfg.Agents[provider] = AgentConfig{Bin: bin, Model: model}
+			// A directory at the stdout destination fails after the process ran,
+			// independently of OS permission handling and the current user.
+			rawPath := filepath.Join(runDir, "provider", "audit-"+provider+"-primary.stdout.jsonl")
+			if err := os.MkdirAll(rawPath, 0700); err != nil {
+				t.Fatal(err)
+			}
+			log := &providerEventRecorder{}
+			got, err := CallProvider(context.Background(), provider, Request{Phase: "audit", CWD: repo, RunDir: runDir}, cfg, log)
+			if err == nil || got.OK || got.Processes != 1 || got.Usage.InputTokens != 1000000 || !strings.Contains(err.Error(), "write stdout transcript") {
+				t.Fatalf("transcript failure lost invocation: %+v, %v", got, err)
+			}
+			if provider == "claude" && (got.Usage.CostUSD == nil || *got.Usage.CostUSD != 0.25) || provider == "codex" && (got.Usage.EstimatedCostUSD == nil || *got.Usage.EstimatedCostUSD != 2) {
+				t.Fatal("transcript failure lost cost", got.Usage)
+			}
+			if scenario == "unsafe-claude" && (!errors.Is(err, workspace.ErrUnsafe) || got.Failure != "UNSAFE" || !got.Fatal) {
+				t.Fatal("transcript failure hid safety failure", got, err)
+			}
+			last := log.events[len(log.events)-1]
+			if last.Action != "provider" || last.Status != "failed" {
+				t.Fatal("provider completion concealed transcript failure", last)
+			}
+		})
 	}
 }
 

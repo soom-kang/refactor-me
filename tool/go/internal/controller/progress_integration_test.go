@@ -276,6 +276,7 @@ func TestProgressRunSkippedOutcomesHaveDiagnosticsAndNoPublishedCommit(t *testin
 			}
 			diagnosticFound := false
 			for _, line := range strings.Split(output, "\n") {
+				line = progressBody(line)
 				var printedPath string
 				if strings.HasPrefix(line, "상세 기록: ") {
 					printedPath = strings.TrimPrefix(line, "상세 기록: ")

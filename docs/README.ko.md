@@ -67,6 +67,16 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)를 참고하세요.
 
+## 현재 개발 변경 사항
+
+아래 변경은 **Unreleased**입니다. 위 Homebrew 공개 Beta는 `0.10.0-beta.4`이며, 새 기능은 [개발 실행 파일](../tool/DEVELOPMENT.md)로 확인합니다.
+
+- `--max-minutes 60`으로 이번 실행의 시간을 정합니다. macOS 터미널에서는 30, 60, 180, 360분이나 custom을 선택하며 Enter는 프로젝트의 기존 한도를 유지합니다. JSON 출력이나 입출력 리다이렉션에서는 질문하지 않습니다. 진행 중인 작업 단위를 마치는 동안 한도를 초과할 수 있습니다.
+- 기본 진행 로그에 경과 시간, 단계, provider와 안전한 파일 및 도구 작업을 표시합니다. 명령 원문, 출력과 민감 경로는 작업 로그에 표시하지 않습니다.
+- `changes.md`에서 파일 검토 체크리스트와 커밋된 전체 텍스트 diff를 확인합니다. 비용은 provider 보고값을 우선하고, 지원하는 모델의 미보고 비용에는 확인 날짜를 기록한 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 추정값을 사용합니다. 구독 청구액과 구분하며 알 수 없는 사용량은 그대로 표시합니다.
+
+[시간 선택](../tool/README.ko.md#run-time-selection), [코드 비교](../tool/README.ko.md#code-comparison), [사용량](../tool/README.ko.md#usage-and-exit-codes)에서 세부 동작을 확인하세요.
+
 ## 상세 문서
 
 | 할 일 | 문서 |

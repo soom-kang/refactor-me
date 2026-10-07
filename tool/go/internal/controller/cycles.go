@@ -29,6 +29,11 @@ func (r *runner) cycles() error {
 		if err != nil {
 			return err
 		}
+		// An audit may finish after the time limit. Do not start a new candidate,
+		// but avoid rechecking the cycle budget after this cycle was incremented.
+		if err := r.wallClockCheck(); err != nil {
+			return err
+		}
 		if len(eligible) == 0 {
 			kind := "ALL_FILTERED"
 			if proposed == 0 {
@@ -67,10 +72,19 @@ func (r *runner) budgetCheck() error {
 		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on commit budget (%d)", p.MaxCommits)}
 	case c.ConsecutiveFailures >= p.MaxConsecutiveFailures:
 		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on %d consecutive failures", p.MaxConsecutiveFailures)}
-	case time.Since(r.started) >= time.Duration(p.MaxWallClockMin)*time.Minute:
-		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on wall clock (%dm)", p.MaxWallClockMin)}
-	case len(r.readyProviders()) == 0:
+	}
+	if err := r.wallClockCheck(); err != nil {
+		return err
+	}
+	if len(r.readyProviders()) == 0 {
 		return halt{"DONE_PARTIAL", "stopped on all providers exhausted"}
+	}
+	return nil
+}
+
+func (r *runner) wallClockCheck() error {
+	if time.Since(r.started) >= time.Duration(r.policy.MaxWallClockMin)*time.Minute {
+		return halt{"DONE_PARTIAL", fmt.Sprintf("stopped on wall clock (%dm)", r.policy.MaxWallClockMin)}
 	}
 	return nil
 }
@@ -103,39 +117,13 @@ type phaseResult struct {
 }
 
 func (r *runner) noteUsage(provider, phase string, result engine.Result) {
-	missing := result.Usage.CostMissing
-	if result.Usage.CostUSD == nil && missing == 0 {
-		missing = result.Processes
-	}
-	failed := 0
-	if !result.OK {
-		failed = 1
-	}
-	one := engine.UsageSummary{Processes: result.Processes, MS: result.DurationMS, InputTokens: result.Usage.InputTokens,
-		OutputTokens: result.Usage.OutputTokens, CostUSD: result.Usage.CostUSD, CostMissing: missing, FailedCalls: failed, Calls: 1}
-	add := func(old engine.UsageSummary) engine.UsageSummary {
-		old.Processes += one.Processes
-		old.MS += one.MS
-		old.InputTokens += one.InputTokens
-		old.OutputTokens += one.OutputTokens
-		old.CostMissing += one.CostMissing
-		old.FailedCalls += one.FailedCalls
-		old.Calls += one.Calls
-		if one.CostUSD != nil {
-			v := *one.CostUSD
-			if old.CostUSD != nil {
-				v += *old.CostUSD
-			}
-			old.CostUSD = &v
-		}
-		return old
-	}
+	one := engine.UsageSummaryForResult(result)
 	status := r.state.Providers[provider]
-	status.Usage = add(status.Usage)
+	status.Usage = engine.MergeUsageSummaries(status.Usage, one)
 	if r.state.Usage.ByPhase == nil {
 		r.state.Usage.ByPhase = map[string]engine.UsageSummary{}
 	}
-	r.state.Usage.ByPhase[phase] = add(r.state.Usage.ByPhase[phase])
+	r.state.Usage.ByPhase[phase] = engine.MergeUsageSummaries(r.state.Usage.ByPhase[phase], one)
 }
 
 func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs) (phaseResult, error) {
@@ -188,7 +176,8 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 						}
 						return phaseResult{}, err
 					}
-					result = engine.Result{Failure: "PROCESS", Detail: err.Error(), Provider: name}
+					result.OK = false
+					result.Failure, result.Detail, result.Provider = "PROCESS", err.Error(), name
 				}
 			}
 			if !injected {

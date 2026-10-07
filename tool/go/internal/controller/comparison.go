@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
 
@@ -19,15 +20,16 @@ func (r *runner) collectComparison() map[string]any {
 	s := r.state
 	base := map[string]any{"status": "NO_CHANGES", "baseCommit": s.BaseOID, "resultCommit": nil,
 		"files": []any{}, "totals": map[string]int{"files": 0, "insertions": 0, "deletions": 0, "binary": 0},
-		"patchFile": nil, "preview": "", "truncated": false, "error": nil}
+		"patchFile": nil, "preview": "", "truncated": false, "error": nil,
+		"markdownFile": nil, "markdownError": nil}
 	if s.PublishedOID == "" {
-		return base
+		return r.saveComparisonMarkdown(base, "")
 	}
 	base["resultCommit"] = s.PublishedOID
 	fail := func(err error) map[string]any {
 		base["status"] = "UNAVAILABLE"
 		base["error"] = err.Error()
-		return base
+		return r.saveComparisonMarkdown(base, "")
 	}
 	for _, oid := range []string{s.BaseOID, s.PublishedOID} {
 		if !fullOID.MatchString(oid) {
@@ -146,5 +148,15 @@ func (r *runner) collectComparison() map[string]any {
 	base["patchFile"] = "changes.patch"
 	base["preview"] = string(preview[:end])
 	base["truncated"] = end < len(patch)
-	return base
+	return r.saveComparisonMarkdown(base, patch)
+}
+
+func (r *runner) saveComparisonMarkdown(comparison map[string]any, patch string) map[string]any {
+	markdown := surface.RenderChanges(comparison, patch, r.surface.Args.Language)
+	if err := os.WriteFile(filepath.Join(r.runDir, "changes.md"), []byte(markdown), 0o600); err != nil {
+		comparison["markdownError"] = err.Error()
+	} else {
+		comparison["markdownFile"] = "changes.md"
+	}
+	return comparison
 }

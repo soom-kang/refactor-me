@@ -4,7 +4,11 @@
 
 [![Release](https://img.shields.io/badge/Release-0.10.0--beta.6-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
 
-Codex 또는 Claude Code로 기존 동작을 보존하는 리팩토링을 자동화합니다. 격리된 Git worktree에서 후보를 수정하고 검증한 뒤, 통과한 커밋을 검토용 로컬 branch에 저장합니다.
+refactor-me는 Codex 또는 Claude Code와 sharpen-me 스킬을 활용해, 기존 동작을 보존하는 리팩토링을 보수적인 절차로 진행하는 CLI입니다.
+
+“리팩토링해 줘”라는 요청만으로는 변경의 위험을 어떻게 평가하고, 어떤 검증과 리뷰를 거칠지 충분히 정하기 어렵습니다. refactor-me는 이 과정을 명시적으로 관리하기 위해 만들었습니다. 후보 평가와 영향 분석, 필요한 테스트 보강, 사전 점검(preflight), 수정, 검증, 별도 세션의 리뷰를 단계별로 진행하고 판단 근거와 결과를 기록합니다.
+
+변경은 격리된 Git worktree에서 수행하며, 검증과 리뷰를 통과한 커밋을 로컬 브랜치에 남깁니다. 사용자는 보고서와 변경 내용을 확인한 뒤 반영 여부를 결정합니다.
 
 [English](../README.md) · [사용법](../tool/TUTORIAL.ko.md) · [명령·설정](../tool/README.ko.md) · [동작 방식](../tool/WORKFLOW.ko.md)
 

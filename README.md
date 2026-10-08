@@ -4,7 +4,11 @@
 
 [![Release](https://img.shields.io/badge/Release-0.10.0--beta.6-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
 
-Automate behavior-preserving refactoring with Codex or Claude Code. The CLI works in an isolated Git worktree, validates each candidate, and saves accepted commits on a local branch for your review.
+refactor-me is a CLI that uses Codex or Claude Code with sharpen-me Skills to follow a conservative workflow for behavior-preserving refactoring.
+
+A request to “refactor this” leaves important questions open: how should change risk be assessed, and what validation and review should follow? refactor-me was built to make that process explicit. It manages candidate assessment, impact analysis, test reinforcement when needed, preflight checks, edits, validation and review in a separate session, recording the evidence and results along the way.
+
+Changes happen in an isolated Git worktree. Commits that pass validation and review are saved on a local branch, where you can inspect the report and changes before deciding what to merge.
 
 [한국어](docs/README.ko.md) · [Usage guide](tool/TUTORIAL.md) · [Reference](tool/README.md) · [Workflow](tool/WORKFLOW.md)
 

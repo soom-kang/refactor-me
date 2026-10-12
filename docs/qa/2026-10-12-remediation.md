@@ -4,7 +4,9 @@
 
 ## 현재 상태
 
-**12개 티켓을 로컬 구현과 검증 기준으로 해결했습니다.** 수정은 현재 working tree에 있습니다. 기준 HEAD는 `0229e141d59cf6b248c422ac5b4dbb482fd37813`이며 commit을 만들지 않았습니다. 공개 Beta.6 executable, formula, tag와 배포 상태는 갱신하지 않았습니다. 설치된 Beta.6에 이 수정이 반영됐다는 뜻은 아닙니다.
+**12개 티켓을 구현과 검증 기준으로 해결했습니다.** 이후 사용자가 commit·push 완료를 알렸고, 현재 checkout의 QA 수정 commit은 `f0055f1713544482f5d63bc3d30b0d79491d3bea`입니다. 추가로 요청한 provider 연결, Homebrew candidate 설치·upgrade와 `govulncheck` 결과는 [후속 검증](2026-10-12-live-verification.md)에 기록했습니다. 공개 Beta.6 executable, formula, tag와 배포 상태는 갱신하지 않았습니다. 기존 설치에 QA 수정이 반영됐다는 뜻은 아닙니다.
+
+아래 수정·회귀 검사 기록은 기준 HEAD `0229e141d59cf6b248c422ac5b4dbb482fd37813`에서 작업한 최초 해결 단계입니다. 해당 단계에서 Agent는 commit을 만들지 않았습니다.
 
 | 범위 | 구현 결과 |
 | --- | --- |
@@ -98,7 +100,9 @@ Race 최초 실행의 controller는 88.338초 PASS였습니다. 같은 fixture �
 
 ## 검증 한계와 repository 상태
 
-| NOT_RUN | 이유와 후속 조건 |
+최초 해결 단계의 미실행 항목입니다. Provider 최소 live doctor, 격리된 candidate 설치·upgrade 및 vulnerability scan은 이후 [후속 검증](2026-10-12-live-verification.md)에서 검사했습니다. 전체 refactoring 실행, 공개 설치와 standalone release artifact는 별도 범위입니다.
+
+| 최초 NOT_RUN | 당시 이유와 후속 조건 |
 | --- | --- |
 | `govulncheck ./...` | scanner 없음. 최신 vulnerability DB 판정은 미확인 |
 | 실제 Codex/Claude 및 public CLI SIGINT | 최소 deterministic regressions와 context cancellation로 검증. 비용·인증이 있는 live fixture는 별도 범위 |
@@ -111,4 +115,4 @@ Race 최초 실행의 controller는 88.338초 PASS였습니다. 같은 fixture �
 
 최종 범위는 기존 tracked 파일 38개 수정과 QA 문서 3개 신규입니다. Runtime 12개 Go 파일과 관련 기존 tests, release guard 3개 파일 및 문서에 한정했습니다. `git diff --check`와 relative-link/anchor 검사, 중복 없는 ticket ID/Resolution 12개, credential signature와 생성한 예시의 수동 확인을 완료했습니다. 역사적 QA의 source line 링크는 기준 commit에 고정해 수정 후 line 이동과 구분했습니다. 검사 도구와 문서 교열을 제품 전체의 secret/security audit로 확대하지 않습니다.
 
-현재 working tree의 [티켓 Resolution](2026-10-12-tickets.md)을 검토하면 구현과 acceptance 근거를 함께 확인할 수 있습니다.
+[티켓 Resolution](2026-10-12-tickets.md)과 [후속 검증](2026-10-12-live-verification.md)을 검토하면 구현과 acceptance 근거를 함께 확인할 수 있습니다.

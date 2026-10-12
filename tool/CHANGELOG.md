@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-[QA remediation](../docs/qa/2026-10-12-remediation.md) · [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md). These changes are local source fixes and have not been published to the Beta.6 release.
+## 0.10.0-beta.7
+
+[QA remediation](../docs/qa/2026-10-12-remediation.md) · [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md) · [Follow-up verification](../docs/qa/2026-10-12-live-verification.md). Includes all 12 QA fixes. The prior source checks cover bounded live doctor probes for Codex and Claude, isolated candidate installation/upgrade and govulncheck; tagged release and public-install evidence is recorded separately.
 
 - Reject malformed locked validation input and zero-check candidate success. Normalize omitted areas/cwd, confine command working directories to the worktree, and validate known configuration types and numeric bounds while retaining defaults, extension keys and zero semantics (RM-QA-001, 002, 004).
 - Skip entire hydrated build inputs with unsafe links, preserve existing destinations, and recheck source HEAD/fingerprint before approved commit and result publication (RM-QA-003, 005).

@@ -4,7 +4,9 @@
 
 ## 0.10.0-beta.7
 
-[QA remediation](../docs/qa/2026-10-12-remediation.md) · [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md) · [Follow-up verification](../docs/qa/2026-10-12-live-verification.md). Includes all 12 QA fixes. The prior source checks cover bounded live doctor probes for Codex and Claude, isolated candidate installation/upgrade and govulncheck; tagged release and public-install evidence is recorded separately.
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38195197188) · [Beta.6 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38195202547). Release commit: `daec4844affaca08d1e42dd394be12636fa84312`.
+
+[QA remediation](../docs/qa/2026-10-12-remediation.md) · [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md) · [Follow-up verification](../docs/qa/2026-10-12-live-verification.md). Includes all 12 QA fixes. The prior source checks cover bounded live doctor probes for Codex and Claude, isolated candidate installation/upgrade and govulncheck; [release verification](release/HOMEBREW.md#beta7-verification-record) records tagged artifacts and public-install evidence separately.
 
 - Reject malformed locked validation input and zero-check candidate success. Normalize omitted areas/cwd, confine command working directories to the worktree, and validate known configuration types and numeric bounds while retaining defaults, extension keys and zero semantics (RM-QA-001, 002, 004).
 - Skip entire hydrated build inputs with unsafe links, preserve existing destinations, and recheck source HEAD/fingerprint before approved commit and result publication (RM-QA-003, 005).

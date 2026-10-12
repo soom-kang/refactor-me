@@ -6,7 +6,7 @@
 
 설치는 [사용법](TUTORIAL.ko.md)를 따라 진행하세요.
 
-이 source checkout에는 [12개 QA 수정](../docs/qa/2026-10-12-remediation.md)을 반영했습니다. 아래 계약은 현재 source를 설명하며 공개 Beta.6 executable과 formula는 이번 작업에서 갱신하지 않았습니다.
+공개 Beta.7에는 [12개 QA 수정](../docs/qa/2026-10-12-remediation.md)을 반영했습니다. 아래 계약은 공개 source를 설명하며 [릴리스 검증](release/HOMEBREW.ko.md#beta7-검증-기록)에 정확한 commit과 공개 설치 결과를 기록합니다.
 
 ## 명령과 저장소 선택
 
@@ -24,7 +24,7 @@
 
 설정·잠금·실행 기록은 선택한 저장소에 속하며 Homebrew 실행 파일 경로와 독립적입니다.
 
-공개 Beta `0.10.0-beta.6`의 참조 문서입니다. 실행 시간 선택, 상세 작업 로그, Markdown 변경 체크리스트와 표준 API 비용 추정을 포함합니다.
+공개 Beta `0.10.0-beta.7`의 참조 문서입니다. 실행 시간 선택, 상세 작업 로그, Markdown 변경 체크리스트와 표준 API 비용 추정을 포함합니다.
 
 <a id="run-time-selection"></a>
 
@@ -40,7 +40,7 @@
 
 ## 모델과 추론 수준 선택
 
-공개 Beta `0.10.0-beta.6`에서 사용할 수 있는 옵션입니다.
+공개 Beta `0.10.0-beta.7`에서 사용할 수 있는 옵션입니다.
 
 `run`과 모델을 호출하는 `doctor`는 선택한 provider마다 모델이 필요합니다. 고정 기본 모델은 없습니다. 명령 옵션이 `agents.<provider>.model`보다 우선하며 둘 다 비어 있으면 provider를 호출하기 전에 오류로 종료합니다. `doctor --no-live-probe`에는 모델이 필요하지 않습니다.
 
@@ -245,7 +245,7 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 
 ### 진행 로그
 
-아래 동작은 공개 Beta `0.10.0-beta.6`에 포함됩니다.
+아래 동작은 공개 Beta `0.10.0-beta.7`에 포함됩니다.
 
 - `run`은 환경 검사, worktree 준비, 기준선 검사, 후보 조사와 확인, 수정, 검증, 독립 검토, 로컬 커밋 발행을 알립니다. 조사할 때마다 제안된 수와 진행 가능한 수를 표시하고, 후보 한도가 적용되면 확인한 수도 표시합니다. 재조사에서 새 후보를 찾을 수 있으므로 전체 작업 수나 완료율을 고정하지 않습니다.
 - 항목은 번역한 category, 원문의 `primary_symbol`과 저장소 상대 경로로 식별하며, 정보가 부족하면 `candidate_id`를 표시합니다. 검증 로그에는 명령 이름과 영역을 표시하고 argv나 실행 출력은 표시하지 않습니다. 비교 가능한 기준선 실패가 그대로 남으면 실패로 안내하며 통과로 표시하지 않습니다.
@@ -255,7 +255,7 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 
 동적으로 표시하는 값은 한 줄로 정리하고 terminal control sequence를 제거하며 160 Unicode 문자로 제한합니다. 이 처리로 진단 파일의 절대 경로가 달라지는 경우에는 선택한 저장소 기준 상대 경로임을 밝혀 안내합니다. provider 응답 원문, 도구 호출 집계와 검증 출력은 로컬 실행 기록에 보존하며 화면 표시 제한으로 원문을 자르지 않습니다. 기록은 공유하기 전에 내용을 확인하고 접근을 제한하세요.
 
-**현재 source의 미공개 수정:** Human report field도 terminal control을 제거하며 줄바꿈과 Markdown 구조는 유지합니다. Detail/error의 byte 상한은 UTF-8 경계에서 자르고 전체 report를 축약하지 않습니다. 저장 JSON, `report --json`, patch와 review checklist는 원본 bytes를 보존합니다. Provider retry/repair는 각각 다른 transcript 묶음에 빈 stderr와 exit status, usage를 저장하고 `.result.json`의 `repairOf`로 복구의 parent call을 연결합니다. 첫 legacy primary/repair 파일명은 유지합니다. Codex `phase-last.json`은 직렬 실행의 임시 파일이며 호출별 `.last.json`이 해당 structured output을 보존합니다.
+**Beta.7 QA 수정:** Human report field도 terminal control을 제거하며 줄바꿈과 Markdown 구조는 유지합니다. Detail/error의 byte 상한은 UTF-8 경계에서 자르고 전체 report를 축약하지 않습니다. 저장 JSON, `report --json`, patch와 review checklist는 원본 bytes를 보존합니다. Provider retry/repair는 각각 다른 transcript 묶음에 빈 stderr와 exit status, usage를 저장하고 `.result.json`의 `repairOf`로 복구의 parent call을 연결합니다. 첫 legacy primary/repair 파일명은 유지합니다. Codex `phase-last.json`은 직렬 실행의 임시 파일이며 호출별 `.last.json`이 해당 structured output을 보존합니다.
 
 CLI는 기본 로그에 경과 시간, 단계와 provider를 추가합니다. 구조화된 provider 이벤트에서 읽기, 검색, 수정, 작성, 삭제와 일반 명령 또는 도구 작업을 표시하고, 안전한 worktree 상대 경로가 있으면 함께 보여 줍니다. Codex 명령은 일반 명령 작업으로만 표시하며 shell 원문에서 읽은 파일을 추측하지 않습니다. 민감 경로, worktree 밖 경로, 검색어, 명령 인자, 출력과 provider 설명은 표시하지 않습니다. provider 완료 시에는 실제 소요 시간, 도구 이벤트 수와 종료 상태를 알립니다. 한 Claude assistant 이벤트에 여러 도구 사용이 있어도 한 번으로 집계합니다. 도구 활동과 검증을 통과한 변경 또는 커밋은 구분하며 기존 도구 호출 집계는 유지합니다.
 

@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-**12개 티켓을 구현과 검증 기준으로 해결했습니다.** 이후 사용자가 commit·push 완료를 알렸고, 현재 checkout의 QA 수정 commit은 `f0055f1713544482f5d63bc3d30b0d79491d3bea`입니다. 추가로 요청한 provider 연결, Homebrew candidate 설치·upgrade와 `govulncheck` 결과는 [후속 검증](2026-10-12-live-verification.md)에 기록했습니다. 공개 Beta.6 executable, formula, tag와 배포 상태는 갱신하지 않았습니다. 기존 설치에 QA 수정이 반영됐다는 뜻은 아닙니다.
+**12개 티켓을 구현과 검증 기준으로 해결했습니다.** QA 수정은 commit `f0055f1713544482f5d63bc3d30b0d79491d3bea`에 반영됐습니다. 추가 provider 연결, Homebrew candidate 설치·upgrade와 `govulncheck` 결과는 [후속 검증](2026-10-12-live-verification.md)에 기록했습니다. 이후 사용자 승인으로 [Beta.7](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7)을 공개했으며 릴리스 commit은 `daec4844affaca08d1e42dd394be12636fa84312`입니다. [릴리스 검증](../../tool/release/HOMEBREW.ko.md#beta7-검증-기록)에 exact-main CI, 공개 신규 설치와 Beta.6 upgrade 결과를 기록합니다. 기존 Beta.6 artifact와 사용자 설치는 보존했습니다.
 
 아래 수정·회귀 검사 기록은 기준 HEAD `0229e141d59cf6b248c422ac5b4dbb482fd37813`에서 작업한 최초 해결 단계입니다. 해당 단계에서 Agent는 commit을 만들지 않았습니다.
 

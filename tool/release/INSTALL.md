@@ -4,9 +4,11 @@
 
 This Beta supports macOS Apple Silicon (`darwin/arm64`) only. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
-This guide is prepared for the `0.10.0-beta.7` archive. At preparation time on 2026-10-12, Beta.7 publication and public Homebrew installation checks are pending. For an extracted archive, start with its enclosed metadata below. The Beta.7 download commands apply once its release assets are public; consult the [current repository guide](https://github.com/soom-kang/refactor-me/blob/main/tool/release/INSTALL.md) for publication and installation results.
+Public prerelease [`0.10.0-beta.7`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) uses commit `daec4844affaca08d1e42dd394be12636fa84312`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38194602945), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38195197188) and the [Beta.6 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38195202547) checks passed for this release. Compare archive version and commit with `BUILD-INFO.txt`, executable JSON and the annotated release tag as described below.
 
-At preparation time, public release [`0.10.0-beta.6`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) uses commit `01b407ce81e9803878c003c181860e499718b0fa`. Both the [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/37625488585) and [Beta.5 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/37625494290) checks passed for that published tag and Homebrew formula. These records describe Beta.6. Compare any archive's version and commit with `BUILD-INFO.txt`, executable JSON and its annotated release tag as described below.
+The public Homebrew builds used Go `1.27.1`; the standalone archive used Go `1.27.2`. A supplemental Go `1.27.1` source scan emitted six called-symbol records for `GO-2026-6604`. The [official advisory](https://pkg.go.dev/vuln/GO-2026-6604) restricts this issue to Windows, so the finding is classified `NOT_APPLICABLE_TO_DARWIN_ARM64`. The raw findings are retained; this platform classification does not claim that every Go `1.27.1` issue is absent.
+
+The guide enclosed in the Beta.7 archive was prepared before publication and retains its preparation notes. This repository guide records the completed publication and installation checks; these documentation updates leave the published archive unchanged. For an extracted archive, start with its enclosed metadata below.
 
 ## Already extracted an archive
 
@@ -38,7 +40,7 @@ Homebrew builds fixed release source with Go as a build dependency. Required Ski
 
 Tap registration and trust for this formula are one-time setup with Homebrew 6 or later. A new Homebrew environment needs them before `brew install refactor-me` can resolve the third-party formula. Trust only this formula; whole-tap trust is unnecessary.
 
-For the Homebrew release available at preparation time, confirm version `0.10.0-beta.6` and compare the executable's commit with that annotated tag's peeled commit before continuing; upgrade older installations first. After Beta.7 publication and installation verification, use the version and tag in the current repository guide. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
+Confirm version `0.10.0-beta.7` and compare the executable's commit with the annotated tag's peeled commit before continuing; upgrade older installations first. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
 
 <a id="skill-reference"></a>
 
@@ -80,11 +82,11 @@ For a fresh Skill installation, use the following Git-only path. It pins the sou
 
 Run `refactor-me doctor --repo /path/to/target-repo --provider codex --fallback none --no-live-probe` afterward, using `--provider claude` instead if appropriate. Resolve discovery conflicts reported by doctor, including project-local copies or alternate provider configuration roots.
 
-Beta.6 builds include the `skill-reference` diagnostic, which distinguishes `PASS` (reference content match), nonblocking `WARN` (unverified/custom content, with differing names), and `FAIL` (catalog unavailable; the separate `global-skills` failure blocks execution). Valid custom catalogs remain supported, and existing in-run drift checks still apply. A content match never proves live Skill loading or model behavior. The already-published Beta.5 binary does not contain this new diagnostic; historical Beta.5 verification is unchanged.
+Beta.6 and later builds include the `skill-reference` diagnostic, which distinguishes `PASS` (reference content match), nonblocking `WARN` (unverified/custom content, with differing names), and `FAIL` (catalog unavailable; the separate `global-skills` failure blocks execution). Valid custom catalogs remain supported, and existing in-run drift checks still apply. A content match never proves live Skill loading or model behavior. The already-published Beta.5 binary does not contain this diagnostic; historical Beta.5 verification is unchanged.
 
 ## Standalone download
 
-Once the [Beta.7 release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) and its assets are public, create a new empty directory and download the archive and checksum file there. Stop if either download fails; publication is pending when this guide is prepared.
+Create a new empty directory and download the archive and checksum file from the [Beta.7 release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) there. Stop if either download fails.
 
 ```sh
 release_url=https://github.com/soom-kang/refactor-me/releases/download
@@ -106,7 +108,7 @@ git ls-remote https://github.com/soom-kang/refactor-me.git \
   'refs/tags/v0.10.0-beta.7^{}'
 ```
 
-The last command prints the commit behind the annotated [Beta.7 tag](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.7), followed by its peeled ref. Its first field must match `commit` in both `BUILD-INFO.txt` and the JSON output. The version must be `0.10.0-beta.7`, platform `darwin` and architecture `arm64`; metadata must show `dirty=false`. Stop if the tag is missing or any value differs. Once Homebrew distributes Beta.7, compare `refactor-me version --json` with the same tag commit.
+The last command prints the commit behind the annotated [Beta.7 tag](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.7), followed by its peeled ref. Its first field must match `commit` in both `BUILD-INFO.txt` and the JSON output. The version must be `0.10.0-beta.7`, platform `darwin` and architecture `arm64`; metadata must show `dirty=false`. Stop if the tag is missing or any value differs. For Homebrew, compare `refactor-me version --json` with the same tag commit.
 
 Use the extracted executable by absolute path with the same commands as the Homebrew CLI. Keep it outside the target repository.
 

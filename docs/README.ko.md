@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.6-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.7-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
 
 refactor-me는 Codex 또는 Claude Code와 sharpen-me 스킬을 활용해, 기존 동작을 보존하는 리팩토링을 보수적인 절차로 진행하는 CLI입니다.
 
@@ -14,9 +14,9 @@ refactor-me는 Codex 또는 Claude Code와 sharpen-me 스킬을 활용해, 기�
 
 ## 설치
 
-공개 Beta **0.10.0-beta.6**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
+공개 Beta **0.10.0-beta.7**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
-릴리스 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625020035), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625488585), [Beta.5에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/37625494290)이 통과했습니다. 설치 검증은 모델을 호출하지 않았으며 upgrade에는 저장된 프로젝트 상태를 확인하는 seeded 호환성 보고서를 사용했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
+릴리스 commit은 `daec4844affaca08d1e42dd394be12636fa84312`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/38194602945), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/38195197188), [Beta.6에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/38195202547)이 통과했습니다. 설치 검증은 모델을 호출하지 않았으며 upgrade에는 저장된 프로젝트 상태를 확인하는 seeded 호환성 보고서를 사용했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
 
 <a id="quick-start"></a>
 
@@ -37,7 +37,7 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.6`을 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
+아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.7`을 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
 
 아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 
@@ -62,7 +62,7 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 ## 읽기 쉬운 진행 로그
 
-공개 Beta `0.10.0-beta.6`은 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
+공개 Beta `0.10.0-beta.7`은 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
 
 진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)를 참고하세요.
 
@@ -80,7 +80,7 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 Beta.6은 characterization 테스트 변경을 커밋 전에 검사하고, 선언된 파일 삭제를 worktree 안으로 제한합니다. Ctrl-C 또는 SIGTERM을 받으면 관리 중인 provider와 검증 프로세스를 취소하고, 수락한 커밋과 미완료 작업은 보존합니다. 컨트롤러 준비 실패가 기록되면 `report`는 이전 성공 대신 해당 실패를 안내합니다. [중단과 실패한 실행](../tool/README.ko.md#interruption-and-failed-attempts), [실행 과정의 검사](../tool/WORKFLOW.ko.md#from-checks-to-a-local-branch)를 참고하세요.
 
-[2026-10-12 QA 보고서](qa/2026-10-12-report.md)에 최초 지적을 보존하고 [QA 해결 기록](qa/2026-10-12-remediation.md)에 commit `f0055f1`의 12개 수정을 기록했습니다. [후속 검증](qa/2026-10-12-live-verification.md)에는 두 provider의 live doctor, 격리된 Homebrew candidate 설치·upgrade와 govulncheck 결과를 남겼습니다. 공개 Beta.6 executable과 formula에는 반영하지 않았으며 전체 refactoring과 공개 release 검증은 구분합니다.
+[2026-10-12 QA 보고서](qa/2026-10-12-report.md)에 최초 지적을 보존하고 [QA 해결 기록](qa/2026-10-12-remediation.md)에 commit `f0055f1`의 12개 수정을 기록했습니다. [후속 검증](qa/2026-10-12-live-verification.md)에는 두 provider의 live doctor, 격리된 Homebrew candidate 설치·upgrade와 govulncheck 결과를 남겼습니다. 12개 수정은 공개 Beta.7에 포함됐습니다. [릴리스 검증](../tool/release/HOMEBREW.ko.md#beta7-검증-기록)에 태그 artifact와 공개 설치 근거를 기록하며 제한된 live probe와 구분합니다.
 
 ## 상세 문서
 

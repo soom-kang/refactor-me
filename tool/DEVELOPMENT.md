@@ -4,7 +4,7 @@
 
 Use macOS Apple Silicon, Git and Go 1.27 or later. The module lives in `tool/go` and uses the standard library. Default project checks do not require Node or call providers.
 
-The [2026-10-12 QA report](../docs/qa/2026-10-12-report.md) preserves the original counterexamples. [QA remediation](../docs/qa/2026-10-12-remediation.md) and the [12 local ticket resolutions](../docs/qa/2026-10-12-tickets.md) describe fixes committed at `f0055f1`, regression checks and the original verification limits. [Follow-up verification](../docs/qa/2026-10-12-live-verification.md) records both providers' live doctor results, isolated candidate installation/upgrade and govulncheck. These results do not certify a new public release or a full refactoring cycle. `L3_CRITICAL` is excluded at both audit and packet gates, including custom `allowed_risks`.
+The [2026-10-12 QA report](../docs/qa/2026-10-12-report.md) preserves the original counterexamples. [QA remediation](../docs/qa/2026-10-12-remediation.md) and the [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md) describe fixes committed at `f0055f1`, regression checks and the original verification limits. [Follow-up verification](../docs/qa/2026-10-12-live-verification.md) records both providers' live doctor results, isolated candidate installation/upgrade and govulncheck. [Beta.7 release verification](release/HOMEBREW.md#beta7-verification-record) separately records the tagged artifacts, exact-main CI and public installation/upgrade results, including the build-toolchain distinction and supplemental scan applicability. Full refactoring compatibility remains outside the live doctor scope. `L3_CRITICAL` is excluded at both audit and packet gates, including custom `allowed_risks`.
 
 ## 1. Build a development binary
 

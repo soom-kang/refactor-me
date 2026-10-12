@@ -4,6 +4,8 @@
 
 **합의한 provider 연결, Homebrew candidate 설치·업그레이드, vulnerability scan을 모두 검증했습니다.** 대상 source는 QA 수정 commit `f0055f1713544482f5d63bc3d30b0d79491d3bea`입니다. 시작 시 checkout은 clean이었고, 실행을 마친 뒤 문서만 갱신했습니다. 공개 Beta.6 commit `01b407ce81e9803878c003c181860e499718b0fa`와 구분합니다.
 
+이후 사용자 승인으로 [Beta.7 릴리스](../../tool/release/HOMEBREW.ko.md#beta7-검증-기록)를 공개했습니다. Exact-main CI, tagged standalone과 공개 신규 설치·Beta.6 upgrade 결과는 아래의 최소 live doctor·Tier 3 candidate 검증과 구분합니다. 공개 Homebrew CI의 Go 1.27.1 추가 scan은 원본 finding을 보존하고 Windows 전용 advisory의 Darwin 적용성 판단을 별도로 기록했습니다.
+
 | 검사 | 최종 결과 | 확인한 범위 |
 | --- | --- | --- |
 | Codex live doctor | PASS | 실제 호출 1회, exit 0, structured answer 7, Skill 이름 8개, write probe 거부 |
@@ -103,4 +105,4 @@ Exit는 `0`, finding은 `0`건, stderr는 비어 있었습니다. Scanner config
 
 Source runtime은 변경하지 않아 앞선 Go test/race/vet/lint 및 packaging 결과를 반복 실행하지 않았습니다. 이번 변경은 검증 기록과 문서 상태 갱신에 한정합니다. 문서에는 `i-have-adhd`, `humanizer`, `grammar-checker`, `style-guide`를 적용했으며 링크·공백·증거 범위를 검토했습니다.
 
-합의한 검증은 완료했습니다. 전체 refactoring cycle, fallback·자동 retry·CLI SIGINT, 기본 prefix의 공개 신규 설치·upgrade, 새 standalone release artifact와 signing/notarization은 이번 범위 밖입니다. Commit·push·배포, workflow dispatch와 외부 JIRA 변경은 수행하지 않았습니다.
+이 최소 검증 단계는 완료했습니다. 당시 전체 refactoring cycle, fallback·자동 retry·CLI SIGINT, 기본 prefix의 공개 신규 설치·upgrade, 새 standalone release artifact와 signing/notarization은 범위 밖이었습니다. 이 단계에서는 commit·push·배포, workflow dispatch와 외부 JIRA 변경을 수행하지 않았습니다. 이후 승인된 공개 릴리스·설치 검증은 위 Beta.7 기록을 따릅니다.

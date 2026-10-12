@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.6`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6)이며 commit은 `01b407ce81e9803878c003c181860e499718b0fa`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.7`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7)이며 commit은 `daec4844affaca08d1e42dd394be12636fa84312`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 선택 검사: 로컬 후보 생성
 
@@ -88,11 +88,11 @@ refactor-me version --json
 
 `brew test`가 버전, commit, 도움말, 대상 저장소 선택, 기본 설정과 반복 `init`의 설정 보존을 이미 검사합니다. workflow는 설치된 버전과 commit을 선택한 릴리스 태그와도 비교합니다. 로컬에서 같은 검사를 반복하거나 설치 확인을 위해 실제 provider를 호출하지 않습니다. 사용자의 기존 설치와 관련 없는 Homebrew trust는 보존합니다.
 
-선택적 업그레이드 검사가 포함된 릴리스 ref에서는 이전 tap commit의 전체 SHA를 지정해 별도 dispatch를 실행합니다. 아래 예시는 Beta.5 formula에서 시작합니다.
+선택적 업그레이드 검사가 포함된 릴리스 ref에서는 이전 tap commit의 전체 SHA를 지정해 별도 dispatch를 실행합니다. 아래 예시는 Beta.6 formula에서 시작합니다.
 
 ```sh
 gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
-  -f upgrade_from_formula=9d5c3011ee78152379b932dbbd222ba4e86d107b
+  -f upgrade_from_formula=3a33e5bbb94a2a2e633db7edef848ed1bb7c1050
 ```
 
 임시 runner에 이전 formula를 설치하고 현재 formula를 복원한 뒤 자동 업데이트를 끈 상태로 `brew upgrade`를 실행합니다. 사용자 편집을 넣은 config schema 2와 미리 만든 report schema 3이 `init`/`report` 후에도 바이트 단위로 보존되는지, 지원하지 않는 report schema가 파일 변경·삭제 없이 거부되는지 확인합니다. 보고서는 호환성 fixture이며 이전 provider 실행의 근거가 아닙니다. 마지막 버전·commit 검사도 그대로 적용됩니다. 신규 설치와 업그레이드의 실행 URL·결과를 따로 기록하고, 검사 추가만으로 업그레이드 `PASS`를 기록하지 마세요. provider를 호출하거나 다른 tap을 신뢰하지 않습니다.
@@ -104,6 +104,24 @@ gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
 새 진단은 `tool/go/internal/catalog/reference.json`을 포함합니다. sharpen-me revision은 `fbb88aea30ff46ade265607ea6572be7cc642a4c`이며 8개 전체 트리 SHA-256과 실제 호환성 `NOT_RUN`을 기록합니다. 2026-10-07에 저장소의 Skill 파일 24개와 모드가 해당 revision의 완전한 GitHub 트리와 일치함을 확인했습니다. 해시는 런타임과 같은 정렬된 경로·바이트 길이·실행 비트·내용 인코딩(`catalog-tree-sha256-v1`)을 사용하며 `skills-lock.json`의 설치기 해시와 다릅니다. [고정 설치 경로](INSTALL.ko.md#skill-reference)를 참고하세요.
 
 Beta.6은 이 내용 기준을 포함하며 이미 공개한 Beta.5 실행 파일이나 실제 provider 호환성을 소급 검증하지 않습니다. 향후 릴리스에는 정확한 CLI commit, manifest revision·해시, 실제 비실시간·실시간 검증 결과를 각각 기록하세요. 실제 모델 검증에는 제한된 범위의 승인이 필요합니다.
+
+## Beta.7 검증 기록
+
+릴리스 commit은 `daec4844affaca08d1e42dd394be12636fa84312`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38194602945), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/38195197188), [Beta.6 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/38195202547)를 확인하세요.
+
+- Main CI: 릴리스 commit과 같은 SHA에서 `PASS`. formatting, Go tests, vet, CLI build와 Python packaging test 4개를 검사했습니다. Annotated 태그가 해당 commit을 가리킵니다. 깨끗한 태그 소스에서 소스 압축파일과 실제 독립 실행 파일을 각각 한 번 빌드했으며 로컬 전체 검사와 태그 CI는 반복하지 않았습니다.
+- 신규 설치: `brew install refactor-me`와 `brew test`가 `PASS`. 설치된 JSON은 버전 `0.10.0-beta.7`, commit `daec4844affaca08d1e42dd394be12636fa84312`, 플랫폼 `darwin`, 아키텍처 `arm64`를 보고했습니다.
+- 업그레이드: Beta.6 commit `01b407ce81e9803878c003c181860e499718b0fa`에서 `PASS`. 이전 tap commit은 `3a33e5bbb94a2a2e633db7edef848ed1bb7c1050`입니다. 편집한 config schema 2와 미리 만든 report schema 3이 동일한 바이트로 보존됐고, 지원하지 않는 report schema 2는 프로젝트 파일을 바꾸지 않고 거부했습니다. 두 dispatch 모두 `public-install`과 집계 `verify`가 성공했으며 `go`와 `js-fixture`는 생략됐습니다. 보고서는 호환성 fixture이며 이전 provider 실행의 결과가 아닙니다.
+- 두 압축파일과 통합 `SHA256SUMS`는 GitHub 업로드 digest 및 다시 내려받은 공개 파일의 바이트와 일치했습니다. 공개 소스 URL은 HTTP 200을 반환했고 [Formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/736decdb3ae5ff9d686a4da0b6c89456de4dea4e)은 해당 소스 hash와 릴리스 commit을 고정합니다. 사용자 컴퓨터의 Homebrew 설치, trust 설정과 전역 Skills는 보존했습니다.
+- Toolchain은 서로 다릅니다. 독립 실행 파일은 Go `1.27.2`, 공개 Homebrew 소스 빌드는 Go `1.27.1`을 사용했습니다. 실제 Go `1.27.1`과 govulncheck `v1.8.0`의 추가 source scan은 finding 기록 25개(module 18개, package 1개, called-symbol 6개)를 출력했습니다. 유일한 called ID는 `GO-2026-6604`입니다. [공식 advisory](https://pkg.go.dev/vuln/GO-2026-6604)와 OSV metadata가 Windows junction 동작으로 한정하므로 `NOT_APPLICABLE_TO_DARWIN_ARM64`로 분류했습니다. Scanner의 [source mode filter](https://github.com/golang/vuln/blob/v1.8.0/internal/vulncheck/source.go#L82)가 OS·아키텍처 제한을 적용하지 않아 공통 Darwin symbol이 Windows advisory와 일치했습니다. 원본 finding은 보존하며 module 단계만의 finding은 호출 경로 근거가 아닙니다. 앞선 Go `1.27.2` QA 검사에는 finding이 0개였습니다. Go `1.27.1`의 모든 문제가 없다고 판정한 것은 아닙니다.
+- QA source commit `f0055f1`의 [제한된 Codex·Claude doctor 검사](../../docs/qa/2026-10-12-live-verification.md)는 통과했습니다. Beta.7의 runtime, 내장 기준 카탈로그와 provider 코드는 같아 연결·구조화된 응답 결과를 재사용했으며 provider를 새로 호출하지 않았습니다. Skill 로딩은 자기보고이고 전체 리팩토링 호환성과 모델 판단의 품질은 미검증입니다. 내장 manifest의 revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, 내용 해시 8개와 실제 호환성 `NOT_RUN`은 유지했습니다.
+- 압축파일의 동봉 설치 안내는 게시 전 준비 상태를 기록합니다. 이번 저장소 문서 갱신은 공개 압축파일을 바꾸지 않습니다. Signing, notarization과 bottle은 제공하지 않습니다.
+
+```text
+46fb61345ca560cf9afee17fa78fd94780bf0ac6c12e631d2f34651f16d97095  refactor-me_0.10.0-beta.7_source.tar.gz
+5179280dac7cec8474ca8470415de8b6366373072c4918ad777a275611b06914  refactor-me_0.10.0-beta.7_darwin_arm64.zip
+669a50ed9ec7791e252c3ad673027226c203452b60f62cff18f4b86d3c40c964  SHA256SUMS
+```
 
 ## Beta.6 검증 기록
 

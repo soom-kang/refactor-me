@@ -6,7 +6,7 @@
 
 Follow the [guide](TUTORIAL.md) for installation.
 
-This source checkout includes the [12 QA fixes](../docs/qa/2026-10-12-remediation.md). Their contracts below describe the current source; the published Beta.6 executable and formula have not been updated by this work.
+Public Beta.7 includes the [12 QA fixes](../docs/qa/2026-10-12-remediation.md). Their contracts below describe the published source; [release verification](release/HOMEBREW.md#beta7-verification-record) records the exact commit and public installation results.
 
 ## Commands and repository selection
 
@@ -24,7 +24,7 @@ This source checkout includes the [12 QA fixes](../docs/qa/2026-10-12-remediatio
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
-This reference covers public Beta `0.10.0-beta.6`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
+This reference covers public Beta `0.10.0-beta.7`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
 
 <a id="run-time-selection"></a>
 
@@ -38,7 +38,7 @@ Priority is CLI option, terminal selection, then project/default configuration (
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.6`.
+These options are available in public Beta `0.10.0-beta.7`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -233,7 +233,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.6`.
+The following behavior is included in public Beta `0.10.0-beta.7`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.
@@ -243,7 +243,7 @@ The following behavior is included in public Beta `0.10.0-beta.6`.
 
 Dynamic display values are reduced to one line, stripped of terminal control sequences and limited to 160 Unicode characters. If this formatting would change an absolute diagnostic path, the CLI shows a path relative to the selected repository and labels it accordingly. Original provider transcripts, tool-call accounting and validation output remain in the local run records; this display limit does not truncate those saved originals. Protect and inspect records before sharing them.
 
-**Unreleased source fixes:** Human report fields also strip terminal controls while keeping line breaks and Markdown structure. Detail/error limits retain their byte budgets without splitting UTF-8; the whole report is not shortened. Saved JSON, `report --json`, patches and review checklists retain their original bytes. Every provider retry/repair has a distinct transcript bundle, including empty stderr, exit status and usage in `.result.json`; `repairOf` links repairs to their parent call. The first legacy primary/repair filenames remain available. Codex `phase-last.json` is the serial execution scratch file, while each bundle's `.last.json` preserves that call's structured output.
+**Beta.7 QA fixes:** Human report fields also strip terminal controls while keeping line breaks and Markdown structure. Detail/error limits retain their byte budgets without splitting UTF-8; the whole report is not shortened. Saved JSON, `report --json`, patches and review checklists retain their original bytes. Every provider retry/repair has a distinct transcript bundle, including empty stderr, exit status and usage in `.result.json`; `repairOf` links repairs to their parent call. The first legacy primary/repair filenames remain available. Codex `phase-last.json` is the serial execution scratch file, while each bundle's `.last.json` preserves that call's structured output.
 
 The CLI adds elapsed time and stage/provider context to these logs by default. Structured provider events identify read, search, edit, write, deletion and generic command/tool activity, with safe worktree-relative paths when available. Codex command events stay generic; the CLI does not interpret shell text to guess what was read. Sensitive or outside-worktree paths, search patterns, command arguments, output and provider prose are omitted. Provider completion reports measured duration, recognized tool-event count and exit status. A Claude assistant event containing one or more tool uses counts once. Tool activity is separate from validated changes and accepted commits; existing tool-call accounting is preserved.
 

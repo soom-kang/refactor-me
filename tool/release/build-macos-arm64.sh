@@ -48,8 +48,17 @@ if [[ "$dirty" == true && ${RELEASE_CANDIDATE:-0} != 1 ]]; then
   exit 2
 fi
 if [[ ${RELEASE_CANDIDATE:-0} != 1 ]]; then
-  if ! tag_commit=$(git -C "$root" rev-parse --verify "refs/tags/v$version^{commit}" 2>/dev/null); then
+  tag_ref="refs/tags/v$version"
+  if ! git -C "$root" show-ref --verify --hash "$tag_ref" >/dev/null 2>&1; then
     echo "local release tag v$version is missing" >&2
+    exit 2
+  fi
+  if [[ $(git -C "$root" cat-file -t "$tag_ref") != tag ]]; then
+    echo "release tag must be annotated" >&2
+    exit 2
+  fi
+  if ! tag_commit=$(git -C "$root" rev-parse --verify "$tag_ref^{commit}" 2>/dev/null); then
+    echo "release tag does not identify a commit" >&2
     exit 2
   fi
   if [[ "$tag_commit" != "$commit" ]]; then

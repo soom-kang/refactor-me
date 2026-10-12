@@ -54,7 +54,7 @@ brew untap local/refactor-me-check
 
 원격 ref와 tap 접근 권한을 확인합니다. 릴리스 commit을 만들기 전에 `tool/RELEASE_VERSION`에 새 버전을 쓰고 CHANGELOG에 해당 항목을 추가합니다. 기존 태그를 재사용하거나 이동하지 않습니다.
 
-해당 commit의 main CI가 통과하면 `v<release-version>` 태그를 붙입니다. 그 commit의 깨끗한 checkout에서 소스를 먼저, 실행 파일을 다음으로 각각 한 번 생성합니다. checkout 밖의 새 출력 디렉터리를 사용합니다.
+해당 commit의 main CI가 통과하면 annotated tag `v<release-version>`을 만듭니다. 두 public 생성기는 artifact 작성 전에 정확한 tag ref, object type `tag`와 peeled commit의 HEAD 일치를 검사합니다. 같은 이름의 branch나 lightweight tag는 통과하지 못합니다. Candidate mode는 기존대로 공개할 수 없는 로컬 검증용이며 [RM-QA-011](../../docs/qa/2026-10-12-tickets.md#rm-qa-011)에 해결 결과를 기록했습니다. 해당 commit의 깨끗한 checkout에서 소스를 먼저, 실행 파일을 다음으로 각각 한 번 생성합니다. checkout 밖의 새 출력 디렉터리를 사용합니다.
 
 ```sh
 python3 tool/release/prepare-homebrew.py /tmp/refactor-homebrew-release

@@ -81,6 +81,103 @@ func TestContractDiscovery(t *testing.T) {
 	}
 }
 
+func TestContractLockedDiscoveryRejectsInvalidInput(t *testing.T) {
+	valid := `{"locked":true,"commands":[{"id":"check","tier":"T1","argv":["/usr/bin/true"],"cwd":"."}]}`
+	for _, tc := range []struct{ name, body string }{
+		{"malformed", `{"locked":true,"commands":[`},
+		{"null", `null`},
+		{"missing-lock", `{}`},
+		{"wrong-lock-type", `{"locked":"true"}`},
+		{"empty", `{"locked":true,"commands":[]}`},
+		{"missing-id", strings.Replace(valid, `"id":"check",`, "", 1)},
+		{"duplicate-id", strings.Replace(valid, `}]}`, `},{"id":"check","tier":"T1","argv":["/usr/bin/true"]}]}`, 1)},
+		{"invalid-tier", strings.Replace(valid, `"T1"`, `"T4"`, 1)},
+		{"empty-argv", strings.Replace(valid, `["/usr/bin/true"]`, `[]`, 1)},
+		{"outside-area", strings.Replace(valid, `"cwd":"."`, `"area":"../source","cwd":"."`, 1)},
+		{"outside-cwd", strings.Replace(valid, `"cwd":"."`, `"cwd":"../source"`, 1)},
+		{"negative-timeout", strings.Replace(valid, `"cwd":"."`, `"cwd":".","timeoutMs":-1`, 1)},
+		{"overflow-timeout", strings.Replace(valid, `"cwd":"."`, `"cwd":".","timeoutMs":9223372036854775807`, 1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := contractFiles(t, map[string]string{"commands.json": tc.body, "go.mod": "module example.invalid/fixture\n"})
+			if d, err := DiscoverCommands(root, filepath.Join(root, "commands.json")); err == nil {
+				t.Fatalf("invalid locked input fell back or succeeded: %+v", d)
+			}
+		})
+	}
+	root := contractFiles(t, map[string]string{"go.mod": "module example.invalid/fixture\n"})
+	if d, err := DiscoverCommands(root, filepath.Join(root, "missing.json")); err != nil || d.Locked || len(d.Commands) != 3 {
+		t.Fatalf("missing optional lock must preserve discovery: %+v %v", d, err)
+	}
+	if d, err := DiscoverCommands(root, root); err == nil {
+		t.Fatalf("unreadable lock must not fall back: %+v", d)
+	}
+	if err := os.WriteFile(filepath.Join(root, "commands.json"), []byte(`{"locked":false}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if d, err := DiscoverCommands(root, filepath.Join(root, "commands.json")); err != nil || d.Locked || len(d.Commands) != 3 {
+		t.Fatalf("explicit unlocked setting must preserve discovery: %+v %v", d, err)
+	}
+}
+
+func TestContractLockedAreaNormalizationAndEmptyLadder(t *testing.T) {
+	root := contractFiles(t, map[string]string{"commands.json": `{"locked":true,"commands":[{"id":"check","tier":"T1","argv":["/usr/bin/true"]}]}`})
+	d, err := DiscoverCommands(root, filepath.Join(root, "commands.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(d.Areas, []string{"."}) || d.Commands[0].Area != "." || d.Commands[0].Cwd != "." {
+		t.Fatalf("inconsistent defaults: %+v", d)
+	}
+	b := RunBaseline(context.Background(), d.Commands, root, nil)
+	l := RunLadder(context.Background(), b, d.Commands, root, []string{"a.go"}, d.Areas, nil)
+	if !b.Usable || !l.OK || len(l.Checks) != 1 {
+		t.Fatalf("normalized root check was skipped: baseline=%+v ladder=%+v", b, l)
+	}
+	for _, commands := range [][]Command{nil, {{ID: "outside", Area: "other"}}, d.Commands} {
+		base := Baseline{Results: []CommandResult{{Command: d.Commands[0], Status: StatusOpaque}}}
+		l = RunLadder(context.Background(), base, commands, root, []string{"a.go"}, d.Areas, nil)
+		if l.OK || len(l.Checks) != 0 || l.Failed == nil || l.Failed.FailureKind != "VALIDATION_UNRUNNABLE" {
+			t.Fatalf("zero-check validation was accepted: %+v", l)
+		}
+	}
+}
+
+func TestContractValidationDirectoryBoundary(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "worktree")
+	outside := filepath.Join(base, "source")
+	for _, dir := range []string{root, outside, filepath.Join(root, "sub")} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, link := range []struct{ name, target string }{{"external", outside}, {"internal", "sub"}} {
+		if err := os.Symlink(link.target, filepath.Join(root, link.name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "file"), []byte("preserve"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, cwd := range []string{"../source", outside, "external", "file", "missing"} {
+		c := Command{ID: "boundary", Cwd: cwd, Argv: []string{"/bin/sh", "-c", "touch should-not-exist"}}
+		r := RunCommand(context.Background(), c, root, nil)
+		if r.Status != StatusUnrunnable || !strings.Contains(r.SpawnError, "boundary cwd") || r.ExitCode != nil {
+			t.Fatalf("invalid cwd %q executed: %+v", cwd, r)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(outside, "should-not-exist")); !os.IsNotExist(err) {
+		t.Fatal("validation changed the external source", err)
+	}
+	for _, cwd := range []string{".", "", "sub", "internal"} {
+		r := RunCommand(context.Background(), Command{ID: "normal", Cwd: cwd, Argv: []string{"/bin/pwd"}}, root, nil)
+		if r.Status != StatusGreen {
+			t.Fatalf("valid cwd %q failed: %+v", cwd, r)
+		}
+	}
+}
+
 func TestContractJVMWrapperAndAreas(t *testing.T) {
 	parent := t.TempDir()
 	if err := os.WriteFile(filepath.Join(parent, "build.gradle"), []byte("plugins { id 'java' }"), 0600); err != nil {
@@ -207,7 +304,7 @@ func TestContractDifferentialLadder(t *testing.T) {
 		{"new-file", "echo src/b.go:1; exit 1", StatusRed, []string{"src/a.go:1"}, false},
 		{"opaque-red", "echo unreadable; exit 1", StatusRed, []string{"src/a.go:1"}, false},
 		{"green-regression", "echo src/a.go:1; exit 1", StatusGreen, nil, false},
-		{"unrunnable-skip", "exit 99", StatusUnrunnable, nil, true},
+		{"unrunnable-skip", "exit 99", StatusUnrunnable, nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(root, "check"), []byte("#!/bin/sh\n"+tc.body+"\n"), 0700); err != nil {
@@ -223,6 +320,9 @@ func TestContractDifferentialLadder(t *testing.T) {
 			}
 			if tc.status == StatusUnrunnable && len(got.Checks) != 0 {
 				t.Fatal("unrunnable baseline executed")
+			}
+			if tc.status == StatusUnrunnable && (got.Failed == nil || got.Failed.FailureKind != "VALIDATION_UNRUNNABLE") {
+				t.Fatal("skipping every check must not validate the candidate")
 			}
 		})
 	}

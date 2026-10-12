@@ -62,6 +62,102 @@ func TestDeclaredDeletionStaysWithinWorktree(t *testing.T) {
 	}
 }
 
+func TestDoctorRejectsInvalidLockedConfigurationBeforePreparation(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".refactor"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".refactor", "commands.json"), []byte(`{"locked":true,"commands":[`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := runDoctor(surface.Context{Repo: repo, Args: surface.Args{Live: true}}, "")
+	if err == nil || !strings.Contains(err.Error(), "commands file") {
+		t.Fatalf("configuration was not rejected before Git/provider preparation: %v", err)
+	}
+}
+
+func TestHydrationSkipsUnsafeInputsAndCopiesInternalLinks(t *testing.T) {
+	for _, name := range []string{"root-absolute", "nested-absolute", "nested-relative-escape", "absolute-internal", "dangling", "internal", "existing"} {
+		t.Run(name, func(t *testing.T) {
+			base := t.TempDir()
+			repo, wt, shared := filepath.Join(base, "source"), filepath.Join(base, "worktree"), filepath.Join(base, "shared")
+			for _, dir := range []string{repo, wt, shared, filepath.Join(repo, "vendor")} {
+				if err := os.MkdirAll(dir, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write := func(path, body string) {
+				t.Helper()
+				if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write(filepath.Join(shared, "marker"), "preserve")
+			write(filepath.Join(repo, ".env"), "LOCAL_FIXTURE=synthetic\n")
+			write(filepath.Join(repo, "vendor", "marker"), "regular input")
+			modules := filepath.Join(repo, "node_modules")
+			link, target := filepath.Join(modules, "link"), "store"
+			if name == "root-absolute" {
+				link, target = modules, shared
+			} else {
+				if err := os.MkdirAll(filepath.Join(modules, "store"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				write(filepath.Join(modules, "store", "marker"), "source data")
+				switch name {
+				case "nested-absolute":
+					target = shared
+				case "nested-relative-escape":
+					target = "../../shared"
+				case "absolute-internal":
+					target = filepath.Join(modules, "store")
+				case "dangling":
+					target = "missing"
+				case "existing":
+					if err := os.Mkdir(filepath.Join(wt, "node_modules"), 0700); err != nil {
+						t.Fatal(err)
+					}
+					write(filepath.Join(wt, "node_modules", "keep"), "existing input")
+				}
+			}
+			if err := os.Symlink(target, link); err != nil {
+				t.Fatal(err)
+			}
+			var output strings.Builder
+			r := &runner{surface: surface.Context{Repo: repo, Stderr: &output}, wt: wt}
+			defer r.endProgress()
+			if err := r.hydrate(); err != nil {
+				t.Fatal(err)
+			}
+			if name == "internal" {
+				write(filepath.Join(wt, "node_modules", "link", "marker"), "isolated edit")
+				if body, err := os.ReadFile(filepath.Join(modules, "store", "marker")); err != nil || string(body) != "source data" {
+					t.Fatal("internal link wrote into the source", err)
+				}
+			} else if name == "existing" {
+				if body, err := os.ReadFile(filepath.Join(wt, "node_modules", "keep")); err != nil || string(body) != "existing input" {
+					t.Fatal("existing input was changed", err)
+				}
+			} else {
+				if _, err := os.Lstat(filepath.Join(wt, "node_modules")); !os.IsNotExist(err) {
+					t.Fatal("unsafe input was partially hydrated", err)
+				}
+				if !strings.Contains(output.String(), "Skipped build input node_modules:") || strings.Contains(output.String(), shared) {
+					t.Fatal("missing safe diagnostic")
+				}
+			}
+			for _, path := range []string{".env", "vendor/marker"} {
+				if _, err := os.Stat(filepath.Join(wt, path)); err != nil {
+					t.Fatal("regular input not copied", err)
+				}
+			}
+			if body, err := os.ReadFile(filepath.Join(shared, "marker")); err != nil || string(body) != "preserve" {
+				t.Fatal("external fixture was changed", err)
+			}
+		})
+	}
+}
+
 func comparisonFixture(t *testing.T) (*runner, func(string, string), func() string) {
 	t.Helper()
 	repo := t.TempDir()

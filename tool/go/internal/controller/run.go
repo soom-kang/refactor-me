@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -185,47 +186,118 @@ func (r *runner) init() error {
 	if err := workspace.WorktreeAdd(r.surface.Repo, r.wt, base); err != nil {
 		return err
 	}
-	r.hydrate()
+	if err := r.hydrate(); err != nil {
+		return err
+	}
 	r.endProgress()
 	r.notice("Worktree ready: %s", "worktree를 준비했습니다. 위치: %s", surface.DisplayText(r.wt))
 	return nil
 }
 
 // A clonefile copy makes ignored build inputs available in the detached checkout.
-// Failure to hydrate a cache is reported; it does not modify the source checkout.
-func (r *runner) hydrate() {
+// Unsafe links cause the whole input to be skipped, never a partial dependency tree.
+func (r *runner) hydrate() error {
+	destination, err := os.OpenRoot(r.wt)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
 	wanted := map[string]bool{"node_modules": true, ".env.local": true, ".env": true, "vendor": true}
-	var walk func(string, int)
-	walk = func(rel string, depth int) {
+	var walk func(string, int) error
+	walk = func(rel string, depth int) error {
 		if depth > 3 {
-			return
+			return nil
 		}
 		entries, err := os.ReadDir(filepath.Join(r.surface.Repo, rel))
 		if err != nil {
-			return
+			return nil
 		}
 		for _, entry := range entries {
 			child := filepath.Join(rel, entry.Name())
 			if wanted[entry.Name()] {
 				src, dst := filepath.Join(r.surface.Repo, child), filepath.Join(r.wt, child)
-				if _, err := os.Stat(dst); err == nil {
+				if _, err := destination.Lstat(child); err == nil {
+					continue
+				} else if !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("inspect hydration destination %s: %w", child, err)
+				}
+				if reason := hydrationLinkProblem(r.surface.Repo, child); reason != "" {
+					r.notice("Skipped build input %s: %s.", "빌드 입력 %s을 생략했습니다: %s.", surface.DisplayText(child), reason)
 					continue
 				}
-				_ = os.MkdirAll(filepath.Dir(dst), 0o700)
+				if err := destination.MkdirAll(filepath.Dir(child), 0o700); err != nil {
+					return fmt.Errorf("prepare hydration destination %s: %w", child, err)
+				}
 				cmd := exec.Command("cp", "-c", "-R", src, dst)
 				if err := cmd.Run(); err != nil {
-					if err := exec.Command("cp", "-R", src, dst).Run(); err != nil {
-						r.notice("Could not copy an ignored build input into the worktree: %s", "worktree에 빌드 입력 파일을 복사하지 못했습니다. 경로: %s", surface.DisplayText(child))
+					if err := destination.RemoveAll(child); err != nil {
+						return fmt.Errorf("remove incomplete build input %s: %w", child, err)
 					}
+					if err := exec.Command("cp", "-R", src, dst).Run(); err != nil {
+						if err := destination.RemoveAll(child); err != nil {
+							return fmt.Errorf("remove incomplete build input %s: %w", child, err)
+						}
+						r.notice("Could not copy an ignored build input into the worktree: %s", "worktree에 빌드 입력 파일을 복사하지 못했습니다. 경로: %s", surface.DisplayText(child))
+						continue
+					}
+				}
+				if reason := hydrationLinkProblem(r.wt, child); reason != "" {
+					if err := destination.RemoveAll(child); err != nil {
+						return fmt.Errorf("remove unsafe build input %s: %w", child, err)
+					}
+					r.notice("Skipped build input %s: %s.", "빌드 입력 %s을 생략했습니다: %s.", surface.DisplayText(child), reason)
 				}
 				continue
 			}
 			if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") && entry.Name() != "node_modules" {
-				walk(child, depth+1)
+				if err := walk(child, depth+1); err != nil {
+					return err
+				}
 			}
 		}
+		return nil
 	}
-	walk("", 0)
+	return walk("", 0)
+}
+
+// Relative links must resolve within the inspected root. Absolute links would
+// retain their original targets after copying, so they are never hydrated.
+func hydrationLinkProblem(root, input string) string {
+	owned, err := os.OpenRoot(root)
+	if err != nil {
+		return "could not inspect build input"
+	}
+	defer owned.Close()
+	reason := ""
+	err = filepath.WalkDir(filepath.Join(root, input), func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink == 0 {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		target, err := owned.Readlink(rel)
+		if err != nil {
+			return err
+		}
+		if filepath.IsAbs(target) {
+			reason = "contains an absolute link"
+			return fs.SkipAll
+		}
+		if _, err := owned.Stat(rel); err != nil {
+			reason = "contains an outside or unresolved link"
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if err != nil {
+		return "could not inspect build input"
+	}
+	return reason
 }
 
 func (r *runner) baselinePhase() error {

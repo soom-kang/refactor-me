@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -324,19 +325,55 @@ func CIHints(root string) []CIHint {
 
 func DiscoverCommands(root, lockedFile string) (Discovery, error) {
 	if lockedFile != "" {
-		if b, err := os.ReadFile(lockedFile); err == nil {
-			var lock struct {
-				Locked   bool      `json:"locked"`
+		b, err := os.ReadFile(lockedFile)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Discovery{}, fmt.Errorf("read commands file %s: %w", lockedFile, err)
+		}
+		if err == nil {
+			var lock *struct {
+				Locked   *bool     `json:"locked"`
 				Commands []Command `json:"commands"`
 			}
-			if json.Unmarshal(b, &lock) == nil && lock.Locked {
+			if err := json.Unmarshal(b, &lock); err != nil {
+				return Discovery{}, fmt.Errorf("commands file %s: %w", lockedFile, err)
+			}
+			if lock == nil || lock.Locked == nil {
+				return Discovery{}, fmt.Errorf("commands file %s: locked must be a boolean", lockedFile)
+			}
+			if *lock.Locked {
+				if len(lock.Commands) == 0 {
+					return Discovery{}, fmt.Errorf("commands file %s: locked commands must not be empty", lockedFile)
+				}
 				areas := map[string]bool{}
-				for _, c := range lock.Commands {
-					a := c.Area
-					if a == "" {
-						a = "."
+				ids := map[string]bool{}
+				for i := range lock.Commands {
+					c := &lock.Commands[i]
+					if strings.TrimSpace(c.ID) == "" || ids[c.ID] {
+						return Discovery{}, fmt.Errorf("commands file %s: commands[%d].id must be nonblank and unique", lockedFile, i)
 					}
-					areas[a] = true
+					ids[c.ID] = true
+					if !slices.Contains([]string{TierFast, TierTest, TierBuild}, c.Tier) {
+						return Discovery{}, fmt.Errorf("commands file %s: command %s tier must be T1, T2 or T3", lockedFile, c.ID)
+					}
+					if len(c.Argv) == 0 || strings.TrimSpace(c.Argv[0]) == "" {
+						return Discovery{}, fmt.Errorf("commands file %s: command %s argv must name an executable", lockedFile, c.ID)
+					}
+					if c.TimeoutMS < 0 || int64(c.TimeoutMS) > math.MaxInt64/int64(time.Millisecond) {
+						return Discovery{}, fmt.Errorf("commands file %s: command %s timeoutMs must be nonnegative and fit a duration", lockedFile, c.ID)
+					}
+					for _, field := range []struct {
+						name string
+						path *string
+					}{{"area", &c.Area}, {"cwd", &c.Cwd}} {
+						if *field.path == "" {
+							*field.path = "."
+						}
+						if !filepath.IsLocal(*field.path) {
+							return Discovery{}, fmt.Errorf("commands file %s: command %s %s must be repository-relative", lockedFile, c.ID, field.name)
+						}
+						*field.path = filepath.ToSlash(filepath.Clean(*field.path))
+					}
+					areas[c.Area] = true
 				}
 				d := Discovery{Locked: true, Commands: lock.Commands}
 				for a := range areas {
@@ -364,6 +401,7 @@ type CommandResult struct {
 	Command
 	ExitCode    *int            `json:"exitCode"`
 	TimedOut    bool            `json:"timedOut"`
+	Cancelled   bool            `json:"cancelled,omitempty"`
 	SpawnError  string          `json:"spawnError"`
 	DurationMS  int64           `json:"durationMs"`
 	StdoutTail  string          `json:"stdoutTail"`
@@ -414,11 +452,41 @@ func terminateGroup(pid int, signal syscall.Signal) {
 	}
 }
 
+func validationDirectory(wt, cwd string) (string, error) {
+	if cwd == "" {
+		cwd = "."
+	}
+	if !filepath.IsLocal(cwd) {
+		return "", fmt.Errorf("cwd must be worktree-relative")
+	}
+	root, err := filepath.EvalSymlinks(wt)
+	if err != nil {
+		return "", err
+	}
+	dir, err := filepath.EvalSymlinks(filepath.Join(root, cwd))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, dir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("cwd resolves outside the worktree")
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("cwd is not a directory")
+	}
+	return dir, nil
+}
+
 // RunCommand starts an argv vector in its own process group. Cancellation and
 // timeout signal the group, then escalate after ten seconds.
 func RunCommand(parent context.Context, c Command, wt string, onLine func(string)) CommandResult {
 	r := CommandResult{Command: c}
 	if err := parent.Err(); err != nil {
+		r.Cancelled = true
 		r.SpawnError = err.Error()
 		r.Status = StatusUnrunnable
 		return r
@@ -426,6 +494,12 @@ func RunCommand(parent context.Context, c Command, wt string, onLine func(string
 	started := time.Now()
 	if len(c.Argv) == 0 {
 		r.SpawnError = "EMPTY_ARGV"
+		r.Status = StatusUnrunnable
+		return r
+	}
+	dir, err := validationDirectory(wt, c.Cwd)
+	if err != nil {
+		r.SpawnError = fmt.Sprintf("command %s cwd %q: %v", c.ID, c.Cwd, err)
 		r.Status = StatusUnrunnable
 		return r
 	}
@@ -439,7 +513,7 @@ func RunCommand(parent context.Context, c Command, wt string, onLine func(string
 	ctx, cancel := context.WithTimeout(parent, limit)
 	defer cancel()
 	cmd := exec.Command(c.Argv[0], c.Argv[1:]...)
-	cmd.Dir = filepath.Join(wt, c.Cwd)
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "CI=1", "TZ=UTC", "FORCE_COLOR=0", "NO_COLOR=1")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var out, stderr bytes.Buffer
@@ -454,10 +528,11 @@ func RunCommand(parent context.Context, c Command, wt string, onLine func(string
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
-	var err error
+	err = nil
 	select {
 	case err = <-done:
 	case <-ctx.Done():
+		r.Cancelled = parent.Err() != nil
 		r.TimedOut = errors.Is(ctx.Err(), context.DeadlineExceeded)
 		terminateGroup(cmd.Process.Pid, syscall.SIGTERM)
 		killer := time.NewTimer(10 * time.Second)
@@ -474,6 +549,9 @@ func RunCommand(parent context.Context, c Command, wt string, onLine func(string
 		// existing group, preventing a child from surviving the timeout.
 		terminateGroup(cmd.Process.Pid, syscall.SIGKILL)
 	}
+	// Cancellation can win just after the process exits; it still takes precedence
+	// over a baseline comparison and is retained independently of the exit status.
+	r.Cancelled = r.Cancelled || parent.Err() != nil
 	if err == nil {
 		zero := 0
 		r.ExitCode = &zero
@@ -672,6 +750,9 @@ func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt st
 		}
 		r := RunCommand(ctx, c, wt, nil)
 		switch {
+		case r.Cancelled:
+			r.Why = "validation was cancelled"
+			r.FailureKind = "VALIDATION_CANCELLED"
 		case r.SpawnError != "":
 			r.Why = "command could not be executed"
 			r.FailureKind = "VALIDATION_UNRUNNABLE"
@@ -705,6 +786,10 @@ func RunLadder(ctx context.Context, baseline Baseline, commands []Command, wt st
 			result.Failed = &result.Checks[len(result.Checks)-1]
 			break
 		}
+	}
+	if len(result.Checks) == 0 {
+		result.OK = false
+		result.Failed = &CommandResult{Status: StatusUnrunnable, FailureKind: "VALIDATION_UNRUNNABLE", Why: "no runnable validation command for the changed scope"}
 	}
 	return result
 }

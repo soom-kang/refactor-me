@@ -38,7 +38,8 @@ func TestProviderArguments(t *testing.T) {
 	}
 }
 func TestTaxonomy(t *testing.T) {
-	claude := processResult{stdout: `{"type":"result","subtype":"success","is_error":true,"result":"Failed to authenticate: OAuth session expired"}`, stderr: ""}
+	z := 0
+	claude := processResult{stdout: `{"type":"result","subtype":"success","is_error":true,"result":"Failed to authenticate: OAuth session expired"}`, stderr: "", exitCode: &z}
 	if got := classifyClaude(claude, true).failure; got != "AUTH" {
 		t.Fatalf("claude auth=%s", got)
 	}
@@ -50,7 +51,6 @@ func TestTaxonomy(t *testing.T) {
 	if got := classifyClaude(claude, true).failure; got != "SCHEMA" {
 		t.Fatalf("missing structured output=%s", got)
 	}
-	z := 0
 	codex := processResult{stdout: `{"type":"item.completed","item":{"type":"error","message":"Skill descriptions were shortened"}}`, exitCode: &z}
 	out := filepath.Join(t.TempDir(), "last.json")
 	if err := os.WriteFile(out, []byte(`{"ok":true}`), 0600); err != nil {

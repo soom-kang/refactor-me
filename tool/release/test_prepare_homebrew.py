@@ -54,10 +54,13 @@ class PackagingTest(unittest.TestCase):
                 path.write_text(body)
             def run(*args):
                 subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+            def annotated_tag():
+                run('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                    '-c', 'tag.gpgsign=false', 'tag', '-a', '-m', 'fixture release', 'v0.10.0-beta.1')
             run('init', '-q')
             run('add', '.')
             run('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'fixture')
-            run('tag', 'v0.10.0-beta.1')
+            annotated_tag()
             (root / 'tool/go/private.json').write_text('{"local":true}')
             (root / 'tool/go/private.go').write_text('package main\n// ignored local source\n')
             with patch.object(prepare, 'ROOT', root):
@@ -99,19 +102,39 @@ sys.exit(73)
             def build(candidate=False):
                 return subprocess.run(['bash', str(root / 'tool/release/build-macos-arm64.sh'), str(Path(out) / 'binary')],
                                       env=dict(env, RELEASE_CANDIDATE='1' if candidate else '0'), capture_output=True, text=True)
+            def reject_public_release(message):
+                source_out = Path(out) / 'rejected-source'
+                with patch.object(prepare, 'ROOT', root):
+                    with self.assertRaisesRegex(ValueError, message):
+                        prepare.prepare(source_out)
+                self.assertFalse(source_out.exists())
+                built = build()
+                self.assertEqual(built.returncode, 2, built.stderr)
+                self.assertIn(message, built.stderr)
+                self.assertFalse(probe.exists())
+                self.assertFalse((Path(out) / 'binary').exists())
             run('tag', '-d', 'v0.10.0-beta.1')
-            built = build()
-            self.assertEqual(built.returncode, 2, built.stderr)
-            self.assertIn('release tag v0.10.0-beta.1 is missing', built.stderr)
-            self.assertFalse(probe.exists())
+            reject_public_release('local release tag v0.10.0-beta.1 is missing')
+            run('branch', 'v0.10.0-beta.1')
+            reject_public_release('local release tag v0.10.0-beta.1 is missing')
             run('tag', 'v0.10.0-beta.1')
+            reject_public_release('release tag must be annotated')
+            run('tag', '-d', 'v0.10.0-beta.1')
+            annotated_tag()
             run('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false',
                 '-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-qm', 'next commit')
+            # Both packagers reject an annotated tag on a different commit.
+            with patch.object(prepare, 'ROOT', root):
+                with self.assertRaisesRegex(ValueError, 'release tag does not identify HEAD'):
+                    prepare.prepare(Path(out) / 'rejected-source')
+            self.assertFalse((Path(out) / 'rejected-source').exists())
             built = build()
             self.assertEqual(built.returncode, 2, built.stderr)
             self.assertIn('release tag points to another commit', built.stderr)
             self.assertFalse(probe.exists())
-            run('tag', '-f', 'v0.10.0-beta.1')
+            self.assertFalse((Path(out) / 'binary').exists())
+            run('tag', '-d', 'v0.10.0-beta.1')
+            annotated_tag()
             built = build()
             self.assertEqual(built.returncode, 73, built.stderr)
             inputs = json.loads(probe.read_text())
@@ -142,7 +165,9 @@ sys.exit(73)
         def fake_git(*args):
             if args[0] == 'status':
                 return ''
-            return 'a' * 40 if args[1] == 'HEAD' else 'b' * 40
+            if args[0] == 'cat-file':
+                return 'tag'
+            return 'a' * 40 if args == ('rev-parse', 'HEAD') else 'b' * 40
         with tempfile.TemporaryDirectory() as out, patch.object(prepare, 'git', fake_git):
             with self.assertRaisesRegex(ValueError, 'release tag does not identify HEAD'):
                 prepare.prepare(out)

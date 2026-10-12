@@ -67,6 +67,9 @@ func runDoctor(c surface.Context, runDir string) (doctorReport, error) {
 	if _, err := workspace.EnsureRefactorDir(c.Repo); err != nil {
 		return report, err
 	}
+	if _, err := workspace.DiscoverCommands(c.Repo, filepath.Join(c.Repo, ".refactor", "commands.json")); err != nil {
+		return report, err
+	}
 	add("version", "PASS", "refactor-me "+surface.Version, false)
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 		add("platform", "PASS", "darwin/arm64 "+runtime.Version(), false)

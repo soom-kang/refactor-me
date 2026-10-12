@@ -169,8 +169,12 @@ func (r *runner) callPhase(phase, runDir, prefer string, args engine.PromptArgs)
 				if phase == "deep_check" {
 					schemaName = "deepcheck"
 				}
+				attemptID := "primary"
+				if attempt > 0 {
+					attemptID = fmt.Sprintf("primary-retry-%d", attempt)
+				}
 				request := engine.Request{Phase: phase, Mode: engine.ModeFor(phase), CWD: r.wt,
-					Body: prompt, Schema: engine.Schema(schemaName), RunDir: runDir, Attempt: "primary"}
+					Body: prompt, Schema: engine.Schema(schemaName), RunDir: runDir, Attempt: attemptID}
 				if phase == "audit" && r.state.Cycle > 1 {
 					request.Effort = "medium"
 				}
@@ -399,6 +403,21 @@ func (r *runner) rollback(preOID string) error {
 	return nil
 }
 
+func (r *runner) sourceInvariant() error {
+	head, err := workspace.HeadOID(r.surface.Repo)
+	if err != nil {
+		return halt{"HALTED_UNSAFE", "could not check source HEAD before publication: " + err.Error()}
+	}
+	fingerprint, err := workspace.SourceFingerprint(r.surface.Repo)
+	if err != nil {
+		return halt{"HALTED_UNSAFE", "could not check source fingerprint before publication: " + err.Error()}
+	}
+	if head != r.state.BaseOID || fingerprint != r.sourceFingerprint {
+		return halt{"HALTED_UNSAFE", "SOURCE_MUTATED: source checkout changed before publication"}
+	}
+	return nil
+}
+
 func (r *runner) publish(oid string) error {
 	if r.engineConfig.Skills != nil {
 		if err := r.engineConfig.Skills.Verify(); err != nil {
@@ -407,6 +426,11 @@ func (r *runner) publish(oid string) error {
 		if err := r.engineConfig.Skills.CheckWorkspace(r.wt); err != nil {
 			return fmt.Errorf("%w: %v", workspace.ErrUnsafe, err)
 		}
+	}
+	// Hooks and provider review can outlive the earlier diff gate. Recheck the
+	// source immediately before the result ref write without restoring its edits.
+	if err := r.sourceInvariant(); err != nil {
+		return err
 	}
 	ref := "refs/heads/" + r.state.BranchName
 	if err := workspace.PublishCAS(r.surface.Repo, ref, oid, r.state.PublishedOID); err != nil {

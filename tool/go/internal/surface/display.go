@@ -7,25 +7,39 @@ import (
 
 // DisplayText bounds untrusted terminal labels without changing stored evidence.
 func DisplayText(value string) string {
+	clean := strings.Join(strings.Fields(terminalText(value, false)), " ")
+	runes := []rune(clean)
+	if len(runes) > 160 {
+		return string(runes[:159]) + "…"
+	}
+	return clean
+}
+
+// terminalText removes terminal controls, optionally retaining report layout.
+// It has no length limit; evidence fields are cleaned before report formatting.
+func terminalText(value string, multiline bool) string {
 	var out strings.Builder
 	runes := []rune(value)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
-		if r == '\x1b' {
-			i++
-			if i >= len(runes) {
-				break
+		if r == '\x1b' || r == '\u009b' || r == '\u009d' || r == '\u0090' || r == '\u0098' || r == '\u009e' || r == '\u009f' {
+			if r == '\x1b' {
+				i++
+				if i >= len(runes) {
+					break
+				}
+				r = runes[i]
 			}
-			switch runes[i] {
-			case '[': // CSI, including an incomplete sequence.
+			switch r {
+			case '[', '\u009b': // CSI, including an incomplete sequence.
 				for i++; i < len(runes); i++ {
 					if runes[i] >= '@' && runes[i] <= '~' {
 						break
 					}
 				}
-			case ']': // OSC, terminated by BEL or ST.
+			case ']', '\u009d', 'P', 'X', '^', '_', '\u0090', '\u0098', '\u009e', '\u009f': // Terminal strings, terminated by ST (OSC also permits BEL).
 				for i++; i < len(runes); i++ {
-					if runes[i] == '\a' {
+					if runes[i] == '\u009c' || ((r == ']' || r == '\u009d') && runes[i] == '\a') {
 						break
 					}
 					if runes[i] == '\x1b' && i+1 < len(runes) && runes[i+1] == '\\' {
@@ -36,18 +50,15 @@ func DisplayText(value string) string {
 			}
 			continue
 		}
-		if unicode.IsSpace(r) {
+		if multiline && (r == '\n' || r == '\t') {
+			out.WriteRune(r)
+		} else if unicode.IsSpace(r) && !multiline {
 			out.WriteByte(' ')
 		} else if !unicode.IsControl(r) && !unicode.Is(unicode.Cf, r) {
 			out.WriteRune(r)
 		}
 	}
-	clean := strings.Join(strings.Fields(out.String()), " ")
-	runes = []rune(clean)
-	if len(runes) > 160 {
-		return string(runes[:159]) + "…"
-	}
-	return clean
+	return out.String()
 }
 
 // ReasonLabel describes a known outcome code without rendering model notes.

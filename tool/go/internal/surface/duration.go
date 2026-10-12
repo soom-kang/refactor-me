@@ -26,21 +26,15 @@ func parseMaxMinutes(value string) (int, error) {
 }
 
 func configuredMaxMinutes(cfg Config) (int, error) {
-	minutes := 180
-	switch value := object(cfg["policy"])["max_wall_clock_min"].(type) {
-	case int:
-		minutes = value
-	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < 1 || value > float64(maxRuntimeMinutes) {
-			return 0, errors.New("policy.max_wall_clock_min must be positive and fit a time duration")
-		}
-		// Match the controller's existing numeric configuration conversion.
-		minutes = int(value)
+	policy, err := configObject(map[string]any(cfg), "policy", "policy")
+	if err != nil {
+		return 0, err
 	}
-	if !validMaxMinutes(minutes) {
-		return 0, errors.New("policy.max_wall_clock_min must be positive and fit a time duration")
+	value, present := policy["max_wall_clock_min"]
+	if !present {
+		return 180, nil
 	}
-	return minutes, nil
+	return configInteger(value, "policy.max_wall_clock_min", 1, maxRuntimeMinutes)
 }
 
 // runDurationOptions changes only the effective run config, never the project file.

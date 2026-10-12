@@ -57,15 +57,16 @@ type Config struct {
 	EffortOverrides map[string]string      `json:"-"`
 }
 type Request struct {
-	Phase   string
-	Mode    string
-	CWD     string
-	Body    string
-	Schema  map[string]any
-	RunDir  string
-	Timeout time.Duration
-	Attempt string
-	Effort  string
+	Phase    string
+	Mode     string
+	CWD      string
+	Body     string
+	Schema   map[string]any
+	RunDir   string
+	Timeout  time.Duration
+	Attempt  string
+	Effort   string
+	RepairOf string
 }
 type Usage struct {
 	InputTokens             int64                 `json:"inputTokens"`
@@ -456,6 +457,16 @@ func classifyClaude(res processResult, requested bool) classification {
 		}
 		return classification{failure: "PROCESS", detail: detail, parsed: p}
 	}
+	if res.exitCode == nil || *res.exitCode != 0 {
+		detail := firstLine(res.stderr)
+		if detail == "" {
+			detail = "missing process exit status"
+			if res.exitCode != nil {
+				detail = fmt.Sprintf("exit %d", *res.exitCode)
+			}
+		}
+		return classification{failure: "PROCESS", detail: detail, parsed: p}
+	}
 	if requested && p.Data == nil {
 		return classification{failure: "SCHEMA", detail: "no structured_output on a successful turn", parsed: p}
 	}
@@ -536,6 +547,94 @@ func truncate(s string, n int) string {
 	return s
 }
 
+type providerCallRecord struct {
+	Phase      string `json:"phase"`
+	Provider   string `json:"provider"`
+	Attempt    string `json:"attempt"`
+	Mode       string `json:"mode"`
+	Status     string `json:"status"`
+	RepairOf   string `json:"repairOf,omitempty"`
+	OK         bool   `json:"ok"`
+	Failure    string `json:"failure,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	ExitCode   *int   `json:"exitCode"`
+	Usage      Usage  `json:"usage"`
+	RawPath    string `json:"rawPath"`
+	ToolCalls  int    `json:"toolCalls"`
+	DurationMS int64  `json:"durationMs"`
+}
+
+// Reserve the bundle before invocation, retaining the first legacy filename.
+// The exclusive metadata file also distinguishes interrupted calls from absent
+// calls and prevents retries or a later invocation from overwriting a bundle.
+func reserveProviderCall(provider string, req Request) (string, string, error) {
+	dir := filepath.Join(req.RunDir, "provider")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", "", fmt.Errorf("create transcript directory: %w", err)
+	}
+	attempt := req.Attempt
+	if attempt == "" {
+		attempt = "primary"
+	}
+	for n := 1; ; n++ {
+		id := attempt
+		if n > 1 {
+			id = fmt.Sprintf("%s-%d", attempt, n)
+		}
+		base := filepath.Join(dir, fmt.Sprintf("%s-%s-%s", req.Phase, provider, id))
+		occupied := false
+		for _, extension := range []string{".prompt.md", ".stdout.jsonl", ".stderr.log", ".last.json"} {
+			if _, err := os.Lstat(base + extension); err == nil {
+				occupied = true
+				break
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return "", "", fmt.Errorf("check transcript destination: %w", err)
+			}
+		}
+		if occupied {
+			continue
+		}
+		file, err := os.OpenFile(base+".result.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", "", fmt.Errorf("reserve transcript bundle: %w", err)
+		}
+		record := providerCallRecord{Phase: req.Phase, Provider: provider, Attempt: id, Mode: req.Mode,
+			Status: "reserved", RepairOf: req.RepairOf, RawPath: base + ".stdout.jsonl"}
+		err = json.NewEncoder(file).Encode(record)
+		closeErr := file.Close()
+		if err != nil || closeErr != nil {
+			return "", "", fmt.Errorf("write transcript reservation: %w", errors.Join(err, closeErr))
+		}
+		return base, id, nil
+	}
+}
+
+func saveProviderCallRecord(req Request, result Result) error {
+	if req.Mode == "" {
+		req.Mode = "read"
+	}
+	base := strings.TrimSuffix(result.RawPath, ".stdout.jsonl")
+	prefix := req.Phase + "-" + result.Provider + "-"
+	record := providerCallRecord{Phase: req.Phase, Provider: result.Provider,
+		Attempt: strings.TrimPrefix(filepath.Base(base), prefix), Mode: req.Mode, Status: "completed", RepairOf: req.RepairOf,
+		OK: result.OK, Failure: result.Failure, Detail: result.Detail, ExitCode: result.ExitCode, Usage: result.Usage,
+		RawPath: result.RawPath, ToolCalls: result.ToolCalls, DurationMS: result.DurationMS}
+	if !result.OK {
+		record.Status = "failed"
+	}
+	raw, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode provider call metadata: %w", err)
+	}
+	if err := os.WriteFile(base+".result.json", append(raw, '\n'), 0600); err != nil {
+		return fmt.Errorf("write provider call metadata: %w", err)
+	}
+	return nil
+}
+
 // CallProvider performs one isolated CLI invocation and stores its raw transcript
 // under req.RunDir. It never resumes a provider session.
 func CallProvider(ctx context.Context, provider string, req Request, cfg Config, log Logger) (Result, error) {
@@ -589,9 +688,10 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 	if effort == "" {
 		effort = EffortFor(req.Phase, agent)
 	}
-	attempt := req.Attempt
-	if attempt == "" {
-		attempt = "primary"
+	req.Mode = mode
+	rawBase, _, err := reserveProviderCall(provider, req)
+	if err != nil {
+		return Result{}, err
 	}
 	var args []string
 	outPath := ""
@@ -649,7 +749,6 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 			unsafeErr = errors.Join(unsafeErr, fmt.Errorf("%w: %v", workspace.ErrUnsafe, err))
 		}
 	}
-	rawBase := filepath.Join(req.RunDir, "provider", fmt.Sprintf("%s-%s-%s", req.Phase, provider, attempt))
 	var cls classification
 	if provider == "claude" {
 		cls = classifyClaude(proc, req.Schema != nil)
@@ -690,15 +789,30 @@ func CallProvider(ctx context.Context, provider string, req Request, cfg Config,
 		if err := os.WriteFile(rawBase+".stdout.jsonl", []byte(proc.stdout), 0600); err != nil {
 			return fmt.Errorf("write stdout transcript: %w", err)
 		}
-		if strings.TrimSpace(proc.stderr) != "" {
-			if err := os.WriteFile(rawBase+".stderr.log", []byte(proc.stderr), 0600); err != nil {
-				return fmt.Errorf("write stderr transcript: %w", err)
+		if err := os.WriteFile(rawBase+".stderr.log", []byte(proc.stderr), 0600); err != nil {
+			return fmt.Errorf("write stderr transcript: %w", err)
+		}
+		if outPath != "" {
+			raw, err := os.ReadFile(outPath)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("read provider last output: %w", err)
+			}
+			if err := os.WriteFile(rawBase+".last.json", raw, 0600); err != nil {
+				return fmt.Errorf("write last output transcript: %w", err)
 			}
 		}
 		return nil
 	}
 	callErr := unsafeErr
 	if err := writeTranscripts(); err != nil {
+		callErr = errors.Join(callErr, err)
+		p.OK = false
+		if unsafeErr == nil {
+			p.Failure = "PROCESS"
+		}
+		p.Detail = callErr.Error()
+	}
+	if err := saveProviderCallRecord(req, p); err != nil {
 		callErr = errors.Join(callErr, err)
 		p.OK = false
 		if unsafeErr == nil {
@@ -734,6 +848,9 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 			res.OK = false
 			res.Failure = "SCHEMA"
 			res.Detail = strings.Join(errs[:min(5, len(errs))], "; ")
+			if err := saveProviderCallRecord(req, res); err != nil {
+				return res, err
+			}
 		}
 	}
 	if res.Failure != "SCHEMA" || res.Fatal {
@@ -743,7 +860,13 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 		log.OnProviderEvent(ProviderEvent{Kind: "schema_repair", Provider: provider, Phase: req.Phase, Count: 1})
 	}
 	req.Mode = "read"
-	req.Attempt = "repair"
+	base := strings.TrimSuffix(filepath.Base(res.RawPath), ".stdout.jsonl")
+	attempt := strings.TrimPrefix(base, req.Phase+"-"+provider+"-")
+	req.Attempt = attempt + "-repair"
+	if attempt == "primary" {
+		req.Attempt = "repair"
+	}
+	req.RepairOf = res.RawPath
 	req.Body = RepairPrompt(NewNonce(), res.Detail, res.Text)
 	repair, err := CallProvider(ctx, provider, req, cfg, log)
 	if err != nil {
@@ -757,6 +880,12 @@ func CallWithRepair(ctx context.Context, provider string, req Request, cfg Confi
 			repair.OK = false
 			repair.Failure = "SCHEMA"
 			repair.Detail = strings.Join(errs[:min(5, len(errs))], "; ")
+			if err := saveProviderCallRecord(req, repair); err != nil {
+				repair.Usage = MergeUsage(res.Usage, repair.Usage)
+				repair.DurationMS += res.DurationMS
+				repair.Processes += res.Processes
+				return repair, err
+			}
 		}
 	}
 	repair.Usage = MergeUsage(res.Usage, repair.Usage)

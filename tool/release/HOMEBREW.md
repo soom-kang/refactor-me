@@ -54,7 +54,7 @@ Record the release commit, required CI result, archive hashes, formula and relea
 
 Check remote refs and tap access. Set a new release version in `tool/RELEASE_VERSION` and add the matching CHANGELOG entry before the release commit. Do not reuse or move an existing tag.
 
-After that commit's main CI passes, tag it as `v<release-version>`. On its clean checkout, generate the source first and the binary second, once each. Use fresh output directories outside the checkout:
+After that commit's main CI passes, create an annotated tag `v<release-version>`. Both public generators require the exact tag ref, object type `tag` and peeled commit matching HEAD before writing artifacts. A version-named branch or lightweight tag does not satisfy this gate. Candidate mode remains local and non-publishable; see [RM-QA-011](../../docs/qa/2026-10-12-tickets.md#rm-qa-011). On the clean checkout, generate the source first and the binary second, once each. Use fresh output directories outside the checkout:
 
 ```sh
 python3 tool/release/prepare-homebrew.py /tmp/refactor-homebrew-release

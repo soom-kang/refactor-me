@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -128,6 +129,49 @@ func TestSchemaRepairEventContainsMetadataAndStaysReadOnly(t *testing.T) {
 				path := filepath.Join(runDir, "provider", "execute-"+provider+"-"+attempt+".stdout.jsonl")
 				if _, err := os.Stat(path); err != nil {
 					t.Fatal("missing transcript", path, err)
+				}
+			}
+			// Reusing the same request must preserve the previous primary/repair
+			// bundle and attach the next repair to its reserved parent attempt.
+			if err := os.Remove(bin + ".called"); err != nil {
+				t.Fatal(err)
+			}
+			next, err := CallWithRepair(context.Background(), provider, Request{Phase: "execute", Mode: "write", CWD: t.TempDir(), RunDir: runDir, Body: "second fixture", Schema: schema}, Config{Agents: map[string]AgentConfig{provider: {Bin: bin}}}, nil)
+			if err != nil || !next.OK || next.Processes != 2 {
+				t.Fatal(next, err)
+			}
+			for _, attempt := range []string{"primary", "repair", "primary-2", "primary-2-repair"} {
+				base := filepath.Join(runDir, "provider", "execute-"+provider+"-"+attempt)
+				for _, suffix := range []string{".prompt.md", ".stdout.jsonl", ".stderr.log", ".result.json"} {
+					if _, err := os.Stat(base + suffix); err != nil {
+						t.Fatal("missing call bundle", base+suffix, err)
+					}
+				}
+				raw, err := os.ReadFile(base + ".result.json")
+				var record providerCallRecord
+				if err != nil || json.Unmarshal(raw, &record) != nil || record.Attempt != attempt || record.ExitCode == nil || *record.ExitCode != 0 {
+					t.Fatalf("invalid call metadata: %s: %v", raw, err)
+				}
+				if strings.Contains(attempt, "repair") {
+					parent := "primary"
+					if attempt == "primary-2-repair" {
+						parent = "primary-2"
+					}
+					if !record.OK || record.Mode != "read" || record.RepairOf != filepath.Join(runDir, "provider", "execute-"+provider+"-"+parent+".stdout.jsonl") {
+						t.Fatalf("repair lost parent evidence: %+v", record)
+					}
+				} else if record.OK || record.Failure != "SCHEMA" || record.Mode != "write" {
+					t.Fatalf("primary schema failure was hidden: %+v", record)
+				}
+				if provider == "codex" {
+					last, err := os.ReadFile(base + ".last.json")
+					want := "{}"
+					if strings.Contains(attempt, "repair") {
+						want = `{"answer":7}`
+					}
+					if err != nil || strings.TrimSpace(string(last)) != want {
+						t.Fatalf("last output was overwritten for %s: %q: %v", attempt, last, err)
+					}
 				}
 			}
 		})

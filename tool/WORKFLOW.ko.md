@@ -28,7 +28,7 @@ Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude�
 | 후보 선택 | 조사 범위·위험·시도 이력 확인, deep check에서 실행 가능한 작업 명세 확정 | `audits/`, `packet.json` |
 | 수정 | 필요하면 characterization diff 검사와 검증, preflight 통과, 명세 범위 안에서 실행 | `characterization-gate.json`, `characterization-validation.json`, `preflight.json`, `execution.json` |
 | 검증·검토 | diff 검사, 검증 결과 악화 없음, 별도 세션 검토 통과 | `gate.json`, `validation.json`, `review.json` |
-| 발행·반복 | 검토한 tree와 커밋 tree 일치, 원본 불변, 결과 ref의 이전 OID 일치 | `state.json`, 최종 보고서 |
+| 발행·반복 | 검토한 tree와 커밋 tree 일치. Commit 전과 발행 직전에 원본 HEAD/fingerprint 검사. 결과 ref의 이전 OID 일치 | `state.json`, 최종 보고서 |
 
 characterization은 소스를 수정하기 전에 기존 동작을 테스트로 기록하는 단계입니다. 활성화하면 변경 전 소스에서 테스트를 통과해야 하며 별도 커밋을 만들 수 있습니다. 이후 리팩토링이 거부되어도 이 테스트 커밋은 결과 branch에 남을 수 있습니다. `max_commits`는 리팩토링 커밋만 계산합니다.
 
@@ -45,6 +45,8 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 검토는 별도 세션에서 진행하며 설정에 따라 다른 가용 provider를 우선합니다. `FAIL`, `BLOCKER`, 또는 `PRESERVED` 이외의 평가는 변경을 거부합니다. `HIGH` 지적만으로는 `PASS`를 뒤집지 않으므로 병합 전에 지적 내용을 읽어야 합니다.
 
 커밋 hook도 실행합니다. hook이 검토한 tree를 바꾸거나 작업 변경을 남기면 `HALTED_UNSAFE`로 발행을 중단합니다. 결과 branch 갱신 시 이전 OID를 확인하므로 다른 갱신과 충돌해도 발행하지 않습니다.
+
+현재 source에 [QA 수정](../docs/qa/2026-10-12-remediation.md)을 반영했으며 공개 Beta.6은 갱신하지 않았습니다. Commit 또는 발행 전 원본 drift는 사용자 수정을 되돌리지 않고 `HALTED_UNSAFE`로 정지합니다. 검증 cwd는 실제 worktree 안에 있어야 합니다. Hydration은 복사 전후 링크를 검사하고 안전하지 않은 입력 전체를 생략합니다. 이 검사는 filesystem lock이나 신뢰된 명령의 OS sandbox는 아닙니다.
 
 ### 확인된 상태를 안내하는 진행 로그
 
@@ -74,6 +76,8 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 | timeout 또는 프로세스 실패 | 5초, 20초 뒤 재시도 후 다른 가용 provider 시도. timeout은 프로세스 그룹에 SIGTERM 후 SIGKILL을 보내며 주 프로세스가 먼저 끝나도 남은 자식 프로세스를 종료 |
 | Ctrl-C 또는 SIGTERM | 관리 중인 provider와 검증 프로세스 취소. 복구, 재시도와 fallback 중단. 수락한 커밋과 미완료 worktree 보존 |
 | 사용량 소진 또는 인증 실패 | provider 상태를 기록하고 handoff 시도 후 다른 가용 provider로 같은 단계 계속 |
+
+검증 취소는 반영 전 수정과 check evidence를 보존하고 `VALIDATION_CANCELLED`를 기록합니다. Candidate failure/skip count 없이 `ABORTED`로 종료하며 실제 regression은 기존대로 rollback합니다. Provider retry와 repair는 별도의 transcript/exit/usage를 보존하고 repair를 parent 호출에 연결합니다. Claude 성공 payload가 nonzero 또는 누락된 process exit를 덮어쓰지 못합니다.
 
 복구할 수 없는 provider 오류는 실행을 중단합니다. 가용 provider 소진, cycle·커밋·시간 제한, 연속 실패, 충분한 횟수의 빈 조사 결과도 종료 조건입니다. 안전 조건 위반 시에는 조사할 수 있도록 worktree를 보존합니다.
 

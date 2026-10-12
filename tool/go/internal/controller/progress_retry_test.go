@@ -64,6 +64,8 @@ func TestProgressRunProcessRetryPreservesRawRecords(t *testing.T) {
 			f.prepare(t)
 			counter := filepath.Join(f.fixtures, "retry-count")
 			failure := "RAW_RETRY_FAILURE_DETAIL_FIXTURE\n"
+			firstUsage := "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":12,\"output_tokens\":1}}\n"
+			secondUsage := "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":24,\"output_tokens\":2}}\n"
 			script := `#!/bin/sh
 if [ "$1" = '--version' ]; then printf '%s\n' 'fixture-provider 1.0'; exit 0; fi
 cat >/dev/null
@@ -78,10 +80,12 @@ cat <<'PROVIDER_JSONL'
 if [ ! -f ` + progressShellQuote(counter) + ` ]; then
   printf '1\n' > ` + progressShellQuote(counter) + `
   printf '%s\n' 'RAW_RETRY_FAILURE_DETAIL_FIXTURE' >&2
+  printf '%s' '` + strings.TrimSuffix(firstUsage, "\n") + `'
   exit 1
 fi
 printf '2\n' > ` + progressShellQuote(counter) + `
 cp ` + progressShellQuote(filepath.Join(f.fixtures, "audit.json")) + ` "$out"
+printf '%s\n' '` + strings.TrimSuffix(secondUsage, "\n") + `'
 `
 			if err := os.WriteFile(f.bin, []byte(script), 0700); err != nil {
 				t.Fatal(err)
@@ -102,12 +106,26 @@ cp ` + progressShellQuote(filepath.Join(f.fixtures, "audit.json")) + ` "$out"
 			if provider["calls"] != float64(2) || usage["processes"] != float64(2) || usage["failedCalls"] != float64(1) || !strings.Contains(str(provider["lastError"]), strings.TrimSpace(failure)) {
 				t.Fatalf("retry evidence/accounting lost: %#v", provider)
 			}
-			// The existing transcript schema reuses the primary path on retry.
-			// Both attempts emit the same raw tool events; successful retry output
-			// and the first attempt's stderr must remain available there.
 			base := filepath.Join(runDir, "audits", "01", "provider", "audit-codex-primary")
-			requireProgressRecoveryRecord(t, base+".stdout.jsonl", progressRawEvents)
+			requireProgressRecoveryRecord(t, base+".stdout.jsonl", progressRawEvents+strings.TrimSuffix(firstUsage, "\n"))
 			requireProgressRecoveryRecord(t, base+".stderr.log", failure)
+			retryBase := base + "-retry-1"
+			requireProgressRecoveryRecord(t, retryBase+".stdout.jsonl", progressRawEvents+secondUsage)
+			requireProgressRecoveryRecord(t, retryBase+".stderr.log", "")
+			for _, path := range []string{base, retryBase} {
+				raw, err := os.ReadFile(path + ".result.json")
+				var record map[string]any
+				if err != nil || json.Unmarshal(raw, &record) != nil {
+					t.Fatalf("missing call metadata: %s: %v", raw, err)
+				}
+				wantExit, wantInput := float64(1), float64(12)
+				if path == retryBase {
+					wantExit, wantInput = 0, 24
+				}
+				if record["exitCode"] != wantExit || obj(record["usage"])["inputTokens"] != wantInput || record["ok"] != (path == retryBase) {
+					t.Fatalf("retry metadata mixed calls: %#v", record)
+				}
+			}
 		})
 	}
 }

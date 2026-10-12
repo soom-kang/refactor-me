@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"os/exec"
@@ -55,6 +56,7 @@ func TestContractProviderRing(t *testing.T) {
 }
 
 func TestContractProviderParsing(t *testing.T) {
+	zero := 0
 	if got := LastJSONObject("banner\n{\"old\":1}\n{\"message\":\"brace } and \\\" quote\"}"); got["message"] != "brace } and \" quote" {
 		t.Fatal(got)
 	}
@@ -72,7 +74,7 @@ func TestContractProviderParsing(t *testing.T) {
 		{"missing-structured", `{"type":"result","is_error":false,"result":"plain text"}`, "SCHEMA", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := classifyClaude(processResult{stdout: tc.body}, true)
+			got := classifyClaude(processResult{stdout: tc.body, exitCode: &zero}, true)
 			if got.failure != tc.want || got.hard != tc.hard {
 				t.Fatalf("%+v", got)
 			}
@@ -91,6 +93,43 @@ func TestContractProviderParsing(t *testing.T) {
 	}
 	if classifyClaude(processResult{killed: true}, true).failure != "TIMEOUT" || classifyCodex(processResult{killed: true}, "", true).failure != "TIMEOUT" {
 		t.Fatal("timeout parsed output")
+	}
+}
+
+func TestContractClaudeProcessExitOverridesSuccess(t *testing.T) {
+	zero, failed, signal := 0, 23, -1
+	body := `{"type":"result","is_error":false,"structured_output":{"answer":7},"usage":{"input_tokens":12,"output_tokens":2},"total_cost_usd":0.25}`
+	for _, tc := range []struct {
+		name string
+		exit *int
+		want string
+	}{{"zero", &zero, "OK"}, {"nonzero", &failed, "PROCESS"}, {"signal", &signal, "PROCESS"}, {"missing", nil, "PROCESS"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := classifyClaude(processResult{stdout: body, exitCode: tc.exit}, true)
+			if got.failure != tc.want || got.parsed.Data == nil || got.parsed.Usage.InputTokens != 12 || got.parsed.Usage.CostUSD == nil || *got.parsed.Usage.CostUSD != 0.25 {
+				t.Fatalf("process exit lost classification or diagnostics: %+v", got)
+			}
+		})
+	}
+	for _, tc := range []struct{ body, want string }{
+		{`{"type":"result","is_error":true,"result":"usage limit reached"}`, "QUOTA"},
+		{`{"type":"result","is_error":true,"result":"invalid api key"}`, "AUTH"},
+		{`{"type":"result","is_error":true,"subtype":"error_max_structured_output_retries"}`, "SCHEMA"},
+	} {
+		if got := classifyClaude(processResult{stdout: tc.body, exitCode: &failed}, true); got.failure != tc.want {
+			t.Fatalf("nonzero exit changed existing failure precedence: %+v", got)
+		}
+	}
+	for _, exit := range []int{0, 23} {
+		bin := filepath.Join(t.TempDir(), "fake-claude")
+		script := "#!/bin/sh\ncat >/dev/null\nprintf '%s\\n' '" + body + "'\nexit " + fmt.Sprint(exit) + "\n"
+		if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+			t.Fatal(err)
+		}
+		result, err := CallWithRepair(context.Background(), "claude", Request{Phase: "audit", CWD: t.TempDir(), RunDir: t.TempDir(), Schema: map[string]any{"type": "object"}}, Config{Agents: map[string]AgentConfig{"claude": {Bin: bin}}}, nil)
+		if err != nil || result.OK != (exit == 0) || result.ExitCode == nil || *result.ExitCode != exit || result.Processes != 1 || result.Usage.InputTokens != 12 {
+			t.Fatalf("adapter accepted a failed process: %+v, %v", result, err)
+		}
 	}
 }
 
@@ -233,16 +272,14 @@ func TestContractProviderTranscriptFailure(t *testing.T) {
 				body += "printf '%s\\n' '{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1000000,\"output_tokens\":0}}'\n"
 			}
 			bin := filepath.Join(t.TempDir(), "provider")
+			rawPath := filepath.Join(runDir, "provider", "audit-"+provider+"-primary.stdout.jsonl")
+			// Create the obstruction after the bundle has been reserved and the
+			// provider has reported usage, independent of OS permission handling.
+			body += "mkdir '" + rawPath + "'\n"
 			if err := os.WriteFile(bin, []byte(body), 0700); err != nil {
 				t.Fatal(err)
 			}
 			cfg.Agents[provider] = AgentConfig{Bin: bin, Model: model}
-			// A directory at the stdout destination fails after the process ran,
-			// independently of OS permission handling and the current user.
-			rawPath := filepath.Join(runDir, "provider", "audit-"+provider+"-primary.stdout.jsonl")
-			if err := os.MkdirAll(rawPath, 0700); err != nil {
-				t.Fatal(err)
-			}
 			log := &providerEventRecorder{}
 			got, err := CallProvider(context.Background(), provider, Request{Phase: "audit", CWD: repo, RunDir: runDir}, cfg, log)
 			if err == nil || got.OK || got.Processes != 1 || got.Usage.InputTokens != 1000000 || !strings.Contains(err.Error(), "write stdout transcript") {

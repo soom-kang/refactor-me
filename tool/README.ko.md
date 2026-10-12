@@ -6,6 +6,8 @@
 
 설치는 [사용법](TUTORIAL.ko.md)를 따라 진행하세요.
 
+이 source checkout에는 [12개 QA 수정](../docs/qa/2026-10-12-remediation.md)을 반영했습니다. 아래 계약은 현재 source를 설명하며 공개 Beta.6 executable과 formula는 이번 작업에서 갱신하지 않았습니다.
+
 ## 명령과 저장소 선택
 
 | 명령 | 용도 |
@@ -83,7 +85,7 @@ refactor-me run --repo /path/to/target-repo \
 | `agents.<name>.effort_by_phase` | 빈 값 | 단계별 추론 수준 지정 |
 | `agents.<name>.effort` | 미지정 | 기본 추론 수준 표 대체, 단계별 값이 있으면 그 값 우선 |
 | `agents.claude.max_budget_usd` | `0` | 양수이면 Claude의 호출별 예산 옵션으로 전달 |
-| `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | 허용 위험도, `UNKNOWN`과 `L3_CRITICAL`은 계속 제외 |
+| `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | 기본 허용 위험도. 아래 critical-risk 계약과 구현 한계 참고 |
 | `policy.unknown_risk` | `set_aside` | `UNKNOWN` 위험도 처리 방식. `deep_check`는 준비 상태가 `NEEDS_EVIDENCE`인 `UNKNOWN` 후보를 제외하지 않고 deep check로 보냅니다. 그 밖의 `UNKNOWN`은 계속 제외합니다 |
 | `policy.max_cycles` / `policy.max_commits` | `25` / `20` | 사이클과 리팩토링 커밋 한도 |
 | `policy.max_wall_clock_min` | `180` | 작업 단위 사이에 확인하는 경과 시간 한도 |
@@ -97,6 +99,10 @@ refactor-me run --repo /path/to/target-repo \
 | `policy.auto_characterization` | `true` | 필요한 경우 characterization 테스트 허용 |
 | `policy.cross_provider_review` | `true` | 다른 provider의 리뷰 우선 |
 | `policy.extra_forbidden_globs` | 빈 값 | 기본 금지 목록에 경로 추가 |
+
+제품 계약은 `allowed_risks`에 추가해도 `L3_CRITICAL`을 항상 제외합니다(2026-10-12 합의). Audit와 packet gate 모두 이 조건을 검사합니다. `UNKNOWN`은 위의 별도 정책을 따릅니다. 알려진 설정은 provider/worktree 준비 전에 잘못된 type을 거부합니다. 정수 count/time 필드는 소수, 음수 한도, overflow와 JSON 정수 precision loss도 거부하며 Claude USD budget은 유한한 0 이상의 소수를 허용합니다. 생략된 설정은 defaults를 유지하고 unknown extension key는 보존합니다.
+
+기존 `0`의 의미는 유지합니다. `max_consecutive_failures=0`은 다음 audit 경계에서 종료하고 fingerprint/file/audit 한도 `0`은 일반 후보를 허용하지 않습니다. `max_changed_lines=0`은 600을, provider `timeout_sec=0`은 1800을 사용합니다. Cooldown `0`은 지연이 없고 Claude budget `0`은 예산 옵션을 전달하지 않습니다. Cycle/commit/empty-audit/time 한도는 양수여야 합니다.
 
 기본 추론 수준은 다음과 같습니다.
 
@@ -213,6 +219,8 @@ Gradle 탐색에는 JVM 플러그인이 필요합니다. 실행 가능한 Gradle
 
 ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`는 인자 배열, `tier`는 `T1`, `T2`, `T3` 중 하나를 사용하세요. Locked 파일은 자동 탐색을 대체합니다. 실행 전에 명령을 검토하세요. 컨트롤러가 worktree에서 실행합니다.
 
+기존 commands 파일에는 boolean `locked`와 유효한 JSON이 있어야 합니다. Read/parse 오류는 준비를 중단하며 파일이 없거나 명시적으로 `locked:false`이면 자동 탐색합니다. Locked 명령은 고유 ID, 지원 tier, executable argv와 유효한 상대 경로가 필요합니다. 생략한 `area`/`cwd`는 `.`으로 정규화하고 실행 가능한 check가 없으면 변경 검증을 실패로 기록합니다. Cwd는 실제로 worktree 안의 directory여야 합니다. Hydration은 absolute/outside/unresolved link가 있는 빌드 입력 전체를 생략하고 안전한 relative 내부 link는 지원합니다. 검증 argv는 신뢰된 실행 입력이며 이 경로 검사와 OS sandbox는 구분합니다.
+
 ### 기준선과 후보 검증
 
 기준선은 발견한 영역의 선택된 명령을 실행하고 통과, 해석 가능한 실패, 실행 불가, 유효한 signature가 없는 실패를 구분합니다. **통과 신호가 하나도 없으면 중단합니다.**
@@ -246,6 +254,8 @@ ID는 고유해야 합니다. `area`와 `cwd`는 저장소 상대 경로, `argv`
 - 진행 로그는 `run --json`에서도 항상 `stderr`로 출력하며, 이때 `stdout`에는 보고서 JSON만 출력합니다. 실패 안내는 저장에 성공한 `state.json`이나 실제로 존재하는 단계 또는 doctor 기록을 가리킵니다. 관련 기록이 생성되지 않았다면 그 사실을 알립니다.
 
 동적으로 표시하는 값은 한 줄로 정리하고 terminal control sequence를 제거하며 160 Unicode 문자로 제한합니다. 이 처리로 진단 파일의 절대 경로가 달라지는 경우에는 선택한 저장소 기준 상대 경로임을 밝혀 안내합니다. provider 응답 원문, 도구 호출 집계와 검증 출력은 로컬 실행 기록에 보존하며 화면 표시 제한으로 원문을 자르지 않습니다. 기록은 공유하기 전에 내용을 확인하고 접근을 제한하세요.
+
+**현재 source의 미공개 수정:** Human report field도 terminal control을 제거하며 줄바꿈과 Markdown 구조는 유지합니다. Detail/error의 byte 상한은 UTF-8 경계에서 자르고 전체 report를 축약하지 않습니다. 저장 JSON, `report --json`, patch와 review checklist는 원본 bytes를 보존합니다. Provider retry/repair는 각각 다른 transcript 묶음에 빈 stderr와 exit status, usage를 저장하고 `.result.json`의 `repairOf`로 복구의 parent call을 연결합니다. 첫 legacy primary/repair 파일명은 유지합니다. Codex `phase-last.json`은 직렬 실행의 임시 파일이며 호출별 `.last.json`이 해당 structured output을 보존합니다.
 
 CLI는 기본 로그에 경과 시간, 단계와 provider를 추가합니다. 구조화된 provider 이벤트에서 읽기, 검색, 수정, 작성, 삭제와 일반 명령 또는 도구 작업을 표시하고, 안전한 worktree 상대 경로가 있으면 함께 보여 줍니다. Codex 명령은 일반 명령 작업으로만 표시하며 shell 원문에서 읽은 파일을 추측하지 않습니다. 민감 경로, worktree 밖 경로, 검색어, 명령 인자, 출력과 provider 설명은 표시하지 않습니다. provider 완료 시에는 실제 소요 시간, 도구 이벤트 수와 종료 상태를 알립니다. 한 Claude assistant 이벤트에 여러 도구 사용이 있어도 한 번으로 집계합니다. 도구 활동과 검증을 통과한 변경 또는 커밋은 구분하며 기존 도구 호출 집계는 유지합니다.
 
@@ -312,6 +322,8 @@ CLI는 provider가 보고한 USD를 우선합니다. 비용이 없으면 **2026-
 ### 중단과 실패한 실행
 
 `run`/`doctor` 실행 중 Ctrl-C 또는 SIGTERM을 받으면 관리 중인 provider와 검증 프로세스를 취소합니다. 재시도·fallback을 중단하고 승인된 커밋은 보존하며 미완료 worktree는 확인할 수 있도록 남깁니다. SIGKILL에는 정상 정리를 보장할 수 없습니다.
+
+Execution 또는 characterization 검증 중 취소는 반영 전 수정을 rollback하거나 failure/skip count를 늘리지 않고 컨트롤러에 반환합니다. Check는 `cancelled:true`와 `VALIDATION_CANCELLED`를 기록하고 run은 `ABORTED`로 끝납니다. 검증 evidence와 미완료 수정은 보존하며 실제 검증 regression은 기존대로 후보를 rollback합니다.
 
 실행 컨트롤러가 오류를 반환하고 CLI가 `last-run.json`에 `lastAttemptError`를 저장하는 데 성공했다면, `report`는 이전 결과 대신 기록된 실패를 안내하고 종료 코드 `2`를 반환합니다. 이전 완료 보고서가 있으면 기존 run 디렉터리에 보존하며 다음 실행이 완료되면 실패 표시를 지웁니다.
 

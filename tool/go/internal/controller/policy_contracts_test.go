@@ -8,6 +8,7 @@ import (
 	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,6 +51,10 @@ func TestContractRankContracts(t *testing.T) {
 		})
 	}
 	p := contractPolicy()
+	p.AllowedRisks = append(p.AllowedRisks, "L3_CRITICAL")
+	if eligible, rejected := rank([]map[string]any{contractCandidate(map[string]any{"risk_level": "L3_CRITICAL", "problem": "provider prose"})}, nil, p, nil, nil); len(eligible) != 0 || len(rejected) != 1 || rejected[0].Reason != "RISK_EXCLUDED" || rejected[0].Detail != "L3_CRITICAL" {
+		t.Fatal("critical override escaped fixed exclusion", eligible, rejected)
+	}
 	p.AllowedRisks = append(p.AllowedRisks, "UNKNOWN")
 	c := contractCandidate(map[string]any{"risk_level": "UNKNOWN"})
 	if eligible, _ := rank([]map[string]any{c}, nil, p, nil, nil); len(eligible) != 0 {
@@ -79,6 +84,38 @@ func TestContractRankContracts(t *testing.T) {
 		eligible, _ := rank([]map[string]any{contractCandidate(map[string]any{"related_files": tc.paths})}, tc.targets, p, nil, nil)
 		if (len(eligible) == 1) != tc.want {
 			t.Fatal(tc, eligible)
+		}
+	}
+}
+
+func TestContractPolicyRejectsMalformedKnownSettings(t *testing.T) {
+	for _, tc := range []struct {
+		policy any
+		key    string
+	}{
+		{"not-an-object", "policy"},
+		{map[string]any{"max_cycles": "1"}, "policy.max_cycles"},
+		{map[string]any{"auto_characterization": "false"}, "policy.auto_characterization"},
+		{map[string]any{"cross_provider_review": "false"}, "policy.cross_provider_review"},
+		{map[string]any{"max_audit_candidates": -1}, "policy.max_audit_candidates"},
+		{map[string]any{"max_audit_candidates": 1.5}, "policy.max_audit_candidates"},
+		{map[string]any{"max_wall_clock_min": "180"}, "policy.max_wall_clock_min"},
+		{map[string]any{"cooldown_minutes": int(int64(1<<63-1)/int64(time.Minute)) + 1}, "policy.cooldown_minutes"},
+	} {
+		if _, err := readPolicy(map[string]any{"policy": tc.policy}); err == nil || !strings.Contains(err.Error(), tc.key) {
+			t.Fatalf("expected %s error, got %v", tc.key, err)
+		}
+	}
+	if p, err := readPolicy(nil); err != nil || p.MaxCycles != 25 || p.UnknownRisk != "set_aside" || !reflect.DeepEqual(p.AllowedRisks, contractPolicy().AllowedRisks) {
+		t.Fatal("omitted settings did not retain defaults", p, err)
+	}
+	p, err := readPolicy(map[string]any{"policy": map[string]any{"max_consecutive_failures": 0, "max_attempts_per_fingerprint": 0, "max_audit_candidates": 0, "max_files_per_candidate": 0, "cooldown_minutes": 0, "max_cycles": json.Number("4")}})
+	if err != nil || p.MaxConsecutiveFailures != 0 || p.MaxAttemptsPerFingerprint != 0 || p.MaxAuditCandidates != 0 || p.MaxFilesPerCandidate != 0 || p.CooldownMinutes != 0 || p.MaxCycles != 4 {
+		t.Fatal("zero or exact number setting changed", p, err)
+	}
+	for _, value := range []any{1.5, math.NaN(), math.Inf(1), float64(1 << 63)} {
+		if got := integer(value, 7); got != 7 {
+			t.Fatal("unsafe integer conversion", value, got)
 		}
 	}
 }

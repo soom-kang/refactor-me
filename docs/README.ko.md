@@ -80,6 +80,8 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 Beta.6은 characterization 테스트 변경을 커밋 전에 검사하고, 선언된 파일 삭제를 worktree 안으로 제한합니다. Ctrl-C 또는 SIGTERM을 받으면 관리 중인 provider와 검증 프로세스를 취소하고, 수락한 커밋과 미완료 작업은 보존합니다. 컨트롤러 준비 실패가 기록되면 `report`는 이전 성공 대신 해당 실패를 안내합니다. [중단과 실패한 실행](../tool/README.ko.md#interruption-and-failed-attempts), [실행 과정의 검사](../tool/WORKFLOW.ko.md#from-checks-to-a-local-branch)를 참고하세요.
 
+[2026-10-12 QA 보고서](qa/2026-10-12-report.md)에 최초 지적을 보존하고 [QA 해결 기록](qa/2026-10-12-remediation.md)에 12개 로컬 수정과 검증을 기록했습니다. 수정은 현재 source checkout에 있으며 공개 Beta.6 executable과 formula에는 반영하지 않았습니다. 로컬 검증과 기존 공개 설치 근거는 구분합니다.
+
 ## 상세 문서
 
 | 할 일 | 문서 |
@@ -89,6 +91,7 @@ Beta.6은 characterization 테스트 변경을 커밋 전에 검사하고, 선�
 | 격리, 검증, 검토 과정 이해 | [동작 방식](../tool/WORKFLOW.ko.md) |
 | 개발 검증 또는 릴리스 준비 | [개발 안내](../tool/DEVELOPMENT.md) · [Homebrew 배포](../tool/release/HOMEBREW.ko.md) |
 | 버전별 변경 확인 | [변경 기록](../tool/CHANGELOG.md) |
+| 현재 QA 지적과 acceptance criteria 확인 | [QA 보고서](qa/2026-10-12-report.md) · [티켓](qa/2026-10-12-tickets.md) |
 
 이 Beta는 Apple 서명·공증을 제공하지 않습니다. 직접 다운로드와 macOS 경고 대응은 [설치 안내](../tool/release/INSTALL.ko.md)를 참고하세요.
 

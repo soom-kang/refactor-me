@@ -3,11 +3,16 @@ package controller
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"math"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 )
 
 type policy struct {
@@ -27,9 +32,12 @@ type policy struct {
 }
 
 func readPolicy(config map[string]any) (policy, error) {
+	if err := surface.ValidateConfig(surface.Config(config)); err != nil {
+		return policy{}, err
+	}
 	m := obj(config["policy"])
 	p := policy{
-		AllowedRisks: stringsOf(m["allowed_risks"]), UnknownRisk: str(m["unknown_risk"]),
+		AllowedRisks: []string{"L0_LOW", "L1_MODERATE", "L2_HIGH"}, UnknownRisk: "set_aside",
 		AutoCharacterization: boolValue(m["auto_characterization"], true),
 		CrossProviderReview:  boolValue(m["cross_provider_review"], true),
 		MaxCycles:            integer(m["max_cycles"], 25), MaxCommits: integer(m["max_commits"], 20),
@@ -40,6 +48,12 @@ func readPolicy(config map[string]any) (policy, error) {
 		MaxAuditCandidates:        integer(m["max_audit_candidates"], 8),
 		MaxWallClockMin:           integer(m["max_wall_clock_min"], 180),
 		CooldownMinutes:           integer(m["cooldown_minutes"], 20),
+	}
+	if value, present := m["allowed_risks"]; present {
+		p.AllowedRisks = stringsOf(value)
+	}
+	if value, present := m["unknown_risk"]; present {
+		p.UnknownRisk = str(value)
 	}
 	if p.UnknownRisk != "set_aside" && p.UnknownRisk != "deep_check" {
 		return p, fmt.Errorf("policy.unknown_risk must be set_aside or deep_check")
@@ -96,7 +110,17 @@ func integer(value any, fallback int) int {
 	case int:
 		return n
 	case float64:
+		bound := math.Exp2(float64(strconv.IntSize - 1))
+		if math.IsNaN(n) || math.IsInf(n, 0) || math.Trunc(n) != n || n < -bound || n >= bound {
+			return fallback
+		}
 		return int(n)
+	case json.Number:
+		value, err := n.Float64()
+		if err != nil {
+			return fallback
+		}
+		return integer(value, fallback)
 	default:
 		return fallback
 	}
@@ -138,6 +162,10 @@ func rank(candidates []map[string]any, targets []string, p policy, seen map[stri
 			continue
 		}
 		risk := str(c["risk_level"])
+		if risk == "L3_CRITICAL" {
+			reject("RISK_EXCLUDED", "L3_CRITICAL")
+			continue
+		}
 		if risk == "UNKNOWN" {
 			if !(p.UnknownRisk == "deep_check" && c["readiness"] == "NEEDS_EVIDENCE") {
 				reject("RISK_UNKNOWN", str(c["problem"]))

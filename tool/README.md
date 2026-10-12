@@ -6,6 +6,8 @@
 
 Follow the [guide](TUTORIAL.md) for installation.
 
+This source checkout includes the [12 QA fixes](../docs/qa/2026-10-12-remediation.md). Their contracts below describe the current source; the published Beta.6 executable and formula have not been updated by this work.
+
 ## Commands and repository selection
 
 | Command | Purpose |
@@ -79,7 +81,7 @@ An omitted effort option preserves the existing policy. Operational overrides us
 | `agents.<name>.effort_by_phase` | Empty | Override effort for individual phases |
 | `agents.<name>.effort` | Unset | Override the default effort table; a per-phase value takes precedence |
 | `agents.claude.max_budget_usd` | `0` | Pass a positive value to Claude's per-call budget option |
-| `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | Eligible risk levels; `UNKNOWN` and `L3_CRITICAL` remain excluded |
+| `policy.allowed_risks` | `L0_LOW`, `L1_MODERATE`, `L2_HIGH` | Default eligible risk levels; see the critical-risk contract and implementation limit below |
 | `policy.unknown_risk` | `set_aside` | How an `UNKNOWN` risk level is handled. `deep_check` sends an `UNKNOWN` candidate whose readiness is `NEEDS_EVIDENCE` to deep check instead of setting it aside; every other `UNKNOWN` is still set aside |
 | `policy.max_cycles` / `policy.max_commits` | `25` / `20` | Cycle and refactor-commit limits |
 | `policy.max_wall_clock_min` | `180` | Elapsed-time limit checked between units of work |
@@ -93,6 +95,10 @@ An omitted effort option preserves the existing policy. Operational overrides us
 | `policy.auto_characterization` | `true` | Permit characterization tests where needed |
 | `policy.cross_provider_review` | `true` | Prefer another provider for review |
 | `policy.extra_forbidden_globs` | Empty | Add forbidden paths without removing built-in restrictions |
+
+The product contract always excludes `L3_CRITICAL`, even when it is added to `allowed_risks` (confirmed 2026-10-12). Both audit and packet gates enforce this exclusion. `UNKNOWN` follows the separate policy described above. Known settings reject invalid types before provider/worktree preparation; integer count/time fields also reject fractions, negative limits, overflow and JSON integer precision loss. Claude USD budgets retain finite nonnegative decimals. Omitted settings retain their defaults; unknown extension keys remain supported.
+
+Existing zero values keep their meanings: `max_consecutive_failures=0` stops at the next audit boundary; fingerprint/file/audit caps of `0` admit no ordinary candidates; `max_changed_lines=0` uses 600 and provider `timeout_sec=0` uses 1800. A zero cooldown adds no delay, and a zero Claude budget adds no budget option. Cycle/commit/empty-audit/time limits remain positive.
 
 Default reasoning effort:
 
@@ -205,6 +211,8 @@ To supply explicit commands, create `.refactor/commands.json` in the target repo
 
 Use unique IDs, repository-relative `area` and `cwd`, argument arrays, and tiers `T1`, `T2`, or `T3`. A locked file replaces discovery. Review the commands before running; the controller executes them in the worktree.
 
+An existing commands file must contain a boolean `locked` and valid JSON. Read/parse errors stop preparation; a missing file or explicit `locked:false` permits discovery. Locked commands require unique IDs, supported tiers, executable argv and valid relative paths. Omitted `area`/`cwd` become `.`. Candidate validation fails when no runnable check remains. The command cwd must resolve to a directory inside the worktree. Hydration skips a whole build input containing an absolute, outside or unresolved link; safe relative internal links are supported. Validation argv remains trusted executable input, and these path checks are not an OS sandbox.
+
 ### Baseline and candidate validation
 
 The baseline runs selected commands across discovered areas, distinguishing passes, readable failures, unrunnable commands, and failures without useful signatures. **The run stops if no command passes.**
@@ -234,6 +242,8 @@ The following behavior is included in public Beta `0.10.0-beta.6`.
 - Progress always goes to `stderr`, including with `run --json`; `stdout` then contains only report JSON. Failure guidance points to a successfully saved `state.json` or an existing phase/doctor record. If no relevant record was created, it says so.
 
 Dynamic display values are reduced to one line, stripped of terminal control sequences and limited to 160 Unicode characters. If this formatting would change an absolute diagnostic path, the CLI shows a path relative to the selected repository and labels it accordingly. Original provider transcripts, tool-call accounting and validation output remain in the local run records; this display limit does not truncate those saved originals. Protect and inspect records before sharing them.
+
+**Unreleased source fixes:** Human report fields also strip terminal controls while keeping line breaks and Markdown structure. Detail/error limits retain their byte budgets without splitting UTF-8; the whole report is not shortened. Saved JSON, `report --json`, patches and review checklists retain their original bytes. Every provider retry/repair has a distinct transcript bundle, including empty stderr, exit status and usage in `.result.json`; `repairOf` links repairs to their parent call. The first legacy primary/repair filenames remain available. Codex `phase-last.json` is the serial execution scratch file, while each bundle's `.last.json` preserves that call's structured output.
 
 The CLI adds elapsed time and stage/provider context to these logs by default. Structured provider events identify read, search, edit, write, deletion and generic command/tool activity, with safe worktree-relative paths when available. Codex command events stay generic; the CLI does not interpret shell text to guess what was read. Sensitive or outside-worktree paths, search patterns, command arguments, output and provider prose are omitted. Provider completion reports measured duration, recognized tool-event count and exit status. A Claude assistant event containing one or more tool uses counts once. Tool activity is separate from validated changes and accepted commits; existing tool-call accounting is preserved.
 
@@ -300,6 +310,8 @@ Inspect `.refactor/runs/<id>/` for state, events, provider outputs, validation e
 ### Interruption and failed attempts
 
 Ctrl-C or SIGTERM during `run`/`doctor` cancels managed provider and validation processes. Cancellation stops retries and fallback; accepted commits remain intact and an unfinished worktree is retained for inspection. SIGKILL cannot provide cleanup guarantees.
+
+Cancellation during execution or characterization validation returns to the controller without rolling back unaccepted edits or incrementing failure/skip counts. Checks record `cancelled:true` and `VALIDATION_CANCELLED`; the run ends as `ABORTED`. Validation evidence and unfinished edits remain available. Genuine validation regression still rolls back the candidate.
 
 When the run controller returns an error and the CLI successfully saves `lastAttemptError` in `last-run.json`, `report` returns exit `2` and shows the recorded failure instead of an earlier result. Any previous completed report stays in its original run directory; a later completed run clears the failure marker.
 

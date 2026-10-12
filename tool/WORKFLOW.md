@@ -26,7 +26,7 @@ Codex receives the absolute paths of the selected global Skills. Claude receives
 | Choose | Audit scope, risk and candidate history; deep check produces a ready task packet | `audits/`, `packet.json` |
 | Refine | Optional characterization diff gate and validation; preflight rejects unresolved failure hypotheses; execution stays within the packet | `characterization-gate.json`, `characterization-validation.json`, `preflight.json`, `execution.json` |
 | Validate and review | Diff gate, no validation regression, separate review session | `gate.json`, `validation.json`, `review.json` |
-| Publish and repeat | Commit tree matches the reviewed tree, source unchanged and result ref matches the expected OID | `state.json`, final reports |
+| Publish and repeat | Commit tree matches the reviewed tree; source HEAD/fingerprint checked before commit and immediately before publication; result ref matches the expected OID | `state.json`, final reports |
 
 Characterization records existing behavior in tests before production edits. When enabled, these tests must pass against unchanged production code and may form a separate commit. A later rejected refactor can leave that test commit on the result branch. `max_commits` counts refactor commits only.
 
@@ -43,6 +43,8 @@ Preflight must report `READY_TO_EXECUTE`, a `FALSIFIED` failure hypothesis and n
 Review uses a separate session, preferring the other available provider when configured. `FAIL`, `BLOCKER`, or an assessment other than `PRESERVED` rejects the change. A `HIGH` finding alone does not override `PASS`; read the findings before merging.
 
 Commit hooks run. Hook changes to the reviewed tree or residual working changes stop publication with `HALTED_UNSAFE`. Updating the result branch checks its previous OID, so a conflicting update also stops publication.
+
+Current source includes the [QA fixes](../docs/qa/2026-10-12-remediation.md); the published Beta.6 has not been updated. Source drift before commit or publication stops with `HALTED_UNSAFE` without restoring user source edits. Validation cwd must resolve inside the worktree. Hydration inspects links before and after copying and skips the entire unsafe input; these checks are not a filesystem lock or an OS sandbox for trusted commands.
 
 ### Progress follows confirmed state
 
@@ -72,6 +74,8 @@ After an edit, checks select the deepest affected area for each path and the roo
 | Timeout or process failure | Retry after 5 and 20 seconds, then try another available provider; timeouts use SIGTERM then SIGKILL for the process group, including remaining descendants if the leader exits first |
 | Ctrl-C or SIGTERM | Cancel managed provider and validation processes; stop repair, retries and fallback; preserve accepted commits and the unfinished worktree |
 | Quota or authentication failure | Mark provider availability and attempt a handoff; continue the phase with another available provider |
+
+Validation cancellation preserves unaccepted edits and check evidence, records `VALIDATION_CANCELLED` and ends as `ABORTED` without candidate failure/skip accounting. Genuine regression still rolls back. Each provider retry and repair keeps a distinct transcript/exit/usage bundle, with repairs linked to their parent invocation. A Claude success payload cannot override a nonzero or missing process exit.
 
 Fatal provider errors abort. Exhausted providers, cycle/commit/time limits, repeated failures or enough empty audits stop the loop. Safety violations preserve the worktree for investigation.
 

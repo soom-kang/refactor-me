@@ -2,15 +2,226 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/soom-kang/refactor-me/tool/go/internal/engine"
+	"github.com/soom-kang/refactor-me/tool/go/internal/surface"
 	"github.com/soom-kang/refactor-me/tool/go/internal/workspace"
 )
+
+func newCandidateSafetyRunner(t *testing.T) *runner {
+	t.Helper()
+	repo := t.TempDir()
+	gitTest(t, repo, "init", "-q")
+	gitTest(t, repo, "config", "user.name", "Test")
+	gitTest(t, repo, "config", "user.email", "test@example.invalid")
+	if err := os.WriteFile(filepath.Join(repo, "a.go"), []byte("package fixture\n\nfunc unused() {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	gitTest(t, repo, "add", "a.go")
+	gitTest(t, repo, "commit", "-qm", "fixture")
+	base := gitTest(t, repo, "rev-parse", "HEAD")
+	wt := filepath.Join(t.TempDir(), "wt")
+	if err := workspace.WorktreeAdd(repo, wt, base); err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := workspace.SourceFingerprint(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := contractPolicy()
+	p.MaxWallClockMin, p.MaxCommits, p.MaxCycles = 10, 10, 10
+	r := &runner{ctx: context.Background(), surface: surface.Context{Repo: repo, Stderr: io.Discard},
+		wt: wt, runDir: t.TempDir(), sourceFingerprint: fingerprint, policy: p, started: time.Now(),
+		state: newState("r", repo, wt, base, "main", "result", nil, []string{"codex"}), discovery: workspace.Discovery{Areas: []string{"."}},
+		commands: []workspace.Command{{ID: "test", Area: ".", Tier: "T1", Name: "test", Argv: []string{"/usr/bin/true"}, Cwd: ".", TimeoutMS: 10000}}}
+	r.baseline = workspace.RunBaseline(r.ctx, r.commands, wt, nil)
+	// Both ends are TempDir fixtures; cleanup also covers the deliberately
+	// retained dirty worktree without weakening WorktreeRemove's safety checks.
+	t.Cleanup(r.endProgress)
+	return r
+}
+
+func TestSourceInvariantBlocksPublicationAfterGate(t *testing.T) {
+	for _, change := range []string{"none", "file", "head", "hook"} {
+		t.Run(change, func(t *testing.T) {
+			r := newCandidateSafetyRunner(t)
+			gitTest(t, r.surface.Repo, "branch", r.state.BranchName, r.state.BaseOID)
+			r.state.PublishedOID = r.state.BaseOID
+			if err := os.WriteFile(filepath.Join(r.wt, "a.go"), []byte("package fixture\n\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			packet := map[string]any{"fp": "fp", "category": "DEAD_CODE", "allowlist": []string{"a.go"}, "title": "remove unused"}
+			if ok, err := r.gate(packet, r.runDir, r.state.BaseOID); err != nil || !ok {
+				t.Fatalf("valid change did not pass gate: %v, %v", ok, err)
+			}
+			if change == "file" {
+				if err := os.WriteFile(filepath.Join(r.surface.Repo, "a.go"), []byte("user edit\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			} else if change == "head" {
+				gitTest(t, r.surface.Repo, "commit", "--allow-empty", "-qm", "user commit")
+			} else if change == "hook" {
+				hook := "#!/bin/sh\nprintf 'user edit\\n' > " + progressShellQuote(filepath.Join(r.surface.Repo, "a.go")) + "\n"
+				if err := os.WriteFile(filepath.Join(r.surface.Repo, ".git", "hooks", "pre-commit"), []byte(hook), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := r.commit(packet, contractCandidate(nil), r.runDir)
+			if change == "none" {
+				if err != nil || r.state.Counters.Commits != 1 || r.state.PublishedOID == r.state.BaseOID {
+					t.Fatalf("unchanged source blocked publication: %v", err)
+				}
+				return
+			}
+			var stopped halt
+			if !errors.As(err, &stopped) || stopped.Status != "HALTED_UNSAFE" || !strings.Contains(stopped.Reason, "SOURCE_MUTATED") {
+				t.Fatalf("source drift was not halted: %v", err)
+			}
+			if got := gitTest(t, r.surface.Repo, "rev-parse", "refs/heads/"+r.state.BranchName); got != r.state.BaseOID || r.state.Counters.Commits != 0 {
+				t.Fatal("source drift changed the result ref or accepted state")
+			}
+			if raw, err := os.ReadFile(filepath.Join(r.wt, "a.go")); err != nil || string(raw) != "package fixture\n\n" {
+				t.Fatal("unpublished worktree edit was lost", string(raw), err)
+			}
+			if change != "head" {
+				if raw, err := os.ReadFile(filepath.Join(r.surface.Repo, "a.go")); err != nil || string(raw) != "user edit\n" {
+					t.Fatal("user source edit was restored", string(raw), err)
+				}
+			}
+		})
+	}
+}
+
+func prepareCharacterizationProvider(t *testing.T, r *runner) map[string]any {
+	t.Helper()
+	const path = "a_test.go"
+	answer := map[string]any{"schema_version": "1", "candidate_id": "c", "changed_files": []string{path}, "characterized_contracts": []string{"C1"},
+		"production_source_changed": false, "assertions_weakened": false, "verdict": "PASS", "notes": "fixture"}
+	fixture := filepath.Join(t.TempDir(), "answer.json")
+	progressFixtureJSON(t, fixture, answer)
+	bin := filepath.Join(t.TempDir(), "fake-codex")
+	script := "#!/bin/sh\ncat >/dev/null\nout=''\nwhile [ $# -gt 0 ]; do\n if [ \"$1\" = '--output-last-message' ]; then shift; out=$1; fi\n shift\ndone\nprintf '%s\\n' 'package fixture' '// characterization evidence' > " + path + "\ncp " + progressShellQuote(fixture) + " \"$out\"\n"
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	r.engineConfig = engine.Config{Agents: map[string]engine.AgentConfig{"codex": {Bin: bin}}}
+	return map[string]any{"fp": "fp", "candidate_id": "c", "category": "DEAD_CODE", "allowlist": []string{"a.go", path}, "characterization_files": []string{path}}
+}
+
+func TestCharacterizationSourceInvariantAfterValidation(t *testing.T) {
+	r := newCandidateSafetyRunner(t)
+	packet := prepareCharacterizationProvider(t, r)
+	r.commands[0].Argv = []string{"/bin/sh", "-c", "printf 'user edit\\n' > " + progressShellQuote(filepath.Join(r.surface.Repo, "a.go"))}
+	ok, err := r.characterize(packet, r.runDir, r.state.BaseOID)
+	var stopped halt
+	if ok || !errors.As(err, &stopped) || stopped.Status != "HALTED_UNSAFE" || !strings.Contains(stopped.Reason, "SOURCE_MUTATED") {
+		t.Fatalf("characterization source drift was not halted: %v, %v", ok, err)
+	}
+	if workspace.RefExists(r.surface.Repo, "refs/heads/"+r.state.BranchName) || gitTest(t, r.wt, "rev-parse", "HEAD") != r.state.BaseOID {
+		t.Fatal("characterization drift was committed or published")
+	}
+	if _, err := os.Stat(filepath.Join(r.wt, "a_test.go")); err != nil {
+		t.Fatal("unfinished characterization was lost", err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(r.surface.Repo, "a.go")); err != nil || string(raw) != "user edit\n" {
+		t.Fatal("source drift was restored", string(raw), err)
+	}
+}
+
+func TestCancelledValidationPreservesUnfinishedEdits(t *testing.T) {
+	for _, phase := range []string{"gate", "characterization", "regression"} {
+		t.Run(phase, func(t *testing.T) {
+			r := newCandidateSafetyRunner(t)
+			packet := map[string]any{"fp": "fp", "category": "DEAD_CODE", "allowlist": []string{"a.go"}}
+			path, evidence := "a.go", "validation.json"
+			if phase == "characterization" {
+				packet = prepareCharacterizationProvider(t, r)
+				path, evidence = "a_test.go", "characterization-validation.json"
+			} else if err := os.WriteFile(filepath.Join(r.wt, path), []byte("package fixture\n\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if phase == "regression" {
+				r.commands[0].Argv = []string{"/usr/bin/false"}
+			} else {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				r.ctx = ctx
+				marker := filepath.Join(t.TempDir(), "started")
+				r.commands[0].Argv = []string{"/bin/sh", "-c", "touch " + progressShellQuote(marker) + "; sleep 30"}
+				go func() {
+					ticker := time.NewTicker(5 * time.Millisecond)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						case <-ticker.C:
+							if _, err := os.Stat(marker); err == nil {
+								cancel()
+								return
+							}
+						}
+					}
+				}()
+			}
+			var ok bool
+			var err error
+			if phase == "characterization" {
+				ok, err = r.characterize(packet, r.runDir, r.state.BaseOID)
+			} else {
+				ok, err = r.gate(packet, r.runDir, r.state.BaseOID)
+			}
+			if phase == "regression" {
+				if err != nil || ok || len(r.state.Seen.Skipped) != 1 || r.state.Seen.Skipped[0].Reason != "REGRESSION" || gitTest(t, r.wt, "status", "--porcelain") != "" {
+					t.Fatalf("genuine regression was not rolled back: %v, %v, %+v", ok, err, r.state.Seen.Skipped)
+				}
+				return
+			}
+			if ok || !errors.Is(err, context.Canceled) || len(r.state.Seen.Skipped) != 0 || r.state.Counters.ConsecutiveFailures != 0 {
+				t.Fatalf("cancelled validation was counted as a failure: %v, %v, %+v", ok, err, r.state.Counters)
+			}
+			if gitTest(t, r.wt, "status", "--porcelain") == "" {
+				t.Fatal("cancelled validation discarded unfinished edits")
+			}
+			if _, err := os.Stat(filepath.Join(r.wt, path)); err != nil {
+				t.Fatal("unfinished file was lost", err)
+			}
+			raw, err := os.ReadFile(filepath.Join(r.runDir, evidence))
+			var ladder workspace.Ladder
+			if err != nil || json.Unmarshal(raw, &ladder) != nil || len(ladder.Checks) != 1 {
+				t.Fatalf("cancelled validation evidence was lost: %s: %v", raw, err)
+			}
+			if !ladder.Checks[0].Cancelled || ladder.Checks[0].FailureKind != "VALIDATION_CANCELLED" {
+				t.Fatalf("cancelled check was recorded as a regression: %+v", ladder.Checks[0])
+			}
+			r.stopFromError(context.Canceled)
+			if r.state.Terminal.Status != "ABORTED" || r.state.Providers["codex"].Calls != map[bool]int{false: 0, true: 1}[phase == "characterization"] {
+				t.Fatal("cancellation started recovery or lost ABORTED state", r.state.Terminal)
+			}
+		})
+	}
+}
+
+func TestPacketCriticalRiskCannotBeEnabledByConfiguration(t *testing.T) {
+	f := newProgressRunFixture(t)
+	f.responses["deep_check"]["risk_level"] = "L3_CRITICAL"
+	f.config["policy"] = map[string]any{"empty_audits_to_stop": 1, "allowed_risks": []string{"L0_LOW", "L1_MODERATE", "L2_HIGH", "L3_CRITICAL"}}
+	f.prepare(t)
+	_, report, _ := f.run(t, "")
+	skipped := mapsOf(report["skipped"])
+	if report["branch"] != nil || len(skipped) != 1 || skipped[0]["reason"] != "RISK_EXCLUDED" || obj(report["counters"])["commits"] != float64(0) {
+		t.Fatalf("deep-check packet bypassed the critical-risk gate: %#v", report)
+	}
+}
 
 func TestRunPreservesExactEditBytesAndRejectsUnrepairedEOF(t *testing.T) {
 	for _, broken := range []bool{false, true} {

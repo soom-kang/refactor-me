@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // ReportSchemaVersion identifies reports produced by the global CLI.
@@ -18,13 +19,13 @@ const ReportSchemaVersion = 3
 func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 	for _, dir := range []string{filepath.Join(repo, ".refactor"), filepath.Join(repo, ".refactor", "runs")} {
 		if err := checkDirectory(dir); err != nil {
-			fmt.Fprintln(stderr, "refactor-me:", err)
+			fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 			return ExitAborted
 		}
 	}
 	lastPath := filepath.Join(repo, ".refactor", "last-run.json")
 	if err := checkRegularFile(lastPath); err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	lastData, err := os.ReadFile(lastPath)
@@ -33,12 +34,12 @@ func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 		return ExitAborted
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	var last map[string]any
 	if err = json.Unmarshal(lastData, &last); err != nil {
-		fmt.Fprintln(stderr, "refactor-me: last-run.json:", err)
+		fmt.Fprintln(stderr, "refactor-me: last-run.json:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	if last["schemaVersion"] != float64(LastRunSchemaVersion) {
@@ -59,12 +60,12 @@ func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 	}
 	canonicalRun, err := filepath.EvalSymlinks(runDir)
 	if err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	runsDir, err := filepath.EvalSymlinks(filepath.Join(repo, ".refactor", "runs"))
 	if err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	rel, err := filepath.Rel(runsDir, canonicalRun)
@@ -74,28 +75,28 @@ func executeReport(repo string, args Args, stdout, stderr io.Writer) int {
 	}
 	reportPath := filepath.Join(canonicalRun, "report.json")
 	if err := checkRegularFile(reportPath); err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	data, err := os.ReadFile(reportPath)
 	if err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	if _, err := parseReport(data); err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	if args.JSON {
 		if _, err := stdout.Write(data); err != nil {
-			fmt.Fprintln(stderr, "refactor-me: write report:", err)
+			fmt.Fprintln(stderr, "refactor-me: write report:", DisplayText(err.Error()))
 			return ExitAborted
 		}
 		return ExitOK
 	}
 	text, err := RenderReport(data, args.Language)
 	if err != nil {
-		fmt.Fprintln(stderr, "refactor-me:", err)
+		fmt.Fprintln(stderr, "refactor-me:", DisplayText(err.Error()))
 		return ExitAborted
 	}
 	fmt.Fprint(stdout, text)
@@ -124,10 +125,25 @@ func label(lang, en, ko string) string {
 	return en
 }
 func short(s string) string {
-	if len(s) > 7 {
-		return s[:7]
+	return truncate(s, 7)
+}
+
+// cleanReportStrings changes only the fresh JSON parse used for human display.
+// Stored reports and RenderChanges' exact patch are left untouched.
+func cleanReportStrings(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return terminalText(typed, true)
+	case map[string]any:
+		for key, item := range typed {
+			typed[key] = cleanReportStrings(item)
+		}
+	case []any:
+		for index, item := range typed {
+			typed[index] = cleanReportStrings(item)
+		}
 	}
-	return s
+	return value
 }
 
 // RenderReport renders a supported report without modifying the saved evidence.
@@ -139,6 +155,7 @@ func RenderReport(data []byte, language string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	cleanReportStrings(report)
 	status := val(report, "status")
 	statusNames := map[string][2]string{"DONE": {"Completed", "완료"}, "NO_CHANGES": {"No changes", "변경 없음"}, "DONE_PARTIAL": {"Partially completed", "부분 완료"}, "ABORTED": {"Aborted", "중단"}, "HALTED_UNSAFE": {"Safety halt", "안전 정지"}}
 	statusLabel := status
@@ -217,10 +234,7 @@ func RenderReport(data []byte, language string) (string, error) {
 					detail = nested["detail"]
 				}
 				if detail != nil && str(detail) != "" {
-					text := str(detail)
-					if len(text) > 200 {
-						text = text[:200]
-					}
+					text := truncate(str(detail), 200)
 					lines = append(lines, "  - "+text)
 				}
 			}
@@ -248,7 +262,7 @@ func RenderReport(data []byte, language string) (string, error) {
 	sort.Strings(names)
 	for _, name := range names {
 		p := obj(providers[name])
-		line := "- **" + name + "**: " + val(p, "status") + " · " + val(p, "calls") + label(language, " calls", "회 호출")
+		line := "- **" + terminalText(name, true) + "**: " + val(p, "status") + " · " + val(p, "calls") + label(language, " calls", "회 호출")
 		if numeric(p["quotaHits"]) > 0 {
 			line += fmt.Sprintf(" · %s %d", label(language, "quota hits", "쿼터 제한"), numeric(p["quotaHits"]))
 		}
@@ -269,7 +283,7 @@ func RenderReport(data []byte, language string) (string, error) {
 		lines = append(lines, "", label(language, "> **Safety halt.** An invariant failed and the loop stopped writing.", "> **안전 정지.** 불변식이 깨져 쓰기를 중단했습니다."), "> "+label(language, "Worktree retained as evidence", "증거로 보존한 worktree")+": `"+val(report, "worktree")+"`")
 	}
 	_ = counters
-	return strings.Join(append(lines, ""), "\n"), nil
+	return terminalText(strings.Join(append(lines, ""), "\n"), true), nil
 }
 
 func fallback(value, other string) string {
@@ -299,11 +313,19 @@ func decimal(value any) float64 {
 		return 0
 	}
 }
+
+// truncate preserves the byte budget without splitting the final UTF-8 rune.
 func truncate(value string, limit int) string {
-	if len(value) > limit {
-		return value[:limit]
+	if limit <= 0 {
+		return ""
 	}
-	return value
+	if len(value) <= limit {
+		return value
+	}
+	for limit > 0 && !utf8.RuneStart(value[limit]) {
+		limit--
+	}
+	return value[:limit]
 }
 
 func reportTargets(targets []any, language string) string {
@@ -590,7 +612,7 @@ func renderUsage(report map[string]any, language string) []string {
 			effort = "high→medium"
 		}
 		if estimates {
-			lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s | %s | %d |", phase, effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), optionalMoney(u["costUsd"]), optionalMoney(u["estimatedCostUsd"]), numeric(u["estimateMissing"])))
+			lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s | %s | %d |", terminalText(phase, true), effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), optionalMoney(u["costUsd"]), optionalMoney(u["estimatedCostUsd"]), numeric(u["estimateMissing"])))
 			continue
 		}
 		cost := costText(u)
@@ -599,7 +621,7 @@ func renderUsage(report map[string]any, language string) []string {
 		} else if numeric(u["costMissing"]) > 0 {
 			cost += "+"
 		}
-		lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s |", phase, effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), cost))
+		lines = append(lines, fmt.Sprintf("| %s | %s | %d | %s | %s | %s | %s |", terminalText(phase, true), effort, numeric(u["calls"]), formatMS(numeric(u["ms"])), formatTokens(numeric(u["inputTokens"])), formatTokens(numeric(u["outputTokens"])), cost))
 	}
 	lines = append(lines, "", label(language, "Default effort shows the phase policy, not observed provider effort. CLI effort overrides every phase; without it, existing configuration and operational overrides apply. A plus sign marks a partial cost.", "기본 추론 수준은 단계별 정책이며 실제 provider의 추론 수준을 관측한 값이 아닙니다. CLI effort는 모든 단계에 우선 적용됩니다. 미지정 시 기존 설정과 운영 단계의 별도 값이 적용됩니다. 비용의 +는 일부 비용만 집계했음을 뜻합니다."), "")
 	if estimates {
@@ -703,7 +725,7 @@ func renderProviderSettings(settings map[string]any, language string) []string {
 		value := obj(settings[name])
 		model := fallback(val(value, "requestedModel"), label(language, "Not specified", "미지정"))
 		effort := fallback(val(value, "cliEffort"), label(language, "Not overridden", "CLI override 없음"))
-		lines = append(lines, fmt.Sprintf("| %s | %s | %s |", escape.Replace(name), escape.Replace(model), escape.Replace(effort)))
+		lines = append(lines, fmt.Sprintf("| %s | %s | %s |", escape.Replace(terminalText(name, true)), escape.Replace(model), escape.Replace(effort)))
 	}
 	return append(lines, "", label(language, "These are requested settings; they do not verify which model the provider executed.", "요청한 설정을 기록한 정보이며 provider가 실제로 실행한 모델을 확인한 증거는 아닙니다."))
 }

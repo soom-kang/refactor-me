@@ -3,11 +3,13 @@ package surface
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefaultHelpDoesNotStartRun(t *testing.T) {
@@ -185,6 +187,119 @@ func TestUnsupportedVersionsAreRejectedWithoutModification(t *testing.T) {
 		if _, err := RenderReport([]byte(raw), "en"); err == nil {
 			t.Fatalf("accepted report %s", raw)
 		}
+	}
+}
+
+func TestKnownConfigValidationBeforeRunPreservesInput(t *testing.T) {
+	repo := testRepo(t)
+	if err := os.Mkdir(filepath.Join(repo, ".refactor"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repo, ".refactor", "config.json")
+	cases := []struct{ fields, key string }{
+		{`"workspace":null`, "workspace"},
+		{`"agents":[]`, "agents"},
+		{`"policy":"not-an-object"`, "policy"},
+		{`"verification":false`, "verification"},
+		{`"workspace":{"branch_prefix":1}`, "workspace.branch_prefix"},
+		{`"workspace":{"worktree_parent":false}`, "workspace.worktree_parent"},
+		{`"workspace":{"keep_worktree":"false"}`, "workspace.keep_worktree"},
+		{`"agents":{"primary":false}`, "agents.primary"},
+		{`"agents":{"fallback":null}`, "agents.fallback"},
+		{`"agents":{"codex":"bin"}`, "agents.codex"},
+		{`"agents":{"claude":{"bin":[]}}`, "agents.claude.bin"},
+		{`"agents":{"codex":{"model":3}}`, "agents.codex.model"},
+		{`"agents":{"claude":{"enabled":"true"}}`, "agents.claude.enabled"},
+		{`"agents":{"codex":{"effort":{}}}`, "agents.codex.effort"},
+		{`"agents":{"codex":{"effort_by_phase":null}}`, "agents.codex.effort_by_phase"},
+		{`"agents":{"claude":{"effort_by_phase":{"audit":false}}}`, "agents.claude.effort_by_phase.audit"},
+		{`"agents":{"claude":{"max_budget_usd":-1}}`, "agents.claude.max_budget_usd"},
+		{`"agents":{"claude":{"max_budget_usd":-1e-1000000000}}`, "agents.claude.max_budget_usd"},
+		{`"agents":{"claude":{"max_budget_usd":1e-1000000000}}`, "agents.claude.max_budget_usd"},
+		{`"agents":{"claude":{"max_budget_usd":"0"}}`, "agents.claude.max_budget_usd"},
+		{`"policy":{"auto_characterization":"false"}`, "policy.auto_characterization"},
+		{`"policy":{"cross_provider_review":0}`, "policy.cross_provider_review"},
+		{`"policy":{"unknown_risk":false}`, "policy.unknown_risk"},
+		{`"policy":{"unknown_risk":"unsupported"}`, "policy.unknown_risk"},
+		{`"policy":{"allowed_risks":{}}`, "policy.allowed_risks"},
+		{`"policy":{"allowed_risks":["L0_LOW",false]}`, "policy.allowed_risks[1]"},
+		{`"policy":{"extra_forbidden_globs":[1]}`, "policy.extra_forbidden_globs[0]"},
+		{`"policy":{"max_cycles":"1"}`, "policy.max_cycles"},
+		{`"policy":{"max_wall_clock_min":null}`, "policy.max_wall_clock_min"},
+		{`"policy":{"max_audit_candidates":1.5}`, "policy.max_audit_candidates"},
+		{`"policy":{"max_audit_candidates":1e-1000000000}`, "policy.max_audit_candidates"},
+		{`"policy":{"max_wall_clock_min":180.00000000000000001}`, "policy.max_wall_clock_min"},
+		{`"policy":{"max_cycles":9007199254740993}`, "policy.max_cycles"},
+		{`"policy":{"max_cycles":9223372036854775808}`, "policy.max_cycles"},
+		{`"verification":{"locked":"false"}`, "verification.locked"},
+		{`"verification":{"commands":{}}`, "verification.commands"},
+		{`"schema_version":2.00000000000000001`, "schema_version"},
+	}
+	for _, key := range []string{"max_cycles", "max_commits", "max_consecutive_failures", "max_attempts_per_fingerprint", "empty_audits_to_stop", "max_files_per_candidate", "max_changed_lines", "max_audit_candidates", "max_wall_clock_min", "cooldown_minutes"} {
+		cases = append(cases, struct{ fields, key string }{fmt.Sprintf(`"policy":{%q:-1}`, key), "policy." + key})
+	}
+	for _, key := range []string{"max_cycles", "max_commits", "empty_audits_to_stop", "max_wall_clock_min"} {
+		cases = append(cases, struct{ fields, key string }{fmt.Sprintf(`"policy":{%q:0}`, key), "policy." + key})
+	}
+	cases = append(cases,
+		struct{ fields, key string }{fmt.Sprintf(`"policy":{"max_wall_clock_min":%d}`, maxRuntimeMinutes+1), "policy.max_wall_clock_min"},
+		struct{ fields, key string }{fmt.Sprintf(`"policy":{"cooldown_minutes":%d}`, maxRuntimeMinutes+1), "policy.cooldown_minutes"},
+		struct{ fields, key string }{fmt.Sprintf(`"agents":{"codex":{"timeout_sec":%d}}`, int64(1<<63-1)/int64(time.Second)+1), "agents.codex.timeout_sec"},
+	)
+	for _, tc := range cases {
+		t.Run(tc.key+tc.fields, func(t *testing.T) {
+			raw := []byte(`{"schema_version":2,` + tc.fields + `}`)
+			if err := os.WriteFile(path, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := LoadConfig(repo)
+			if err == nil || !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("expected %s error, got %v", tc.key, err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := Execute([]string{"run", "--model", "fixture-model", "--fallback", "none", "--json"}, repo, &stdout, &stderr, Callbacks{Run: func(Context) (RunResult, error) {
+				t.Fatal("malformed configuration reached run preparation")
+				return RunResult{}, nil
+			}})
+			if code != ExitAborted || !strings.Contains(stderr.String(), tc.key) {
+				t.Fatal("wrong CLI error", code, stderr.String())
+			}
+			if got, err := os.ReadFile(path); err != nil || !bytes.Equal(raw, got) {
+				t.Fatal("configuration changed", err)
+			}
+			for _, name := range []string{"runs", "lock.json", "last-run.json"} {
+				if _, err := os.Stat(filepath.Join(repo, ".refactor", name)); !os.IsNotExist(err) {
+					t.Fatal("created run state before validation", name, err)
+				}
+			}
+		})
+	}
+}
+
+func TestKnownConfigValidationKeepsZeroDefaultsAndExtensions(t *testing.T) {
+	repo := testRepo(t)
+	if err := os.Mkdir(filepath.Join(repo, ".refactor"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{"schema_version":2,"workspace":{"future":{"mode":true}},"agents":{"codex":{"timeout_sec":0,"future":[1]},"claude":{"max_budget_usd":0,"effort_by_phase":{"future":"custom"}}},"policy":{"allowed_risks":["L3_CRITICAL","UNKNOWN"],"max_cycles":1e2,"max_consecutive_failures":0,"max_attempts_per_fingerprint":0,"max_files_per_candidate":0,"max_changed_lines":0,"max_audit_candidates":0,"cooldown_minutes":0,"future":false},"verification":{"future":true},"future":null}`)
+	path := filepath.Join(repo, ".refactor", "config.json")
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if object(cfg["policy"])["max_cycles"] != float64(100) || object(cfg["policy"])["max_commits"] != float64(20) || object(cfg["policy"])["future"] != false || object(object(cfg["workspace"])["future"])["mode"] != true || ConfigString(cfg, "agents", "claude", "effort_by_phase", "future") != "custom" {
+		t.Fatal("valid settings/defaults/extensions changed", cfg)
+	}
+	for _, key := range []string{"max_consecutive_failures", "max_attempts_per_fingerprint", "max_files_per_candidate", "max_changed_lines", "max_audit_candidates", "cooldown_minutes"} {
+		if object(cfg["policy"])[key] != float64(0) {
+			t.Fatal("lost zero policy value", key)
+		}
+	}
+	if got, err := os.ReadFile(path); err != nil || !bytes.Equal(raw, got) {
+		t.Fatal("configuration changed", err)
 	}
 }
 

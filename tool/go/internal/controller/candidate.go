@@ -100,7 +100,7 @@ func (r *runner) selectPacket(candidate map[string]any, cycleDir string) (map[st
 		r.state.markSkipped(str(candidate["fp"]), "NOT_READY", str(packet["readiness_reason"]), stringsOf(candidate["related_files"]), false)
 		return nil, false, r.saveSkipped("NOT_READY")
 	}
-	if packet["risk_level"] == "UNKNOWN" || !slices.Contains(r.policy.AllowedRisks, str(packet["risk_level"])) {
+	if packet["risk_level"] == "UNKNOWN" || packet["risk_level"] == "L3_CRITICAL" || !slices.Contains(r.policy.AllowedRisks, str(packet["risk_level"])) {
 		reason := "RISK_EXCLUDED"
 		if packet["risk_level"] == "UNKNOWN" {
 			reason = "RISK_UNKNOWN"
@@ -190,6 +190,9 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	if err := writeJSONAtomic(filepath.Join(dir, "characterization-validation.json"), ladder); err != nil {
 		return false, err
 	}
+	if err := r.contextErr(); err != nil {
+		return false, err
+	}
 	if !ladder.OK {
 		if err := r.rollback(preOID); err != nil {
 			return false, err
@@ -208,6 +211,9 @@ func (r *runner) characterize(packet map[string]any, dir, preOID string) (bool, 
 	}
 	message := filepath.Join(dir, "characterization-message.txt")
 	if err := writeText(message, fmt.Sprintf("test(%s): characterize current behavior before refactor\n\nRefactor-Fingerprint: %s-char\n", str(packet["candidate_id"]), str(packet["fp"]))); err != nil {
+		return false, err
+	}
+	if err := r.sourceInvariant(); err != nil {
 		return false, err
 	}
 	oid, err := workspace.CommitApproved(r.wt, message, tree)
@@ -401,6 +407,10 @@ func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {
 	if err := writeJSONAtomic(filepath.Join(dir, "validation.json"), ladder); err != nil {
 		return false, err
 	}
+	if err := r.contextErr(); err != nil {
+		r.savePatch(dir, "interrupted.patch")
+		return false, err
+	}
 	if !ladder.OK {
 		r.savePatch(dir, "rejected.patch")
 		if err := r.rollback(preOID); err != nil {
@@ -514,6 +524,9 @@ func (r *runner) commit(packet, candidate map[string]any, dir string) error {
 	message := fmt.Sprintf("refactor: %s\n\nRefactor-Fingerprint: %s\n", subject, str(packet["fp"]))
 	messageFile := filepath.Join(dir, "message.txt")
 	if err := writeText(messageFile, message); err != nil {
+		return err
+	}
+	if err := r.sourceInvariant(); err != nil {
 		return err
 	}
 	oid, err := workspace.CommitApproved(r.wt, messageFile, tree)

@@ -4,6 +4,8 @@
 
 Use macOS Apple Silicon, Git and Go 1.27 or later. The module lives in `tool/go` and uses the standard library. Default project checks do not require Node or call providers.
 
+The [2026-10-12 QA report](../docs/qa/2026-10-12-report.md) preserves the original counterexamples. [QA remediation](../docs/qa/2026-10-12-remediation.md) and the [12 local ticket resolutions](../docs/qa/2026-10-12-tickets.md) describe the current fixes, regression checks and checks not run. These are source-checkout changes, not a new public release. `L3_CRITICAL` is now excluded at both audit and packet gates, including custom `allowed_risks`.
+
 ## 1. Build a development binary
 
 From the repository root:

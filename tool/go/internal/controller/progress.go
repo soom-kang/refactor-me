@@ -266,6 +266,8 @@ func (r *runner) observeCommand(event workspace.CommandEvent) {
 		r.notice(en+" (%s; exit %s)", ko+" (%s; exit %s)", args...)
 	}
 	switch {
+	case result.Cancelled:
+		notice("%s check was cancelled. Area: %s", "%s 검사가 취소됐습니다. 대상: %s", name, area)
 	case result.TimedOut || result.Status == workspace.StatusTimeout:
 		notice("%s check timed out. Area: %s", "%s 검사가 제한 시간을 초과했습니다. 대상: %s", name, area)
 	case result.SpawnError != "" || result.Status == workspace.StatusUnrunnable:

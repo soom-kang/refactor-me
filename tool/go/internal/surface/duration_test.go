@@ -3,6 +3,7 @@ package surface
 import (
 	"bytes"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,26 @@ func TestMaxMinutesParseBoundsAndCommandScope(t *testing.T) {
 		if _, err := Parse([]string{command, "--max-minutes", "60"}); err == nil {
 			t.Fatalf("accepted run option for %s", command)
 		}
+	}
+}
+
+func TestConfiguredMaxMinutesRejectsMalformedValues(t *testing.T) {
+	for _, value := range []any{nil, "180", true, 0, -1, 1.5, math.NaN(), math.Inf(1), float64(maxRuntimeMinutes + 1), float64(1 << 63)} {
+		cfg := Config{"policy": map[string]any{"max_wall_clock_min": value}}
+		if _, err := configuredMaxMinutes(cfg); err == nil || !strings.Contains(err.Error(), "policy.max_wall_clock_min") {
+			t.Fatalf("accepted malformed duration %v: %v", value, err)
+		}
+	}
+	for _, value := range []any{1, float64(180), int(maxRuntimeMinutes)} {
+		if _, err := configuredMaxMinutes(Config{"policy": map[string]any{"max_wall_clock_min": value}}); err != nil {
+			t.Fatal("rejected supported whole duration", value, err)
+		}
+	}
+	if minutes, err := configuredMaxMinutes(Config{}); err != nil || minutes != 180 {
+		t.Fatal("missing value lost default", minutes, err)
+	}
+	if _, err := configuredMaxMinutes(Config{"policy": false}); err == nil || !strings.Contains(err.Error(), "policy") {
+		t.Fatal("accepted malformed policy", err)
 	}
 }
 

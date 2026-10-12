@@ -145,6 +145,21 @@ func TestDetailedProgressUsesFixedMetadataAndCheckResults(t *testing.T) {
 	}
 }
 
+func TestCancelledValidationProgressDoesNotReportRegression(t *testing.T) {
+	for _, language := range []string{"en", "ko"} {
+		var output bytes.Buffer
+		r := &runner{surface: surface.Context{Stderr: &output, Args: surface.Args{Language: language}}}
+		defer r.endProgress()
+		r.observeCommand(workspace.CommandEvent{Kind: "completed", Command: workspace.Command{Name: "test", Area: "src"},
+			Result: workspace.CommandResult{Cancelled: true, TimedOut: true, Status: workspace.StatusTimeout, FailureKind: "VALIDATION_CANCELLED"}})
+		text := output.String()
+		want := r.progressLog().text("test check was cancelled. Area: src", "test 검사가 취소됐습니다. 대상: src")
+		if !strings.Contains(text, want) || strings.Contains(text, "REGRESSION") || strings.Contains(text, "timed out") || strings.Contains(text, "초과했습니다") {
+			t.Fatalf("cancelled validation progress was misleading: %s", text)
+		}
+	}
+}
+
 func TestProgressOnlyReportsSuccessfullySavedOutcomes(t *testing.T) {
 	var output bytes.Buffer
 	r := &runner{surface: surface.Context{Stderr: &output, Args: surface.Args{Language: "ko"}}, runDir: t.TempDir(), candidateLabel: "parseLegacy",
@@ -186,14 +201,24 @@ func TestCommitAndRollbackDoNotClaimSuccessOnFailure(t *testing.T) {
 			gitTest(t, repo, "add", "a.go")
 			gitTest(t, repo, "commit", "-qm", "base")
 			base := gitTest(t, repo, "rev-parse", "HEAD")
-			if err := os.WriteFile(filepath.Join(repo, "a.go"), []byte("after\n"), 0600); err != nil {
+			wt := filepath.Join(t.TempDir(), "wt")
+			if err := workspace.WorktreeAdd(repo, wt, base); err != nil {
 				t.Fatal(err)
 			}
-			gitTest(t, repo, "add", "a.go")
-			tree := gitTest(t, repo, "write-tree")
+			// TempDir cleanup retains the hook-failure edits until assertions
+			// finish; WorktreeRemove correctly refuses this dirty fixture.
+			fingerprint, err := workspace.SourceFingerprint(repo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(wt, "a.go"), []byte("after\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			gitTest(t, wt, "add", "a.go")
+			tree := gitTest(t, wt, "write-tree")
 			var output bytes.Buffer
-			r := &runner{ctx: context.Background(), surface: surface.Context{Repo: repo, Stderr: &output}, wt: repo, runDir: t.TempDir(), candidateLabel: "A",
-				state: newState("r", repo, repo, base, "main", "result", nil, nil), gateFacts: workspace.GateFacts{Changed: []string{"a.go"}, ProspectiveTree: tree}}
+			r := &runner{ctx: context.Background(), surface: surface.Context{Repo: repo, Stderr: &output}, wt: wt, runDir: t.TempDir(), candidateLabel: "A", sourceFingerprint: fingerprint,
+				state: newState("r", repo, wt, base, "main", "result", nil, nil), gateFacts: workspace.GateFacts{Changed: []string{"a.go"}, ProspectiveTree: tree}}
 			defer r.endProgress()
 			if failure == "publication" {
 				gitTest(t, repo, "branch", "result", base)
@@ -208,7 +233,7 @@ func TestCommitAndRollbackDoNotClaimSuccessOnFailure(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			err := r.commit(map[string]any{"title": "remove old code", "fp": "fp"}, contractCandidate(nil), t.TempDir())
+			err = r.commit(map[string]any{"title": "remove old code", "fp": "fp"}, contractCandidate(nil), t.TempDir())
 			if err == nil || strings.Contains(output.String(), "Commit:") {
 				t.Fatal("claimed commit completion", err, output.String())
 			}

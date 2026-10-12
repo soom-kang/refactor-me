@@ -27,8 +27,16 @@ def prepare(output, candidate=False):
     dirty = bool(git('status', '--porcelain', '--untracked-files=normal'))
     if dirty and not candidate:
         raise ValueError('dirty checkout: use --candidate for local, non-publishable validation')
-    if not candidate and git('rev-parse', f'v{version}^{{commit}}') != commit:
-        raise ValueError('release tag does not identify HEAD')
+    if not candidate:
+        tag_ref = f'refs/tags/v{version}'
+        try:
+            git('show-ref', '--verify', '--quiet', tag_ref)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(f'local release tag v{version} is missing') from error
+        if git('cat-file', '-t', tag_ref) != 'tag':
+            raise ValueError('release tag must be annotated')
+        if git('rev-parse', '--verify', f'{tag_ref}^{{commit}}') != commit:
+            raise ValueError('release tag does not identify HEAD')
     if f'## {version}\n' not in (ROOT / 'tool/CHANGELOG.md').read_text():
         raise ValueError('missing changelog entry')
     output = Path(output).resolve()

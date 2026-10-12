@@ -80,6 +80,8 @@ See [time selection](tool/README.md#run-time-selection), [code comparison](tool/
 
 Beta.6 checks characterization test changes before committing them and confines declared file deletions to the worktree. Ctrl-C or SIGTERM cancels managed provider and validation processes while preserving accepted commits and unfinished work. When a controller preparation failure is recorded, `report` shows that failure instead of an earlier success. See [interruption and failed attempts](tool/README.md#interruption-and-failed-attempts) and [workflow checks](tool/WORKFLOW.md#from-checks-to-a-local-branch).
 
+The [2026-10-12 QA assessment](docs/qa/2026-10-12-report.md) records the original findings; [QA remediation](docs/qa/2026-10-12-remediation.md) tracks all 12 local fixes and their verification. The fixes are in the current source checkout and have not been published to the Beta.6 executable or formula. Local validation and recorded public-install evidence remain separate.
+
 ## Read next
 
 | Task | Document |
@@ -89,6 +91,7 @@ Beta.6 checks characterization test changes before committing them and confines 
 | Understand isolation, validation and review | [Workflow](tool/WORKFLOW.md) |
 | Build, test or prepare a release | [Development](tool/DEVELOPMENT.md) · [Homebrew release](tool/release/HOMEBREW.md) |
 | Check changes between versions | [Changelog](tool/CHANGELOG.md) |
+| Review current QA findings and acceptance criteria | [QA assessment](docs/qa/2026-10-12-report.md) · [Tickets](docs/qa/2026-10-12-tickets.md) (Korean) |
 
 This Beta has no Apple signing or notarization. See [installation details](tool/release/INSTALL.md) for standalone downloads and macOS warnings.
 

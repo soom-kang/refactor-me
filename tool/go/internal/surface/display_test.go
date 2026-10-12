@@ -25,6 +25,43 @@ func TestDisplayTextPreservesUnicodeAndRemovesTerminalControl(t *testing.T) {
 	}
 }
 
+func TestTerminalTextPreservesReportLayout(t *testing.T) {
+	value := "## 한국어\n```diff\n+new\tvalue\r\n-old\n```\n"
+	want := strings.ReplaceAll(value, "\r", "")
+	if got := terminalText(value, true); got != want {
+		t.Fatalf("report layout changed: %q", got)
+	}
+	for _, control := range []string{
+		"\x1b[2J", "\x1b]0;title\a", "\x1b]52;c;payload\x1b\\", "\u009b2J", "\u009d0;title\u009c", "\x1bPpayload\x1b\\", "\x00\a\b\r\u202e",
+	} {
+		if got := terminalText("before"+control+"after", true); got != "beforeafter" {
+			t.Fatalf("control retained: %q", got)
+		}
+	}
+	if got := terminalText(strings.Repeat("한", 200), true); utf8.RuneCountInString(got) != 200 {
+		t.Fatal("full report text was limited as a label")
+	}
+}
+
+func TestReportTruncationPreservesByteBudgetAndUTF8(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		limit int
+		want  string
+	}{
+		{strings.Repeat("가", 67), 200, strings.Repeat("가", 66)},
+		{strings.Repeat("a", 117) + "🙂end", 120, strings.Repeat("a", 117)},
+		{"가🙂a", 7, "가🙂"},
+		{"가", 1, ""},
+		{"abc", 2, "ab"},
+		{"abc", 0, ""},
+	} {
+		if got := truncate(tc.input, tc.limit); got != tc.want || !utf8.ValidString(got) || len(got) > tc.limit {
+			t.Fatalf("truncate(%q, %d) = %q", tc.input, tc.limit, got)
+		}
+	}
+}
+
 func TestStopReasonDoesNotExposeOriginalUnknownError(t *testing.T) {
 	for _, lang := range []string{"en", "ko"} {
 		for _, reason := range []string{"internal error: private notes", "codex: raw provider prose", "REGRESSION: private output"} {

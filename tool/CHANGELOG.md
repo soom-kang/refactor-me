@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+[QA remediation](../docs/qa/2026-10-12-remediation.md) · [12 ticket resolutions](../docs/qa/2026-10-12-tickets.md). These changes are local source fixes and have not been published to the Beta.6 release.
+
+- Reject malformed locked validation input and zero-check candidate success. Normalize omitted areas/cwd, confine command working directories to the worktree, and validate known configuration types and numeric bounds while retaining defaults, extension keys and zero semantics (RM-QA-001, 002, 004).
+- Skip entire hydrated build inputs with unsafe links, preserve existing destinations, and recheck source HEAD/fingerprint before approved commit and result publication (RM-QA-003, 005).
+- Preserve per-invocation retry/repair transcripts, exit status and usage. Reject nonzero or missing Claude process exits despite successful payloads (RM-QA-006, 008).
+- Preserve unfinished edits on validation cancellation, record explicit cancellation evidence/progress, and enforce `L3_CRITICAL` exclusion at audit and packet gates regardless of custom configuration (RM-QA-007, 012).
+- Sanitize human report fields without rewriting raw evidence, truncate at valid UTF-8 boundaries, and require exact annotated release tags matching HEAD before public source/binary artifacts are written (RM-QA-009, 010, 011).
+
 ## 0.10.0-beta.6
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.6) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/37625488585) · [Beta.5 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/37625494290). Release commit: `01b407ce81e9803878c003c181860e499718b0fa`.

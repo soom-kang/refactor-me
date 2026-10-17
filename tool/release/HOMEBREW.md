@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.7`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7), commit `daec4844affaca08d1e42dd394be12636fa84312`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.8`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8), commit `e1ccf3bde29f063ec0334a3257870b61f8f16170`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Optional local candidate
 
@@ -88,11 +88,11 @@ refactor-me version --json
 
 `brew test` already checks version, commit, help, repository selection, configuration defaults and preservation across repeated `init`. The workflow also compares the installed version and commit with the selected release tag. Do not repeat these checks locally or add live provider calls for installation verification. Preserve the user's installed package and unrelated Homebrew trust.
 
-For a release ref containing the optional upgrade check, run a separate dispatch with the full prior tap commit SHA. For example, this starts from the Beta.6 formula:
+For a release ref containing the optional upgrade check, run a separate dispatch with the full prior tap commit SHA. For example, this starts from the Beta.7 formula:
 
 ```sh
 gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
-  -f upgrade_from_formula=3a33e5bbb94a2a2e633db7edef848ed1bb7c1050
+  -f upgrade_from_formula=1ce9fa12f850d3775f0852d83feab92a2b96d087
 ```
 
 This installs the prior formula on the disposable runner, restores the current formula and runs `brew upgrade` with automatic updates disabled. It checks byte preservation of an edited config schema 2 and a seeded report schema 3 through `init`/`report`, plus non-destructive rejection of an unsupported report schema. The report is a compatibility fixture, not evidence of a previous provider run. The existing final version/commit check still applies. Keep fresh-install and upgrade run URLs/results separate; adding this check does not establish an upgrade PASS. No provider is called or additional tap trusted.
@@ -104,6 +104,22 @@ Only after public installation passes, update the published version and commit i
 The new diagnostic embeds `tool/go/internal/catalog/reference.json`: sharpen-me revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, eight full-tree SHA-256 hashes, live compatibility `NOT_RUN`. On 2026-10-07, all 24 checked-in Skill files and their modes matched the complete GitHub tree at that revision. These hashes use the runtime's sorted path/byte-length/executable-bit/content framing (`catalog-tree-sha256-v1`), not `skills-lock.json` installer hashes. See the [pinned installation path](INSTALL.md#skill-reference).
 
 Beta.6 embeds this content reference; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+
+## Beta.8 verification record
+
+Release commit: `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38988653327) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) · [Beta.7 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38988894754). Verified on 2026-10-17.
+
+- Main CI: `PASS` for the exact release commit: formatting, Go tests, vet, CLI build and four Python packaging tests. The annotated tag resolves to that commit. Both archives were generated once from the clean tagged source, and GitHub asset digests and downloaded bytes match the combined checksums.
+- Fresh installation and Beta.7 upgrade: `PASS`. Both dispatches passed `public-install` and aggregate `verify`, with `go` and `js-fixture` skipped. Installed JSON matched version `0.10.0-beta.8`, commit `e1ccf3bde29f063ec0334a3257870b61f8f16170`, `darwin/arm64`. The upgrade started from prior tap commit `1ce9fa12f850d3775f0852d83feab92a2b96d087`; edited config schema 2 and seeded report schema 3 retained their bytes, and unsupported reports were rejected without project mutation. The seeded report is a compatibility fixture, not a provider-run result.
+- The [formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/1ae0842cf8ea94804dbc0c9048e41702517fcfbe) pins the public source hash and release commit. The user's requested local Homebrew upgrade and `brew test` passed, with the same version and commit. Only refactor-me changed in the before/after installed-formula version comparison; other packages were not upgraded.
+- The standalone archive and local Homebrew build used Go `1.27.2`; public-install runners used Go `1.27.1`. No new vulnerability scan was run for this release.
+- Live provider calls: `NOT_RUN` for Beta.8. Existing reports are not repriced or rewritten. The embedded Skill reference and config/report schema versions remain unchanged. The enclosed archive guide retains its pre-publication notes; signing, notarization and bottles remain unavailable.
+
+```text
+17153cd365f8fb8a50e8844910b10e2d533f48bbb01ca466c7c202ff7672044c  refactor-me_0.10.0-beta.8_darwin_arm64.zip
+75cf5fe357f580e6c79fe2176f85b02b91331977c4a68c5f41d36f27bb21824a  refactor-me_0.10.0-beta.8_source.tar.gz
+4104666739050a965ae77f90d6ba88d47a68b800a275f946d1de66c92e1e79e3  SHA256SUMS
+```
 
 ## Beta.7 verification record
 

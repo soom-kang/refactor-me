@@ -4,7 +4,7 @@
 
 Follow these five steps on macOS Apple Silicon. Replace `/path/to/target-repo` with your repository path. Quote paths that contain spaces.
 
-This guide covers public Beta `0.10.0-beta.7` for macOS Apple Silicon. Release commit: `daec4844affaca08d1e42dd394be12636fa84312`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/38194602945), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38195197188) and the [upgrade from Beta.6](https://github.com/soom-kang/refactor-me/actions/runs/38195202547) passed for this version.
+This guide covers public Beta `0.10.0-beta.8` for macOS Apple Silicon. Release commit: `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/38988653327), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) and the [upgrade from Beta.7](https://github.com/soom-kang/refactor-me/actions/runs/38988894754) passed for this version.
 
 <a id="prepare-the-target"></a>
 
@@ -41,7 +41,7 @@ brew install refactor-me
 refactor-me version --json
 ```
 
-Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.7`, platform `darwin`, architecture `arm64` and commit `daec4844affaca08d1e42dd394be12636fa84312`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
+Tap registration and formula-scoped trust are one-time setup on Homebrew 6 or later. Expect CLI version `0.10.0-beta.8`, platform `darwin`, architecture `arm64` and commit `e1ccf3bde29f063ec0334a3257870b61f8f16170`. All eight required Skills must resolve from `~/.agents/skills`. Avoid separate copies of the same required Skill in the target project; doctor reports conflicting paths.
 
 Upgrade an older installation before continuing. For a standalone release archive, follow the [installation checks](release/INSTALL.md), then replace `refactor-me` below with that executable's absolute path. Keep the executable outside the target repository.
 
@@ -147,7 +147,7 @@ Paths resolving outside the repository are rejected. **Targets limit candidate d
 
 ### Read progress logs
 
-In public Beta `0.10.0-beta.7`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
+In public Beta `0.10.0-beta.8`, use the command below to read progress logs. Keep the same repository preparation and first-run limits.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -213,7 +213,7 @@ refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe
 ```
 
-The [Beta.6 upgrade check](https://github.com/soom-kang/refactor-me/actions/runs/38195202547) preserved an edited schema-2 configuration and a seeded schema-3 report byte for byte through upgrade, `init` and `report`. It also rejected an unsupported report without changing it. This provider-free compatibility check does not represent a previous live run.
+The [Beta.7 upgrade check](https://github.com/soom-kang/refactor-me/actions/runs/38988894754) preserved an edited schema-2 configuration and a seeded schema-3 report byte for byte through upgrade, `init` and `report`. It also rejected an unsupported report without changing it. This provider-free compatibility check does not represent a previous live run.
 
 An upgrade affects every project using this executable. Manage Skills separately with the [pinned installation steps](release/INSTALL.md#skill-reference), after checking local changes and preserving existing/custom installations. Do not update Skills during a run.
 

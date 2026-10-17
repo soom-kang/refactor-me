@@ -4,9 +4,9 @@
 
 This Beta supports macOS Apple Silicon (`darwin/arm64`) only. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
-This guide is prepared for `0.10.0-beta.8`. Publication and public installation checks are `NOT_RUN` at the time of preparation. Read the release commit from the enclosed `BUILD-INFO.txt` and compare it with executable JSON and the annotated release tag as described below; this guide does not establish publication.
+The public release is [`0.10.0-beta.8`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8), commit `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38988653327), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) and [Beta.7 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38988894754) passed for this exact version and commit.
 
-The [Beta.7 verification record](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.md#beta7-verification-record) remains historical evidence for that version. Later repository documentation can record Beta.8 publication and installation results without changing this enclosed guide. For an extracted archive, start with its enclosed metadata below.
+The [Beta.8 verification record](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.md#beta8-verification-record) separates source, archive and installation evidence. The archive retains its pre-publication enclosed guide; these repository documentation updates do not change the published bytes. For an extracted archive, start with its enclosed metadata below.
 
 ## Already extracted an archive
 

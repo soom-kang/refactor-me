@@ -4,7 +4,7 @@
 
 You set the limits and start `run`. The controller then checks each phase without asking for approval between steps. Changes happen in an isolated Git worktree; accepted commits appear on a local result branch.
 
-In public Beta `0.10.0-beta.7`, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
+In public Beta `0.10.0-beta.8`, select a model for every primary/fallback provider before live calls. Command model options override project configuration and remain local to the command. A command effort option applies across every phase for its selected provider; otherwise the configured phase policy remains. See [model and effort selection](README.md#model-and-effort-selection).
 
 The CLI resolves run time before calling providers or preparing worktrees: `--max-minutes` overrides terminal selection, which overrides project/default configuration. Selection occurs only on macOS with terminal stdin and stderr, without `--json`; Enter keeps the existing limit. The clock includes preparation after selection. Checks before audit and before a new candidate prevent starting another work unit after the limit. A running candidate finishes validation, review and commit or rollback, so the limit can be exceeded. See [time selection](README.md#run-time-selection).
 
@@ -52,7 +52,7 @@ Public Beta.7 includes the [QA fixes](../docs/qa/2026-10-12-remediation.md). Sou
 
 ### Progress follows confirmed state
 
-Public Beta `0.10.0-beta.7` announces these stages using `--lang en|ko`, defaulting to English. The controller emits progress at the actual stage boundary; it does not infer an action from shell commands. Each audit reports its proposed and eligible counts and, when capped, the number inspected. After an accepted change it audits again, so the display has no fixed candidate total or completion percentage.
+Public Beta `0.10.0-beta.8` announces these stages using `--lang en|ko`, defaulting to English. The controller emits progress at the actual stage boundary; it does not infer an action from shell commands. Each audit reports its proposed and eligible counts and, when capped, the number inspected. After an accepted change it audits again, so the display has no fixed candidate total or completion percentage.
 
 Validation messages use the command name and area. Baseline results show their measured status; later results show the final comparison with the baseline. An unchanged readable failure is not a pass. Candidate exclusions, rejected execution and no changes are separate outcomes. Rollback completion requires successful restoration, and commit completion requires successful local branch publication and state storage.
 

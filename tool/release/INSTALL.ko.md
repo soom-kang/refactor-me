@@ -4,9 +4,9 @@
 
 이 Beta는 macOS Apple Silicon(`darwin/arm64`)만 지원합니다. Homebrew로 전역 실행 파일을 설치하고 sharpen-me Skills는 따로 설치합니다.
 
-이 안내는 `0.10.0-beta.8` 배포 준비용입니다. 작성 시점의 게시·공개 설치 검증은 `NOT_RUN`입니다. 릴리스 commit은 동봉한 `BUILD-INFO.txt`에서 확인하고 아래 절차에 따라 실행 파일의 JSON 출력 및 annotated 릴리스 태그와 비교하세요. 이 안내 자체가 릴리스 게시를 증명하지는 않습니다.
+공개 버전은 [`0.10.0-beta.8`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8)이며 commit은 `e1ccf3bde29f063ec0334a3257870b61f8f16170`입니다. 이 버전과 commit의 [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38988653327), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/38988891975), [Beta.7 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/38988894754)가 통과했습니다.
 
-[Beta.7 검증 기록](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.md#beta7-verification-record)은 해당 버전의 과거 증거로 유지합니다. 이후 저장소 문서에 Beta.8 게시·설치 결과를 기록해도 동봉된 안내는 바뀌지 않습니다. 압축을 풀었다면 아래 동봉 메타데이터 확인부터 시작하세요.
+[Beta.8 검증 기록](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.ko.md#beta8-검증-기록)에 소스, 압축파일과 설치 근거를 구분했습니다. 압축파일에는 게시 전 안내가 그대로 남으며 저장소 문서 갱신이 공개한 바이트를 바꾸지는 않습니다. 압축을 풀었다면 아래 동봉 메타데이터 확인부터 시작하세요.
 
 ## 이미 압축을 푼 경우
 

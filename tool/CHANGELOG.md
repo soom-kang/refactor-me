@@ -4,6 +4,8 @@
 
 ## 0.10.0-beta.8
 
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) · [Beta.7 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38988894754). Release commit: `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Verification record](release/HOMEBREW.md#beta8-verification-record).
+
 - Add dated standard API estimates for Codex `gpt-6-astra` and correct Claude Sonnet 5.5 cache-read pricing to USD 0.10 per million tokens. Recheck all bundled rates on 2026-10-17; clarify that unknown models are absent from the bundled table, not necessarily from Artificial Analysis. Preserve provider-reported prices and historical reports without retroactive repricing.
 - Keep the full committed diff in `changes.md` and show its link with file statistics in the report. Omit the duplicate inline preview and patch link when Markdown was saved; retain the legacy and Markdown-write-failure fallback and raw patch evidence.
 - Use the active Git author and committer identity for refactor and characterization commits instead of a fixed `refactor-me` account. Preserve Git configuration and explicit environment overrides; stop without guessing an identity when required configuration is missing. Branch-conditioned includes are evaluated in the detached run worktree.

@@ -265,9 +265,9 @@ CLI는 기본 로그에 경과 시간, 단계와 provider를 추가합니다. �
 
 원본 저장소의 `state.baseOid`와 `state.publishedOid`를 비교합니다. Characterization 커밋을 포함한 최종 변경을 사용하므로 worktree를 정리한 뒤에도 비교할 수 있습니다.
 
-- 미리보기: 파일 통계와 문맥 3줄. 완전한 줄 단위로 최대 200줄 또는 UTF-8 32 KiB.
-- `changes.patch`: 전체 텍스트 patch. 바이너리 본문은 생략하고 바이너리와 파일 모드 메타데이터는 유지합니다. 외부 diff와 textconv는 사용하지 않습니다.
+- 보고서: 파일 통계와 `changes.md` 링크를 표시하며 diff는 별도 Markdown에 둡니다. Markdown이 없는 이전 보고서나 Markdown 저장 실패 시에는 문맥 3줄, 최대 200줄 또는 UTF-8 32 KiB의 미리보기와 patch 링크를 대신 표시합니다.
 - `changes.md`: 파일 상태, 추가·삭제 줄 수, 이름 변경과 모드 정보를 담은 검토 체크리스트 뒤에 전체 텍스트 patch를 붙입니다. 체크는 사람이 검토했다는 표시이며 반영할 변경을 선택하거나 결과 branch를 수정하지 않습니다. 체크리스트를 편집해도 `changes.patch`는 바뀌지 않습니다.
+- `changes.patch`: 도구 처리와 Markdown 저장 실패에 대비해 보존하는 원본 텍스트 patch입니다. 바이너리 본문은 생략하고 바이너리와 파일 모드 메타데이터는 유지합니다. 외부 diff와 textconv는 사용하지 않습니다.
 
 `report.json`의 선택 필드 `codeComparison`에는 다음 값을 저장합니다.
 
@@ -299,7 +299,16 @@ CLI는 기본 로그에 경과 시간, 단계와 provider를 추가합니다. �
 
 실패한 호출과 스키마 복구 프로세스도 사용량에 포함합니다. provider 보고액은 비용을 보고한 호출만 합산합니다. 미보고 비용은 0이 아닌 미확인이며 아래 추정액은 따로 표시합니다.
 
-CLI는 provider가 보고한 USD를 우선합니다. 비용이 없으면 **2026-10-07**에 확인한 내장 단가로 표준 API 비용을 추정합니다. [Artificial Analysis](https://artificialanalysis.ai/)를 참고하고 cache 단가는 provider 문서로 보완합니다. 지원하는 정확한 ID는 Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, Claude `claude-sonnet-5-5`이며 alias는 추측하지 않습니다. 실행이나 보고서 조회 중 가격을 가져오지는 않습니다.
+CLI는 provider가 보고한 USD를 우선합니다. 비용이 없으면 **2026-10-17**에 확인한 내장 단가로 표준 API 비용을 추정합니다. [Artificial Analysis](https://artificialanalysis.ai/)를 참고하고 cache 단가는 provider 문서로 보완합니다. 지원하는 정확한 ID는 Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, Codex `gpt-6-astra`, Claude `claude-sonnet-5-5`이며 alias는 추측하지 않습니다. 실행이나 보고서 조회 중 가격을 가져오지는 않습니다. 미지원 모델은 이 도구 버전의 내장 단가가 없다는 뜻이며 Artificial Analysis에 모델이 없다는 뜻은 아닙니다.
+
+단위는 USD / 100만 토큰이며 Standard 기본 단가입니다.
+
+| Model | Input | Cache read | Cache write | Output | Sources |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `gpt-5.6-sol` | 4 | 0.40 | 5 | 20 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-5-6-sol-vs-gpt-5-4), [provider](https://developers.openai.com/api/docs/models/gpt-5.6-sol) |
+| `gpt-6.1-sol` | 2 | 0.10 | 2.50 | 10 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5), [provider](https://developers.openai.com/api/docs/models/gpt-6.1-sol) |
+| `gpt-6-astra` | 10 | 1 | 12.50 | 50 | [AA](https://artificialanalysis.ai/models/gpt-6-astra), [provider](https://developers.openai.com/api/docs/models/gpt-6-astra) |
+| `claude-sonnet-5-5` | 2 | 0.10 | 2.50 (5m), 4 (1h) | 10 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5), [provider](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) |
 
 각 추정에는 요청한 모델, 토큰 구분, 단가, 출처 URL, 확인 날짜와 가정을 기록합니다. cache 읽기와 쓰기는 별도 단가를 적용하고, reasoning output은 output tokens에 포함해 중복 계산하지 않습니다. cache 필드가 없으면 0으로 가정했다는 사실을 표시하며 Claude의 cache-write TTL이 없으면 5분을 가정했다고 표시합니다. speed, region, batch, long-context 가산 조건이 없는 표준 API 가격을 가정하며 ChatGPT·Codex·Claude 구독 청구액을 계산하지 않습니다. 요청한 모델은 실제 실행 모델을 입증하지 않습니다.
 

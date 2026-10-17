@@ -190,9 +190,10 @@ func TestContractUsagePricing(t *testing.T) {
 	}{
 		{"codex", "gpt-6.1-sol", codex, 1.91},
 		{"codex", "gpt-5.6-sol", codex, 3.94},
-		{"claude", "claude-sonnet-5-5", claude, 1.97},
-		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_5m_input_tokens":100000},"output_tokens":100000}}`).Usage, 1.97},
-		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_1h_input_tokens":50000},"output_tokens":100000}}`).Usage, 2.045},
+		{"codex", "gpt-6-astra", codex, 9.85},
+		{"claude", "claude-sonnet-5-5", claude, 1.91},
+		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_5m_input_tokens":100000},"output_tokens":100000}}`).Usage, 1.91},
+		{"claude", "claude-sonnet-5-5", parseClaude(`{"type":"result","usage":{"input_tokens":300000,"cache_read_input_tokens":600000,"cache_creation_input_tokens":100000,"cache_creation":{"ephemeral_1h_input_tokens":50000},"output_tokens":100000}}`).Usage, 1.985},
 	} {
 		t.Run(tc.model, func(t *testing.T) {
 			got := EstimateUsage(tc.usage, tc.provider, tc.model, "audit")
@@ -200,7 +201,7 @@ func TestContractUsagePricing(t *testing.T) {
 				t.Fatalf("incorrect estimate: %+v", got)
 			}
 			detail := got.CostEstimates[0]
-			if detail.Rates.CheckedAt != "2026-10-07" || !strings.HasPrefix(detail.Rates.SourceURL, "https://artificialanalysis.ai/") || detail.Rates.SupplementalSourceURL == "" || detail.RequestedModel != tc.model || detail.Assumption == "" {
+			if detail.Rates.CheckedAt != "2026-10-17" || !strings.HasPrefix(detail.Rates.SourceURL, "https://artificialanalysis.ai/") || detail.Rates.SupplementalSourceURL == "" || detail.RequestedModel != tc.model || detail.Assumption == "" {
 				t.Fatalf("missing price provenance: %+v", detail)
 			}
 			if got.InputTokens != 1000000 || got.UncachedInputTokens != 300000 {

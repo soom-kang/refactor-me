@@ -253,9 +253,9 @@ The CLI adds elapsed time and stage/provider context to these logs by default. S
 
 Compare `state.baseOid` with `state.publishedOid` in the source repository. The comparison includes net published changes and characterization commits, even after worktree cleanup.
 
-- Preview: file statistics and three context lines; at most 200 complete lines or UTF-8 32 KiB.
-- `changes.patch`: the full text patch, omitting binary bodies while retaining binary and file-mode metadata. External diff and textconv are disabled.
+- Report: file statistics and a link to `changes.md`; the diff stays in the separate Markdown file. Older reports without a saved Markdown file, or Markdown write failures, fall back to a preview with three context lines, at most 200 complete lines or UTF-8 32 KiB, and a patch link.
 - `changes.md`: a file review checklist with status, additions/deletions, rename and mode metadata, followed by the complete text patch. Checkboxes record human review; they do not select changes or modify the result branch. Editing the checklist leaves `changes.patch` unchanged.
+- `changes.patch`: the retained raw text patch for tooling and fallback, omitting binary bodies while retaining binary and file-mode metadata. External diff and textconv are disabled.
 
 The optional `codeComparison` object in `report.json` contains:
 
@@ -287,7 +287,16 @@ Viewing a report does not recollect the comparison. `accepted.patch` is a pre-re
 
 Failed calls and schema-repair processes count toward usage. Provider-reported USD totals include only calls that supplied a price. Missing prices are unknown rather than zero; the estimates below are shown separately.
 
-The CLI uses provider-reported USD first. A missing price can receive an offline standard API estimate from bundled rates checked on **2026-10-07**, using [Artificial Analysis](https://artificialanalysis.ai/) with provider documentation for cache rates. Exact supported IDs are Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, and Claude `claude-sonnet-5-5`; aliases are not guessed. Pricing is not fetched during a run or report viewing.
+The CLI uses provider-reported USD first. A missing price can receive an offline standard API estimate from bundled rates checked on **2026-10-17**, using [Artificial Analysis](https://artificialanalysis.ai/) with provider documentation for cache rates. Exact supported IDs are Codex `gpt-5.6-sol`, Codex `gpt-6.1-sol`, Codex `gpt-6-astra`, and Claude `claude-sonnet-5-5`; aliases are not guessed. Pricing is not fetched during a run or report viewing. An unsupported model means this tool version has no bundled rate, not that the model is absent from Artificial Analysis.
+
+Standard rates in USD per million tokens:
+
+| Model | Input | Cache read | Cache write | Output | Sources |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `gpt-5.6-sol` | 4 | 0.40 | 5 | 20 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-5-6-sol-vs-gpt-5-4), [provider](https://developers.openai.com/api/docs/models/gpt-5.6-sol) |
+| `gpt-6.1-sol` | 2 | 0.10 | 2.50 | 10 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5), [provider](https://developers.openai.com/api/docs/models/gpt-6.1-sol) |
+| `gpt-6-astra` | 10 | 1 | 12.50 | 50 | [AA](https://artificialanalysis.ai/models/gpt-6-astra), [provider](https://developers.openai.com/api/docs/models/gpt-6-astra) |
+| `claude-sonnet-5-5` | 2 | 0.10 | 2.50 (5m), 4 (1h) | 10 | [AA](https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5), [provider](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) |
 
 Each estimate records the requested model, token categories, rates, source URLs, checked date and assumptions. Cached input and cache writes use separate rates. Reasoning output is included in output tokens and is not charged twice. Missing cache fields are assumed zero and noted; missing Claude cache-write TTL assumes five minutes and is noted. Estimates assume standard API pricing without speed, region, batch or long-context modifiers and do not calculate ChatGPT/Codex/Claude subscription charges. Requested models do not prove executed models.
 

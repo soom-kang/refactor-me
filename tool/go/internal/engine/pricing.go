@@ -40,7 +40,7 @@ type CostEstimateMissing struct {
 }
 
 func bundledRate(provider, model string) (PricingRate, bool) {
-	rate := PricingRate{CheckedAt: "2026-10-07"}
+	rate := PricingRate{CheckedAt: "2026-10-17"}
 	switch {
 	case provider == "codex" && model == "gpt-5.6-sol":
 		rate.InputUSDPerMillion, rate.CachedInputUSDPerMillion, rate.CacheWriteUSDPerMillion, rate.OutputUSDPerMillion = 4, 0.4, 5, 20
@@ -50,8 +50,12 @@ func bundledRate(provider, model string) (PricingRate, bool) {
 		rate.InputUSDPerMillion, rate.CachedInputUSDPerMillion, rate.CacheWriteUSDPerMillion, rate.OutputUSDPerMillion = 2, 0.1, 2.5, 10
 		rate.SourceURL = "https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5"
 		rate.SupplementalSourceURL = "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+	case provider == "codex" && model == "gpt-6-astra":
+		rate.InputUSDPerMillion, rate.CachedInputUSDPerMillion, rate.CacheWriteUSDPerMillion, rate.OutputUSDPerMillion = 10, 1, 12.5, 50
+		rate.SourceURL = "https://artificialanalysis.ai/models/gpt-6-astra"
+		rate.SupplementalSourceURL = "https://developers.openai.com/api/docs/models/gpt-6-astra"
 	case provider == "claude" && model == "claude-sonnet-5-5":
-		rate.InputUSDPerMillion, rate.CachedInputUSDPerMillion, rate.CacheWriteUSDPerMillion, rate.OutputUSDPerMillion = 2, 0.2, 2.5, 10
+		rate.InputUSDPerMillion, rate.CachedInputUSDPerMillion, rate.CacheWriteUSDPerMillion, rate.OutputUSDPerMillion = 2, 0.1, 2.5, 10
 		rate.CacheWrite1hUSDPerMillion = 4
 		rate.SourceURL = "https://artificialanalysis.ai/models/comparisons/gpt-6-1-sol-xhigh-vs-claude-sonnet-5-5"
 		rate.SupplementalSourceURL = "https://platform.claude.com/docs/en/models/sonnet-5-5/overview"

@@ -177,12 +177,12 @@ refactor-me report --repo /path/to/target-repo --json
 
 1. 종료 상태와 중단 이유를 확인합니다. 종료 코드 `0`에는 부분 완료도 포함됩니다.
 2. 검증 결과, 생략한 검사, provider 사용량을 확인합니다. 비용이 없으면 0원이 아니라 미확인입니다.
-3. 로컬 결과 branch와 `.refactor/runs/<id>/changes.patch`를 읽습니다. 발행한 변경이 없으면 patch나 결과 branch가 없을 수 있습니다.
+3. 로컬 결과 branch와 `.refactor/runs/<id>/changes.md`를 읽습니다. 발행한 변경이 없으면 결과 branch가 없을 수 있으며 Markdown에는 비교 상태를 기록합니다.
 4. diff를 검토하고 생략된 통합·브라우저 검사를 실행한 뒤 직접 병합합니다.
 
-결과 branch는 `refactor/auto-*` 형식입니다. CLI는 자동 병합, push, 배포를 하지 않습니다. `accepted.patch`는 중간 검토 자료이며, 최종 발행한 변경은 `changes.patch`로 확인합니다.
+결과 branch는 `refactor/auto-*` 형식입니다. CLI는 자동 병합, push, 배포를 하지 않습니다. `accepted.patch`는 중간 검토 자료이며, 최종 발행한 변경은 `changes.md`로 확인합니다.
 
-CLI는 `.refactor/runs/<id>/changes.md`도 저장합니다. Markdown 편집기에서 파일 체크리스트와 전체 텍스트 diff를 읽으세요. 체크는 검토 진행 표시이며 branch에 반영할 변경을 선택하거나 제외하지 않습니다. `changes.patch`는 그대로 보존하고 바이너리 변경은 메타데이터로 표시합니다. 보고서를 조회해도 체크리스트와 저장된 근거는 바뀌지 않습니다.
+보고서는 diff를 본문에 넣지 않고 별도 Markdown 파일로 연결합니다. Markdown 편집기에서 파일 체크리스트와 전체 텍스트 diff를 읽으세요. 체크는 검토 진행 표시이며 branch에 반영할 변경을 선택하거나 제외하지 않습니다. `changes.patch`는 그대로 보존하고 바이너리 변경은 메타데이터로 표시합니다. 보고서를 조회해도 체크리스트와 저장된 근거는 바뀌지 않습니다. Markdown이 없는 이전 보고서나 Markdown 저장 실패 시에는 미리보기와 `changes.patch` 링크를 유지합니다.
 
 보고서의 provider 보고액과 추정액은 따로 읽으세요. 지원하는 정확한 모델에서 비용을 보고하지 않으면 오프라인 [Artificial Analysis](https://artificialanalysis.ai/) 표준 API 단가를 사용하고 출처, 확인 날짜와 가정을 기록합니다. 구독 청구액이 아니며 알 수 없는 모델이나 누락된 사용량은 미확인으로 남습니다. 일부 금액만 있는 합계를 읽기 전에 [사용량 규칙](README.ko.md#usage-and-exit-codes)을 확인하세요.
 

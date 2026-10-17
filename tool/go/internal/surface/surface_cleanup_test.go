@@ -96,7 +96,7 @@ func TestReportAccountedCostAndLimits(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{"$0.4500", "$0.3000", "$0.1500", "30m02s", "2026-10-07", "| 50,000 | 50,000 | 10,000 | 1,000 | 1,350 | $0.1500 |", []string{"Unpriced", "미산정"}[i], []string{"No bundled rate", "단가표에 없는 모델"}[i]} {
+		for _, want := range []string{"$0.4500", "$0.3000", "$0.1500", "30m02s", "2026-10-07", "| 50,000 | 50,000 | 10,000 | 1,000 | 1,350 | $0.1500 |", []string{"Unpriced", "미산정"}[i], []string{"tool version used for this run", "실행 당시 도구 버전의 내장 단가표"}[i], []string{"prices are not fetched live", "사이트를 실시간 조회하지 않습니다"}[i]} {
 			if !strings.Contains(md, want) {
 				t.Fatalf("%s report lacks %s", lang, want)
 			}

@@ -177,12 +177,12 @@ Report viewing makes no model calls. Language selection does not rewrite the sav
 
 1. Check the terminal status and stop reason. Exit `0` includes partial completion.
 2. Check validation, skipped checks and provider usage. Missing cost is unknown, not zero.
-3. Inspect the local result branch and `.refactor/runs/<id>/changes.patch`. No published changes means there may be no patch or result branch.
+3. Inspect the local result branch and `.refactor/runs/<id>/changes.md`. No published changes means there may be no result branch; the Markdown records the comparison state.
 4. Review the diff and run any omitted integration or browser checks before merging yourself.
 
-Results use local `refactor/auto-*` branches. The CLI does not merge, push or deploy. `accepted.patch` is intermediate review input; use `changes.patch` for the final published comparison.
+Results use local `refactor/auto-*` branches. The CLI does not merge, push or deploy. `accepted.patch` is intermediate review input; use `changes.md` for the final published comparison.
 
-The CLI also writes `.refactor/runs/<id>/changes.md`. Review its file checklist and full text diff in your Markdown editor. Checkboxes mark review progress; they do not include/exclude changes from the branch, and `changes.patch` remains unchanged. Binary changes show metadata. Viewing reports preserves the checklist and saved evidence.
+The report links to this separate Markdown file instead of embedding the diff. Review its file checklist and full text diff in your Markdown editor. Checkboxes mark review progress; they do not include/exclude changes from the branch, and `changes.patch` remains unchanged. Binary changes show metadata. Viewing reports preserves the checklist and saved evidence. Older reports without a saved Markdown file, or Markdown write failures, retain a preview and `changes.patch` link.
 
 Read provider-reported and estimated USD separately in the report. Supported exact models with missing provider prices use offline [Artificial Analysis](https://artificialanalysis.ai/) standard API rates with sources, checked dates and assumptions. The estimate is not a subscription bill; unknown models or missing usage remain unpriced. See [usage rules](README.md#usage-and-exit-codes) before interpreting a partial total.
 

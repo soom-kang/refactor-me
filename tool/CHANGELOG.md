@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.10.0-beta.8
+
+- Add dated standard API estimates for Codex `gpt-6-astra` and correct Claude Sonnet 5.5 cache-read pricing to USD 0.10 per million tokens. Recheck all bundled rates on 2026-10-17; clarify that unknown models are absent from the bundled table, not necessarily from Artificial Analysis. Preserve provider-reported prices and historical reports without retroactive repricing.
+- Keep the full committed diff in `changes.md` and show its link with file statistics in the report. Omit the duplicate inline preview and patch link when Markdown was saved; retain the legacy and Markdown-write-failure fallback and raw patch evidence.
+- Use the active Git author and committer identity for refactor and characterization commits instead of a fixed `refactor-me` account. Preserve Git configuration and explicit environment overrides; stop without guessing an identity when required configuration is missing. Branch-conditioned includes are evaluated in the detached run worktree.
+- Add regression coverage for Astra cache accounting, missing/invalid usage and timeout subtotals, bilingual Markdown report selection/fallback, and Git identity precedence and missing-identity preservation.
+
 ## 0.10.0-beta.7
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.7) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38195197188) · [Beta.6 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38195202547). Release commit: `daec4844affaca08d1e42dd394be12636fa84312`.

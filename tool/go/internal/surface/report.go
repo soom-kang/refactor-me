@@ -395,7 +395,8 @@ func renderCodeComparison(comparison map[string]any, language string) []string {
 	}
 	lines = append(lines, label(language, "Base commit", "시작 커밋")+": `"+fallback(val(comparison, "baseCommit"), "-")+"`", "",
 		label(language, "Published commit", "최종 반영 커밋")+": `"+fallback(val(comparison, "resultCommit"), "-")+"`", "")
-	if markdown := val(comparison, "markdownFile"); markdown != "" {
+	markdown := val(comparison, "markdownFile")
+	if markdown != "" {
 		lines = append(lines, "["+label(language, "Full changes and review checklist", "전체 변경과 검토 체크리스트")+"]("+markdown+")", "")
 	}
 	if markdownError := val(comparison, "markdownError"); markdownError != "" {
@@ -406,6 +407,9 @@ func renderCodeComparison(comparison map[string]any, language string) []string {
 		return append(lines, label(language, "Code comparison is unavailable. The run result is unchanged.", "코드 비교를 수집하지 못했습니다. 실행 결과에는 영향을 주지 않습니다."), "", fencedEvidence(val(comparison, "error"), ""))
 	case "NO_CHANGES":
 		lines = append(lines, label(language, "No committed code changes.", "커밋된 코드 변경이 없습니다."))
+		if markdown != "" {
+			return lines
+		}
 		return comparisonPatchLink(lines, comparison, language)
 	}
 	totals := obj(comparison["totals"])
@@ -437,7 +441,11 @@ func renderCodeComparison(comparison map[string]any, language string) []string {
 		}
 		lines = append(lines, fmt.Sprintf("| %s | %s | %s | %s | %s → %s |", name, statusText, displayNumber(file["insertions"]), displayNumber(file["deletions"]), val(file, "oldMode"), val(file, "newMode")))
 	}
-	lines = append(lines, "", label(language, "The comparison includes published characterization commits. Rejected or rolled-back edits are excluded.", "최종 반영된 characterization 커밋을 포함합니다. 거절되거나 롤백된 수정은 제외합니다."), "", label(language, "### Diff preview", "### Diff 미리보기"), "", fencedEvidence(val(comparison, "preview"), "diff"))
+	lines = append(lines, "", label(language, "The comparison includes published characterization commits. Rejected or rolled-back edits are excluded.", "최종 반영된 characterization 커밋을 포함합니다. 거절되거나 롤백된 수정은 제외합니다."))
+	if markdown != "" {
+		return lines
+	}
+	lines = append(lines, "", label(language, "### Diff preview", "### Diff 미리보기"), "", fencedEvidence(val(comparison, "preview"), "diff"))
 	if comparison["truncated"] == true {
 		lines = append(lines, "", label(language, "Preview omitted after 200 lines or 32 KiB, at a line boundary. See the full text patch below.", "200줄 또는 32 KiB 한도에서 줄 단위로 미리보기를 생략했습니다. 아래 전체 텍스트 patch를 확인하세요."))
 	}
@@ -651,7 +659,7 @@ func renderAccountedCost(total map[string]any, language string) []string {
 	if numeric(total["estimateMissing"]) > 0 {
 		lines = append(lines, label(language, "- Partial accounting: unpriced invocations are excluded from the amount, not treated as zero.", "- 일부 호출이 미산정 상태입니다. 집계 금액에서 빠져 있으며 비용이 0이라는 뜻은 아닙니다."))
 	}
-	lines = append(lines, label(language, "- Missing provider prices use bundled Artificial Analysis rates for the requested model at Standard API pricing. This is an API-equivalent estimate, not a subscription or credit bill; speed, region, batch and long-context modifiers are not observed.", "- 미보고 금액은 요청한 모델의 Artificial Analysis 단가표와 Standard API 기준으로 환산합니다. 구독·credit 청구액과 다르며 속도·지역·Batch·긴 context의 추가 요금은 관측하지 않습니다."))
+	lines = append(lines, label(language, "- Missing provider prices use bundled Artificial Analysis rates for the requested model at Standard API pricing; prices are not fetched live. This is an API-equivalent estimate, not a subscription or credit bill; speed, region, batch and long-context modifiers are not observed.", "- 미보고 금액은 도구에 내장된 Artificial Analysis 단가와 Standard API 기준으로 환산하며, 사이트를 실시간 조회하지 않습니다. 구독·credit 청구액과 다르며 속도·지역·Batch·긴 context의 추가 요금은 관측하지 않습니다."))
 	return lines
 }
 
@@ -695,7 +703,7 @@ func renderEstimateSources(total map[string]any, language string) []string {
 
 func estimateExplanation(code, language string) string {
 	explanations := map[string][2]string{
-		"UNKNOWN_MODEL":                    {"No bundled rate for this model", "단가표에 없는 모델"},
+		"UNKNOWN_MODEL":                    {"No bundled rate for the requested model in the tool version used for this run", "실행 당시 도구 버전의 내장 단가표에 요청한 모델이 없음"},
 		"MISSING_USAGE":                    {"Token usage not reported", "토큰 사용량 미보고"},
 		"INVALID_USAGE":                    {"Invalid token usage", "잘못된 토큰 사용량"},
 		"MISSING_CACHE_READ_ASSUMED_ZERO":  {"Cache read not reported; assumed zero tokens", "Cache read 미보고로 0개를 가정"},

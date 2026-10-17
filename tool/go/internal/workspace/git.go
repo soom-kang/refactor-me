@@ -478,6 +478,7 @@ func WriteTree(wt string) (string, error) {
 }
 
 // CommitApproved runs hooks and refuses publication when hooks change the approved tree.
+// Git resolves the active identity; missing configuration must not invent one.
 func CommitApproved(wt, messageFile, approvedTree string) (string, error) {
 	before, err := WriteTree(wt)
 	if err != nil {
@@ -486,7 +487,7 @@ func CommitApproved(wt, messageFile, approvedTree string) (string, error) {
 	if before != approvedTree {
 		return "", fmt.Errorf("staged tree differs from approved tree")
 	}
-	_, err = Git(wt, "-c", "user.name=refactor-me", "-c", "user.email=refactor-me@local", "commit", "-F", messageFile)
+	_, err = Git(wt, "-c", "user.useConfigOnly=true", "commit", "-F", messageFile)
 	if err != nil {
 		return "", fmt.Errorf("%w: commit or hook failed: %v", ErrUnsafe, err)
 	}

@@ -44,6 +44,10 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 
 검토는 별도 세션에서 진행하며 설정에 따라 다른 가용 provider를 우선합니다. `FAIL`, `BLOCKER`, 또는 `PRESERVED` 이외의 평가는 변경을 거부합니다. `HIGH` 지적만으로는 `PASS`를 뒤집지 않으므로 병합 전에 지적 내용을 읽어야 합니다.
 
+리팩토링과 characterization 커밋은 실행 worktree에서 활성화된 Git 작성자 정보를 사용합니다. 저장소·전역 `user.name`과 `user.email`, worktree 설정과 명시적인 Git author/committer 환경변수의 우선순위를 따릅니다. CLI는 봇 계정으로 대체하거나 Git 설정을 수정하지 않습니다. 커밋 명령에만 `user.useConfigOnly=true`를 적용하므로 작성자 정보가 없으면 운영체제 계정을 추측하지 않고 발행을 중단합니다.
+
+실행 worktree는 detached 상태이므로 원본 branch에 대한 `includeIf.onbranch` 조건은 적용되지 않습니다. 실행 worktree에서도 같은 작성자를 쓰려면 저장소 설정이나 해당 Git 경로에 맞는 `includeIf.gitdir` 조건을 사용하세요.
+
 커밋 hook도 실행합니다. hook이 검토한 tree를 바꾸거나 작업 변경을 남기면 `HALTED_UNSAFE`로 발행을 중단합니다. 결과 branch 갱신 시 이전 OID를 확인하므로 다른 갱신과 충돌해도 발행하지 않습니다.
 
 공개 Beta.7에 [QA 수정](../docs/qa/2026-10-12-remediation.md)을 반영했습니다. Commit 또는 발행 전 원본 drift는 사용자 수정을 되돌리지 않고 `HALTED_UNSAFE`로 정지합니다. 검증 cwd는 실제 worktree 안에 있어야 합니다. Hydration은 복사 전후 링크를 검사하고 안전하지 않은 입력 전체를 생략합니다. 이 검사는 filesystem lock이나 신뢰된 명령의 OS sandbox는 아닙니다.

@@ -42,6 +42,10 @@ Preflight must report `READY_TO_EXECUTE`, a `FALSIFIED` failure hypothesis and n
 
 Review uses a separate session, preferring the other available provider when configured. `FAIL`, `BLOCKER`, or an assessment other than `PRESERVED` rejects the change. A `HIGH` finding alone does not override `PASS`; read the findings before merging.
 
+Refactor and characterization commits use the active Git identity in the run worktree, including repository/global `user.name` and `user.email`, worktree configuration and explicit Git author/committer environment overrides. The CLI does not replace them with a bot identity or modify Git configuration. It sets `user.useConfigOnly=true` for the commit command, so missing identity stops publication instead of guessing an operating-system account.
+
+The run worktree is detached, so `includeIf.onbranch` conditions for the source branch do not apply there. Use repository configuration or a matching `includeIf.gitdir` condition for an identity shared with the run worktree.
+
 Commit hooks run. Hook changes to the reviewed tree or residual working changes stop publication with `HALTED_UNSAFE`. Updating the result branch checks its previous OID, so a conflicting update also stops publication.
 
 Public Beta.7 includes the [QA fixes](../docs/qa/2026-10-12-remediation.md). Source drift before commit or publication stops with `HALTED_UNSAFE` without restoring user source edits. Validation cwd must resolve inside the worktree. Hydration inspects links before and after copying and skips the entire unsafe input; these checks are not a filesystem lock or an OS sandbox for trusted commands.

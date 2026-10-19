@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -298,11 +299,15 @@ func TestPhaseEvidencePreservesFailuresWithoutRawOutput(t *testing.T) {
 	r := runner{state: &runState{BaseOID: "base"}, baseline: workspace.Baseline{
 		Usable: true, Describe: "GREEN 1 / RED-differential 1 of 3",
 		Results: []workspace.CommandResult{
-			{Command: workspace.Command{ID: "lint"}, Status: workspace.StatusGreen, ExitCode: &zero},
+			{Command: workspace.Command{ID: "lint", Name: "lint", Area: "web", Cwd: "web", Argv: []string{"PRIVATE_ARGV"}}, Status: workspace.StatusGreen, ExitCode: &zero},
 			{Command: workspace.Command{ID: "test"}, Status: workspace.StatusRed, ExitCode: &one, StderrTail: "PRIVATE_OUTPUT"},
 			{Command: workspace.Command{ID: "build"}, Status: workspace.StatusUnrunnable, SpawnError: "PRIVATE_ERROR"},
 		},
 	}}
+	r.validation = &engine.ValidationEvidence{
+		TreeBeforeChecks: "checked-tree", Scope: []string{"web"}, ValidationAccepted: true,
+		Checks: checkEvidence(r.baseline.Results[:2]),
+	}
 	evidence := r.phaseEvidence()
 	if !evidence.BaselineUsable || evidence.Characterization != nil || len(evidence.BaselineChecks) != 3 {
 		t.Fatalf("lost measured evidence: %+v", evidence)
@@ -311,13 +316,16 @@ func TestPhaseEvidencePreservesFailuresWithoutRawOutput(t *testing.T) {
 	if checks[1].Status != "RED" || *checks[1].ExitCode != 1 || checks[2].Status != "UNRUNNABLE" || checks[2].ExitCode != nil {
 		t.Fatalf("failed or unavailable checks were misrepresented: %+v", checks)
 	}
+	if evidence.Validation == nil || !evidence.Validation.ValidationAccepted || evidence.Validation.Checks[1].Status != "RED" || *evidence.Validation.Checks[1].ExitCode != 1 || checks[0].Name != "lint" || checks[0].Area != "web" || checks[0].Cwd != "web" {
+		t.Fatalf("accepted validation lost failures or command scope: %+v", evidence)
+	}
 	data, err := json.Marshal(evidence)
 	if err != nil || strings.Contains(string(data), "PRIVATE_") {
 		t.Fatalf("raw diagnostic output entered a prompt: %s: %v", data, err)
 	}
 }
 
-func TestRunCarriesCharacterizationAndBaselineEvidenceToExecution(t *testing.T) {
+func TestRunCarriesMeasuredEvidenceAcrossCandidatePhases(t *testing.T) {
 	f := newProgressRunFixture(t)
 	if err := os.MkdirAll(filepath.Join(f.repo, "test"), 0755); err != nil {
 		t.Fatal(err)
@@ -417,24 +425,48 @@ esac
 	if got := gitTest(t, wt, "show", "HEAD:"+testPath); got != "// pinned entrypoint behavior" {
 		t.Fatalf("execution changed the prepared tests: %q", got)
 	}
-	for _, phase := range []string{"preflight", "execute"} {
-		prompts, err := filepath.Glob(filepath.Join(runDir, "cycles", "01-*", "provider", phase+"-codex-primary.prompt.md"))
-		if err != nil || len(prompts) != 1 {
-			t.Fatalf("missing %s prompt: %v, %v", phase, prompts, err)
-		}
-		data, err := os.ReadFile(prompts[0])
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, record, _ := strings.Cut(string(data), "<<<ORCHESTRATOR_EVIDENCE id=")
-		_, record, _ = strings.Cut(record, ">>>\n")
-		record, _, _ = strings.Cut(record, "\n<<<END_ORCHESTRATOR_EVIDENCE")
-		var evidence engine.PhaseEvidence
-		if err := json.Unmarshal([]byte(record), &evidence); err != nil {
-			t.Fatal(err)
-		}
-		if evidence.BaseCommit != f.base || evidence.Characterization == nil || evidence.Characterization.Commit != commits[0]["oid"] || len(evidence.Characterization.Files) != 2 || len(evidence.Characterization.CreatedFiles) != 1 || evidence.Characterization.CreatedFiles[0] != testPath {
-			t.Fatalf("%s lost provenance or exempted an existing file: %+v", phase, evidence)
+	for cycle, pattern := range []string{"01-*", "02-*"} {
+		for _, phase := range []string{"preflight", "execute", "review"} {
+			prompts, err := filepath.Glob(filepath.Join(runDir, "cycles", pattern, "provider", phase+"-codex-primary.prompt.md"))
+			if err != nil || len(prompts) != 1 {
+				t.Fatalf("missing %s prompt: %v, %v", phase, prompts, err)
+			}
+			data, err := os.ReadFile(prompts[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, record, _ := strings.Cut(string(data), "<<<ORCHESTRATOR_EVIDENCE id=")
+			_, record, _ = strings.Cut(record, ">>>\n")
+			record, _, _ = strings.Cut(record, "\n<<<END_ORCHESTRATOR_EVIDENCE")
+			var evidence engine.PhaseEvidence
+			if err := json.Unmarshal([]byte(record), &evidence); err != nil {
+				t.Fatal(err)
+			}
+			if evidence.BaseCommit != f.base {
+				t.Fatalf("%s lost baseline provenance: %+v", phase, evidence)
+			}
+			if cycle == 0 && (evidence.Characterization == nil || evidence.Characterization.Commit != commits[0]["oid"] || len(evidence.Characterization.Files) != 2 || len(evidence.Characterization.CreatedFiles) != 1 || evidence.Characterization.CreatedFiles[0] != testPath) {
+				t.Fatalf("%s lost provenance or exempted an existing file: %+v", phase, evidence)
+			}
+			if cycle == 1 && evidence.Characterization != nil {
+				t.Fatalf("%s reused previous candidate's characterization", phase)
+			}
+			if phase == "review" {
+				data, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(prompts[0])), "validation.json"))
+				var validation workspace.Ladder
+				if err != nil || json.Unmarshal(data, &validation) != nil {
+					t.Fatalf("cannot read validation: %s: %v", data, err)
+				}
+				want := engine.ValidationEvidence{
+					TreeBeforeChecks: gitTest(t, wt, "rev-parse", str(commits[cycle+1]["oid"])+"^{tree}"),
+					Scope:            validation.Scope, ValidationAccepted: validation.OK, Checks: checkEvidence(validation.Checks),
+				}
+				if evidence.Validation == nil || !reflect.DeepEqual(*evidence.Validation, want) {
+					t.Fatalf("review lost current candidate's validation: got %+v, want %+v", evidence.Validation, want)
+				}
+			} else if evidence.Validation != nil {
+				t.Fatalf("%s reused previous candidate's validation", phase)
+			}
 		}
 	}
 }

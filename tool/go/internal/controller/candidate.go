@@ -13,6 +13,7 @@ import (
 
 func (r *runner) runCandidate(candidate map[string]any) error {
 	r.characterization = nil
+	r.validation = nil
 	r.candidateLabel = candidateDescription(candidate, r.surface.Args.Language)
 	defer r.endProgress()
 	fp := str(candidate["fp"])
@@ -424,6 +425,10 @@ func (r *runner) gate(packet map[string]any, dir, preOID string) (bool, error) {
 		return false, r.fail(str(packet["fp"]), kind, why, nil, false)
 	}
 	r.gateFacts = facts
+	r.validation = &engine.ValidationEvidence{
+		TreeBeforeChecks: facts.ProspectiveTree, Scope: ladder.Scope,
+		ValidationAccepted: ladder.OK, Checks: checkEvidence(ladder.Checks),
+	}
 	return true, nil
 }
 
@@ -451,7 +456,7 @@ func (r *runner) review(packet, execution map[string]any, dir string) (bool, err
 			}
 		}
 	}
-	call, err := r.callPhase("review", dir, reviewer, engine.PromptArgs{Packet: packet, Diff: diff, Rationale: str(execution["rationale"])})
+	call, err := r.callPhase("review", dir, reviewer, engine.PromptArgs{Packet: packet, Diff: diff, PhaseEvidence: r.phaseEvidence()})
 	if err != nil {
 		return false, err
 	}

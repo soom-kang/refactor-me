@@ -36,12 +36,23 @@ type PhaseEvidence struct {
 	BaselineUsable   bool                      `json:"baseline_usable"`
 	BaselineChecks   []CheckEvidence           `json:"baseline_checks"`
 	Characterization *CharacterizationEvidence `json:"characterization"`
+	Validation       *ValidationEvidence       `json:"validation"`
 }
 
 type CheckEvidence struct {
 	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Area     string `json:"area"`
+	Cwd      string `json:"cwd"`
 	Status   string `json:"status"`
 	ExitCode *int   `json:"exit_code"`
+}
+
+type ValidationEvidence struct {
+	TreeBeforeChecks   string          `json:"tree_before_checks"`
+	Scope              []string        `json:"scope"`
+	ValidationAccepted bool            `json:"validation_accepted"`
+	Checks             []CheckEvidence `json:"checks"`
 }
 
 type CharacterizationEvidence struct {
@@ -72,7 +83,6 @@ type PromptArgs struct {
 	BaselineSummary string
 	PhaseEvidence   *PhaseEvidence
 	Diff            string
-	Rationale       string
 	DeadProvider    string
 	LiveProvider    string
 	FailureClass    string
@@ -154,7 +164,7 @@ func BuildPrompt(phase string, a PromptArgs) (string, error) {
 		"__CYCLE__", fmt.Sprint(a.Cycle), "__AREA_SKILLS__", a.AreaSkills, "__COMMANDS__", a.Commands,
 		"__CANDIDATE_JSON__", candidateJSON, "__PACKET_JSON__", packetJSON, "__BASELINE__", a.BaselineSummary,
 		"__PHASE_EVIDENCE__", jsonOf(a.PhaseEvidence),
-		"__REVIEW_JSON__", jsonOf(review), "__DIFF__", a.Diff, "__RATIONALE__", defaultString(a.Rationale, "(none given)"),
+		"__REVIEW_JSON__", jsonOf(review), "__DIFF__", a.Diff,
 		"__DEAD_PROVIDER__", a.DeadProvider, "__LIVE_PROVIDER__", a.LiveProvider, "__FAILURE_CLASS__", a.FailureClass,
 		"__STATE_JSON__", a.StateJSON, "__JOURNAL_TAIL__", a.JournalTail, "__GIT_LOG__", a.GitLog,
 	}

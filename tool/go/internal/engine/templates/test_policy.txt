@@ -39,4 +39,4 @@ Preflight and review apply the same standard: do not reject a proven pure deleti
 solely for missing new tests, and do not accept an unproven deletion because tests
 pass. Preserve existing assertions, phase write boundaries and controller gates.
 Run required existing checks; do not create redundant validation scripts or rerun
-unchanged checks without new evidence, edits or failures that justify it.
+unchanged checks without relevant code/environment changes or new failure evidence.

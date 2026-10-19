@@ -38,6 +38,7 @@ type runner struct {
 	progress                      *progressLogger
 	candidateLabel                string
 	characterization              *engine.CharacterizationEvidence
+	validation                    *engine.ValidationEvidence
 }
 
 func (r *runner) contextErr() error {

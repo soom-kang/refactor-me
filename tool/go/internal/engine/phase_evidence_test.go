@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -11,11 +12,12 @@ func TestCandidatePromptsCarryMeasuredEvidence(t *testing.T) {
 	evidence := &PhaseEvidence{BaseCommit: "base-oid", BaselineSummary: "GREEN 1 / RED-differential 0 of 1", BaselineUsable: true,
 		BaselineChecks:   []CheckEvidence{{ID: "web:lint", Status: "GREEN", ExitCode: &zero}},
 		Characterization: &CharacterizationEvidence{Commit: "test-oid", Files: []string{"test/behavior.test.ts"}, ValidationAccepted: true},
+		Validation:       &ValidationEvidence{TreeBeforeChecks: "checked-tree", Scope: []string{"web"}, ValidationAccepted: true, Checks: []CheckEvidence{{ID: "web:lint", Name: "lint", Area: "web", Cwd: "web", Status: "GREEN", ExitCode: &zero}}},
 	}
 	for _, provider := range []string{"codex", "claude"} {
 		for _, category := range []string{"DEAD_CODE", "DEDUPLICATION"} {
 			for _, targets := range [][]string{nil, {"src"}} {
-				for _, phase := range []string{"deep_check", "characterization", "preflight", "execute"} {
+				for _, phase := range []string{"deep_check", "characterization", "preflight", "execute", "review"} {
 					prompt, err := BuildPrompt(phase, PromptArgs{Provider: provider, Nonce: "fixture", Targets: targets,
 						Candidate: map[string]any{"category": category}, Packet: map[string]any{"category": category}, PhaseEvidence: evidence})
 					if err != nil {
@@ -27,6 +29,9 @@ func TestCandidatePromptsCarryMeasuredEvidence(t *testing.T) {
 					var decoded PhaseEvidence
 					if !ok || !closed || json.Unmarshal([]byte(block), &decoded) != nil || decoded.BaseCommit != "base-oid" || !decoded.BaselineUsable || decoded.Characterization == nil || decoded.Characterization.Commit != "test-oid" {
 						t.Fatalf("%s/%s/%s lost phase evidence: %s", provider, category, phase, block)
+					}
+					if !reflect.DeepEqual(decoded.Validation, evidence.Validation) {
+						t.Fatalf("%s/%s/%s lost post-edit validation: %+v", provider, category, phase, decoded.Validation)
 					}
 					if phase == "execute" {
 						flat := strings.Join(strings.Fields(prompt), " ")
@@ -43,8 +48,10 @@ func TestCandidatePromptsCarryMeasuredEvidence(t *testing.T) {
 }
 
 func TestMissingPhaseEvidenceDoesNotInventSuccess(t *testing.T) {
-	prompt, err := BuildPrompt("execute", PromptArgs{Provider: "codex", Nonce: "fixture"})
-	if err != nil || !strings.Contains(prompt, "<<<ORCHESTRATOR_EVIDENCE id=fixture>>>\nnull\n") || !strings.Contains(prompt, "Missing evidence remains unknown") {
-		t.Fatalf("missing evidence was not explicit: %v\n%s", err, prompt)
+	for _, phase := range []string{"execute", "review"} {
+		prompt, err := BuildPrompt(phase, PromptArgs{Provider: "codex", Nonce: "fixture"})
+		if err != nil || !strings.Contains(prompt, "<<<ORCHESTRATOR_EVIDENCE id=fixture>>>\nnull\n") || !strings.Contains(prompt, "Missing evidence remains unknown") {
+			t.Fatalf("%s missing evidence was not explicit: %v\n%s", phase, err, prompt)
+		}
 	}
 }

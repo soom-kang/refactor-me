@@ -87,6 +87,32 @@ You have deliberately NOT been given the implementer's verdict, hunk
 classifications, or justifications. Derive your own from the diff and the
 contracts. That independence is the point of this phase.
 
+VALIDATION REUSE
+
+ORCHESTRATOR_EVIDENCE contains measured controller results, not the implementer's
+verdict. Its `validation` record summarizes the post-edit checks already run in
+this worktree: the tree before checks, affected scope, command names/areas/cwd,
+actual statuses and exit codes. Reuse these results by default, including lint
+and typecheck. Review the diff and contracts independently; a fresh reviewer does
+not require a fresh execution of unchanged checks.
+
+Rerun only the smallest affected existing check when concrete evidence shows a
+relevant change since validation (source, dependency/lockfile, configuration,
+toolchain or required environment), or a newly identified failure that the
+recorded check does not settle. A baseline failure already recorded and accepted
+as unchanged is not new failure evidence. Do not rerun the whole suite, disable
+caches, add flags, or create test/validation code merely to gain confidence.
+Do not change code or environment to manufacture a reason to rerun.
+
+Record reused check IDs in `notes`. For any rerun, also record the concrete
+invalidation or new failure evidence, affected command, and actual result. If it
+cannot run, report that limitation instead of claiming success or retrying
+unchanged inputs. `validation_accepted` means the controller found no regression;
+it does not turn RED into GREEN. Baseline or characterization results alone do not
+prove post-edit validation. Missing evidence remains unknown; absent, skipped,
+TIMEOUT, UNRUNNABLE and OPAQUE checks are not passes. Tree identity covers tracked
+content, not an environment fingerprint. Existing tree/source guards still apply.
+
 CHECK
 
 - Does every contract below still hold, exactly?
@@ -118,9 +144,9 @@ Anything you would merge is not a BLOCKER.
 __REVIEW_JSON__
 <<<END_CONTRACTS_AND_SCOPE id=__NONCE__>>>
 
-<<<IMPLEMENTER_RATIONALE id=__NONCE__>>>
-__RATIONALE__
-<<<END_IMPLEMENTER_RATIONALE id=__NONCE__>>>
+<<<ORCHESTRATOR_EVIDENCE id=__NONCE__>>>
+__PHASE_EVIDENCE__
+<<<END_ORCHESTRATOR_EVIDENCE id=__NONCE__>>>
 
 <<<DIFF id=__NONCE__>>>
 __DIFF__

@@ -46,6 +46,8 @@ preflight는 `READY_TO_EXECUTE`, 실패 가설의 `FALSIFIED`, 차단 이유 없
 
 검토는 별도 세션에서 진행하며 설정에 따라 다른 가용 provider를 우선합니다. `FAIL`, `BLOCKER`, 또는 `PRESERVED` 이외의 평가는 변경을 거부합니다. `HIGH` 지적만으로는 `PASS`를 뒤집지 않으므로 병합 전에 지적 내용을 읽어야 합니다.
 
+개발 버전에서는 구현자의 설명 대신 실제 기준선, characterization과 현재 후보의 검증 근거를 review에 전달합니다. 수정 후 요약에는 `validation.json`에 기록된 검사 이름·영역·작업 경로, 상태·종료 코드와 검사 전 tree, 대상 범위가 포함됩니다. review는 lint·typecheck를 포함한 기존 검사 결과를 재사용하며, 관련 코드·환경 변경이나 새로운 실패 근거가 있을 때만 영향을 받는 기존 검사 중 가장 작은 범위를 재실행합니다. review의 notes에는 재사용한 검사와 재실행 사유·명령·결과를 기록합니다. 악화되지 않아 수락한 기준선 실패도 RED로 유지하며, 근거가 없거나 생략한 검사는 미확인으로 남깁니다. 후보가 바뀌면 이전 후보에만 해당하는 근거를 초기화합니다. tree의 동일성은 환경 fingerprint가 아니며 기존 tree·원본 보호 검사는 유지합니다. 이 정책은 모델 실행 지침으로, 명령 실행을 차단하는 캐시는 아닙니다. 독립적인 동작 검토와 컨트롤러의 필수 수정 후 검증은 계속 수행합니다.
+
 리팩토링과 characterization 커밋은 실행 worktree에서 활성화된 Git 작성자 정보를 사용합니다. 저장소·전역 `user.name`과 `user.email`, worktree 설정과 명시적인 Git author/committer 환경변수의 우선순위를 따릅니다. CLI는 봇 계정으로 대체하거나 Git 설정을 수정하지 않습니다. 커밋 명령에만 `user.useConfigOnly=true`를 적용하므로 작성자 정보가 없으면 운영체제 계정을 추측하지 않고 발행을 중단합니다.
 
 실행 worktree는 detached 상태이므로 원본 branch에 대한 `includeIf.onbranch` 조건은 적용되지 않습니다. 실행 worktree에서도 같은 작성자를 쓰려면 저장소 설정이나 해당 Git 경로에 맞는 `includeIf.gitdir` 조건을 사용하세요.

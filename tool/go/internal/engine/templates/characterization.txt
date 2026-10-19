@@ -43,6 +43,8 @@ data fences below:
 4. Stay inside your phase. Do not perform the next phase's work. Do not edit
    files in a read-only phase. Do not plan a program of future work.
 
+__TEST_POLICY__
+
 SKILL ROUTING:
 - Invoke ONLY the skills named in the SKILLS line for this phase, using the exact
   sigil shown. A skill is invoked by writing its sigil and name in your reasoning.
@@ -73,9 +75,13 @@ production code, and it must pass against that unmodified code. Its purpose is t
 pin down what the code does today so that the next phase can prove it still does
 exactly that.
 
-Apply /sharpen-clarify to confirm which contracts actually need pinning, and
-/sharpen-challenge to find the contract whose silent breakage would be hardest to
-notice — that is the one most worth a test.
+Apply /sharpen-clarify to confirm the specific affected contract and evidence
+gap in the packet. Use /sharpen-challenge to check whether a new test is essential
+for that concrete regression mechanism. Do not search for extra behavior to test.
+If inspection establishes that existing evidence suffices and no new test is
+essential under the MINIMAL TEST POLICY, return PASS with empty changed_files
+and characterized_contracts and explain the no-op in notes; do not claim a
+contract was tested. Unresolved safety evidence still requires FAIL.
 
 ORCHESTRATOR EVIDENCE
 
@@ -124,10 +130,10 @@ do NOT try to restore one, and do NOT count one as a file you modified. List in
 
 WHAT TO PIN
 
-Record what the code ACTUALLY does, not what it should do. Where it is relevant,
-that means: return values for normal, boundary and legacy inputs; exception types
-and messages; side-effect count and ordering; async resolve/reject ordering;
-retry and fallback behavior; logging and analytics payloads.
+Record only the justified affected contract, as the code ACTUALLY behaves.
+Choose the fewest assertions that expose the identified regression mechanism.
+Boundary, error, ordering or side-effect cases are needed only when that mechanism
+depends on them; the packet is not a mandate to test every neighboring behavior.
 
 If current behavior looks wrong, pin it anyway and note it. An existing bug is
 observable behavior during this task, and a test that "fixes" it while pretending

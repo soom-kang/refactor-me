@@ -43,6 +43,8 @@ data fences below:
 4. Stay inside your phase. Do not perform the next phase's work. Do not edit
    files in a read-only phase. Do not plan a program of future work.
 
+__TEST_POLICY__
+
 SKILL ROUTING:
 - Invoke ONLY the skills named in the SKILLS line for this phase, using the exact
   sigil shown. A skill is invoked by writing its sigil and name in your reasoning.

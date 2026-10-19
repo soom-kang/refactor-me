@@ -32,6 +32,8 @@ Codex에는 선택한 전역 Skill의 절대 경로를 전달합니다. Claude�
 
 characterization은 소스를 수정하기 전에 기존 동작을 테스트로 기록하는 단계입니다. 활성화하면 변경 전 소스에서 테스트를 통과해야 하며 별도 커밋을 만들 수 있습니다. 이후 리팩토링이 거부되어도 이 테스트 커밋은 결과 branch에 남을 수 있습니다. `max_commits`는 리팩토링 커밋만 계산합니다.
 
+현재 개발 버전의 프롬프트는 새 테스트·검증 코드를 만들지 않는 것을 기본으로 합니다. audit와 deep check는 같은 기준을 사용합니다. 정적·동적 도달 불가능성, 외부 소비자 부재, 초기화·빌드 부수 효과의 보존이 입증된 단순 삭제는 주변 테스트 보호 수준이 NONE 또는 PARTIAL이어도 새 테스트가 필요하지 않습니다. 다른 수정은 실제 영향을 받는 계약, 구체적인 회귀 가능성과 기존 검사·제한된 diff 검토로 해소할 수 없는 검증 공백이 있을 때만 characterization을 요구합니다. 적절한 기존 테스트를 최소한으로 확장하고 runner와 fixture를 재사용하며, 광범위한 렌더링 검사나 새 테스트 기반 코드는 추가하지 않습니다. 도달 가능성이나 부수 효과가 불명확하면 계속 보류하며 테스트 통과로 삭제의 안전성을 대신 입증하지 않습니다. preflight와 review에도 같은 기준을 적용합니다. 이 기준은 모델에 전달되는 지침이며 모델 판단을 결정적으로 보장하는 검사는 아닙니다.
+
 컨트롤러는 실제 기준선 결과를 deep check, characterization, preflight, execution에 전달합니다. characterization 커밋을 만들면 preflight와 execution에 해당 커밋, 파일, 검증 결과도 전달합니다. 테스트 생성 전의 파일명 충돌 조건은 이 단계에서 새로 만들었다고 기록된 파일에만 예외를 적용하며, 기존 파일의 충돌 조건은 유지합니다. 근거가 없으면 미확인으로 남기며 기존 기준선 실패는 그대로 실패로 표시합니다. characterization 검증을 진행했다면 결과를 `cycles/*/characterization-validation.json`에 저장합니다.
 
 characterization 테스트를 커밋하기 전에 실제 diff를 테스트 전용 허용 목록, 금지 경로와 바이너리, 파일과 줄 수 제한, 테스트 무결성 규칙으로 검사합니다. 원본, HEAD, tree 불변식도 적용합니다. 일반적인 검사 위반은 해당 시도를 되돌리고, 안전 불변식 실패는 worktree를 보존합니다. 테스트는 소스 target 밖에 있을 수 있으며 소스 코드 크기를 줄일 필요는 없습니다. `cycles/*/characterization-gate.json`과 `cycles/*/characterization.patch`에 판정과 시도한 변경을 저장하며 거부된 시도도 포함합니다.
@@ -352,28 +354,25 @@ Go 테스트는 예시 10개를 [응답 schema](go/internal/engine/schemas.json)
 ```json
 {
   "schema_version": "1",
-  "candidate_id": "dead-legacy-parser",
-  "category": "DEAD_CODE",
-  "title": "Remove the unreferenced legacy parser",
-  "minimal_change": "Delete src/legacy-parser.mjs.",
+  "candidate_id": "dedupe-option-parsing",
+  "category": "DEDUPLICATION",
+  "title": "Share repeated option parsing",
+  "minimal_change": "Extract the identical split logic used by three active option parsers into one local helper.",
   "allowlist": [
-    "src/legacy-parser.mjs"
+    "src/options.mjs"
   ],
-  "forbidden_files": [
-    "src/registry.mjs",
-    "src/plugin-x.mjs"
-  ],
+  "forbidden_files": [],
   "contracts": [
     {
       "contract_id": "C1",
-      "statement": "Existing src/index.mjs exports, return values and side effects stay unchanged.",
+      "statement": "The three active option parsers preserve empty tokens and their order: a,,b produces [a, empty string, b].",
       "kind": "RETURN_SHAPE",
-      "verified_by": "Inspect reachable imports and run the existing entrypoint tests and build."
+      "verified_by": "Extend the existing option parser test with one empty-token case against the original code, then run it after extraction and inspect the bounded diff."
     }
   ],
   "stop_conditions": [
-    "Stop if an existing entrypoint or package consumer reaches the module.",
-    "Stop if removal requires edits outside the allowlist."
+    "Stop if the three parsers differ in delimiter or empty-token handling.",
+    "Stop if extraction requires edits outside the allowlist."
   ],
   "rollback": {
     "strategy": "GIT_RESET_HARD",
@@ -382,11 +381,11 @@ Go 테스트는 예시 10개를 [응답 schema](go/internal/engine/schemas.json)
   "risk_level": "L0_LOW",
   "characterization_needed": true,
   "characterization_files": [
-    "test/entrypoint-characterization.test.mjs"
+    "test/options.test.mjs"
   ],
   "readiness": "READY",
-  "readiness_reason": "Reachability is established, but record the retained entrypoint return shape before deleting the module.",
-  "notes": "Alternative test-protection scenario; the successful example skips characterization."
+  "readiness_reason": "The existing tests cover only nonempty tokens; sharing the parser could silently introduce empty-token filtering. One focused case covers this affected contract before extraction.",
+  "notes": "Illustrative essential-test scenario for active code; the proven pure-deletion example above requires no new tests."
 }
 ```
 
@@ -396,9 +395,9 @@ Go 테스트는 예시 10개를 [응답 schema](go/internal/engine/schemas.json)
 ```json
 {
   "schema_version": "1",
-  "candidate_id": "dead-legacy-parser",
+  "candidate_id": "dedupe-option-parsing",
   "changed_files": [
-    "test/entrypoint-characterization.test.mjs"
+    "test/options.test.mjs"
   ],
   "characterized_contracts": [
     "C1"

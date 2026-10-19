@@ -133,6 +133,13 @@ func BuildPrompt(phase string, a PromptArgs) (string, error) {
 		return "", fmt.Errorf("read embedded prompt %s: %w", name, err)
 	}
 	s := string(b)
+	if strings.Contains(s, "__TEST_POLICY__") {
+		policy, err := fs.ReadFile(promptFiles, "templates/test_policy.txt")
+		if err != nil {
+			return "", fmt.Errorf("read embedded test policy: %w", err)
+		}
+		s = strings.ReplaceAll(s, "__TEST_POLICY__", strings.TrimSpace(string(policy)))
+	}
 	jsonOf := func(v any) string { b, _ := json.MarshalIndent(v, "", "  "); return string(b) }
 	// Node's JSON.stringify(JSON object, null, 2) retains insertion order.
 	// Go's map encoder sorts keys. Ordering is irrelevant to the schema or fence.

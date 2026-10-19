@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Share a minimal-test policy across audit, deep check and later candidate phases. Proven pure deletions need no new tests; other edits require a concrete affected behavior and evidence gap before adding focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking.
+
 ## 0.10.0-beta.8
 
 [GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) · [Beta.7 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/38988894754). Release commit: `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Verification record](release/HOMEBREW.md#beta8-verification-record).

@@ -43,6 +43,8 @@ data fences below:
 4. Stay inside your phase. Do not perform the next phase's work. Do not edit
    files in a read-only phase. Do not plan a program of future work.
 
+__TEST_POLICY__
+
 SKILL ROUTING:
 - Invoke ONLY the skills named in the SKILLS line for this phase, using the exact
   sigil shown. A skill is invoked by writing its sigil and name in your reasoning.
@@ -145,9 +147,9 @@ FOR EACH CANDIDATE
   smallest honest version still touches more than about eight files, set
   `readiness` to REJECT and say why in `problem`: the loop cannot safely execute
   a change of that size as one artifact.
-- `observable_contracts` are behaviors a caller could detect. Name them
-  concretely: exported signatures, return shapes, thrown errors, emitted events,
-  ordering guarantees, rendered output, persisted formats.
+- `observable_contracts` cover behaviors this edit could affect and boundaries
+  it must leave unchanged. Name them concretely, without turning unchanged
+  neighboring behavior into a new test requirement.
 - `static_reachability` and `dynamic_reachability` are separate questions, and
   the second is the one that deletes live production code by mistake. Before
   claiming anything is unreachable, check for string-keyed lookup, reflection,
@@ -161,8 +163,9 @@ FOR EACH CANDIDATE
   phase that verifies this.
 - `primary_symbol` is the single most identifying symbol name for the candidate,
   or null. It is used to deduplicate candidates across cycles.
-- `characterization_needed` is true whenever `test_protection` is NONE or PARTIAL
-  and the candidate is not a pure deletion of provably unreachable code.
+- Apply the MINIMAL TEST POLICY to `characterization_needed`; default to false.
+  A true value requires an affected contract, a concrete regression mechanism
+  and an existing-evidence gap, explained in `problem` or `notes`.
 - `readiness` is READY only if you would stake the production system on it.
   NEEDS_EVIDENCE means the candidate is plausible but one specific check is
   missing; name that check in `problem`.

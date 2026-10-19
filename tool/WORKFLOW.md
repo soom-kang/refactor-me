@@ -30,6 +30,8 @@ Codex receives the absolute paths of the selected global Skills. Claude receives
 
 Characterization records existing behavior in tests before production edits. When enabled, these tests must pass against unchanged production code and may form a separate commit. A later rejected refactor can leave that test commit on the result branch. `max_commits` counts refactor commits only.
 
+The current development prompts default to no new test or validation code. Audit and deep check share the same rule: a pure deletion with proven static/dynamic unreachability, no external consumers and no changed initialization/build effects needs no new tests, even when nearby coverage is NONE or PARTIAL. For other edits, characterization requires a concrete affected contract, a plausible regression mechanism and an evidence gap that existing checks and bounded diff review cannot cover. Extend the smallest suitable existing test, reuse its runner and fixtures, and avoid broad rendering suites or new test infrastructure. Unresolved reachability or effects still block the candidate; passing tests do not prove a deletion safe. Preflight and review apply the same criteria. These are model-facing instructions, not a deterministic proof of model decisions.
+
 The controller passes measured baseline results to deep check, characterization, preflight and execution. After a characterization commit, preflight and execution also receive its commit, files and validation results. A filename collision check made before test creation does not reject files recorded as newly created by this step; pre-existing files retain their collision checks. Missing evidence remains unknown, and existing baseline failures are still reported as failures. Characterization validation results, when produced, are saved in `cycles/*/characterization-validation.json`.
 
 Before committing characterization tests, the controller checks the measured diff against the test-only allowlist, forbidden paths and binaries, file/line limits and test-integrity rules. Source, HEAD and tree invariants also apply. Ordinary gate violations roll back the attempt; unsafe invariant failures retain the worktree. Tests may live outside the production target and need not reduce production code size. `cycles/*/characterization-gate.json` and `cycles/*/characterization.patch` retain the verdict and attempted edits, including rejected attempts.
@@ -350,28 +352,25 @@ The Go tests validate all ten examples against [response schemas](go/internal/en
 ```json
 {
   "schema_version": "1",
-  "candidate_id": "dead-legacy-parser",
-  "category": "DEAD_CODE",
-  "title": "Remove the unreferenced legacy parser",
-  "minimal_change": "Delete src/legacy-parser.mjs.",
+  "candidate_id": "dedupe-option-parsing",
+  "category": "DEDUPLICATION",
+  "title": "Share repeated option parsing",
+  "minimal_change": "Extract the identical split logic used by three active option parsers into one local helper.",
   "allowlist": [
-    "src/legacy-parser.mjs"
+    "src/options.mjs"
   ],
-  "forbidden_files": [
-    "src/registry.mjs",
-    "src/plugin-x.mjs"
-  ],
+  "forbidden_files": [],
   "contracts": [
     {
       "contract_id": "C1",
-      "statement": "Existing src/index.mjs exports, return values and side effects stay unchanged.",
+      "statement": "The three active option parsers preserve empty tokens and their order: a,,b produces [a, empty string, b].",
       "kind": "RETURN_SHAPE",
-      "verified_by": "Inspect reachable imports and run the existing entrypoint tests and build."
+      "verified_by": "Extend the existing option parser test with one empty-token case against the original code, then run it after extraction and inspect the bounded diff."
     }
   ],
   "stop_conditions": [
-    "Stop if an existing entrypoint or package consumer reaches the module.",
-    "Stop if removal requires edits outside the allowlist."
+    "Stop if the three parsers differ in delimiter or empty-token handling.",
+    "Stop if extraction requires edits outside the allowlist."
   ],
   "rollback": {
     "strategy": "GIT_RESET_HARD",
@@ -380,11 +379,11 @@ The Go tests validate all ten examples against [response schemas](go/internal/en
   "risk_level": "L0_LOW",
   "characterization_needed": true,
   "characterization_files": [
-    "test/entrypoint-characterization.test.mjs"
+    "test/options.test.mjs"
   ],
   "readiness": "READY",
-  "readiness_reason": "Reachability is established, but record the retained entrypoint return shape before deleting the module.",
-  "notes": "Alternative test-protection scenario; the successful example skips characterization."
+  "readiness_reason": "The existing tests cover only nonempty tokens; sharing the parser could silently introduce empty-token filtering. One focused case covers this affected contract before extraction.",
+  "notes": "Illustrative essential-test scenario for active code; the proven pure-deletion example above requires no new tests."
 }
 ```
 
@@ -394,9 +393,9 @@ The Go tests validate all ten examples against [response schemas](go/internal/en
 ```json
 {
   "schema_version": "1",
-  "candidate_id": "dead-legacy-parser",
+  "candidate_id": "dedupe-option-parsing",
   "changed_files": [
-    "test/entrypoint-characterization.test.mjs"
+    "test/options.test.mjs"
   ],
   "characterized_contracts": [
     "C1"

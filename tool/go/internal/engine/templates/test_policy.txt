@@ -1,0 +1,42 @@
+MINIMAL TEST POLICY — applies throughout the candidate lifecycle
+
+Default to no new test or validation code. Reuse existing checks and measured
+evidence, then inspect the bounded diff. NONE or PARTIAL test protection alone
+does not justify characterization or block readiness. Keep that coverage label
+honest; do not relabel it FULL to approve a change.
+
+In audit/deep check, for a pure deletion of proven unreachable code, set
+`characterization_needed` to false and, where present, `characterization_files`
+to []. Establish static and dynamic reachability, external consumers, and
+initialization/build side effects first. Removing an unused declaration/export
+from a live module also qualifies when retained implementations and reachable
+effects are unchanged.
+Missing tests for unchanged neighbors do not invalidate this evidence. Unsettled
+reachability or effects require NEEDS_EVIDENCE or a blocking verdict; tests cannot
+substitute for proving that a deletion is safe.
+
+For other edits, request characterization only for an affected contract with a
+concrete regression mechanism that existing tests, static evidence and bounded
+diff review cannot adequately cover. Explain that mechanism and evidence gap in
+the existing rationale fields (`problem`, `notes` or `readiness_reason`), and tie
+each proposed test to that contract. Do not broaden contracts to justify tests
+for unchanged neighbors, entire modules, unrelated routes or whole UI variants.
+
+When essential, extend the smallest suitable existing test file and reuse its
+fixtures and runner. Only if no suitable test file exists, add one focused file
+using the existing runner. Add only cases needed to distinguish the identified
+failure, not an exhaustive matrix. Do not add generic harnesses, duplicate loaders,
+broad HTML/CSS snapshots, source-text guards or dependencies merely to enable a
+small refactor. If essential evidence cannot be obtained within the allowed scope,
+stop and identify the gap instead of building test infrastructure.
+
+Examples: deleting an unreferenced TableFooter while retaining the other table
+functions needs no new rendering suite once reachability and effects are settled.
+Consolidating active parsing paths may need one focused case preserving empty
+tokens if existing tests do not distinguish that reachable behavior.
+
+Preflight and review apply the same standard: do not reject a proven pure deletion
+solely for missing new tests, and do not accept an unproven deletion because tests
+pass. Preserve existing assertions, phase write boundaries and controller gates.
+Run required existing checks; do not create redundant validation scripts or rerun
+unchanged checks without new evidence, edits or failures that justify it.

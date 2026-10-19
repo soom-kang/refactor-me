@@ -405,6 +405,36 @@ func TestContractExternalSurface(t *testing.T) {
 
 func TestContractPromptSafety(t *testing.T) {
 	for _, provider := range []string{"claude", "codex"} {
+		// Every phase and audit/deep-check variant must carry the same policy;
+		// the former deep-check prerequisite must not override the deletion exception.
+		for _, targets := range [][]string{nil, {"src"}} {
+			for _, category := range []string{"DEAD_CODE", "DEDUPLICATION"} {
+				for _, mode := range []struct {
+					incremental bool
+					committed   int
+				}{{}, {true, 0}, {true, 1}} {
+					for _, phase := range []string{"audit", "deep_check", "characterization", "preflight", "execute", "review"} {
+						prompt, err := BuildPrompt(phase, PromptArgs{Provider: provider, Targets: targets,
+							Incremental: mode.incremental, Committed: mode.committed,
+							Candidate: map[string]any{"category": category}, Packet: map[string]any{"category": category}})
+						if err != nil {
+							t.Fatal(err)
+						}
+						flat := strings.Join(strings.Fields(prompt), " ")
+						for _, rule := range []string{"Default to no new test or validation code", "static and dynamic reachability, external consumers, and initialization/build side effects", "affected contract with a concrete regression mechanism", "tests cannot substitute for proving that a deletion is safe", "extend the smallest suitable existing test file"} {
+							if !strings.Contains(flat, rule) {
+								t.Fatalf("%s/%s lost minimal-test rule %q", provider, phase, rule)
+							}
+						}
+						for _, obsolete := range []string{"__TEST_POLICY__", "is true whenever `test_protection` is NONE or PARTIAL", "the behavior is either already pinned by tests or will be pinned"} {
+							if strings.Contains(flat, obsolete) {
+								t.Fatalf("%s/%s retains conflicting rule %q", provider, phase, obsolete)
+							}
+						}
+					}
+				}
+			}
+		}
 		prompt, err := BuildPrompt("audit", PromptArgs{Provider: provider})
 		if err != nil {
 			t.Fatal(err)

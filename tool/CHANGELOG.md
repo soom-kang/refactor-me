@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.10.0-beta.10
+
 - Pass measured post-edit validation evidence to review and reuse existing lint/typecheck results. Rerun only affected checks after relevant code/environment changes or new failure evidence; preserve failed and missing statuses, reset candidate evidence, and keep implementer rationale out of the independent review.
 
 ## 0.10.0-beta.9

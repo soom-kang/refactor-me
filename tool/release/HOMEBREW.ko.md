@@ -4,7 +4,7 @@
 
 `soom-kang/homebrew-refactor-me`에서 macOS Apple Silicon용 소스 빌드 formula를 관리합니다. 생성기는 소스 URL, SHA-256, commit을 고정합니다. Homebrew가 빌드용 Go를 관리하며 Skills나 대상 프로젝트 설정은 설치하지 않습니다.
 
-현재 공개 버전은 [`0.10.0-beta.9`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9)이며 commit은 `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
+현재 공개 버전은 [`0.10.0-beta.10`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10)이며 commit은 `89f47d831d63fad2d4c9246daf7f0513ffafc591`입니다. 작업 파일의 버전을 바꾸는 것은 릴리스 준비이며 게시 완료를 뜻하지 않습니다. 아래 절차는 다음 릴리스에도 적용합니다.
 
 ## 1. 선택 검사: 로컬 후보 생성
 
@@ -104,6 +104,21 @@ gh workflow run verify.yml --ref "$release_tag" -f public_install=true \
 새 진단은 `tool/go/internal/catalog/reference.json`을 포함합니다. sharpen-me revision은 `fbb88aea30ff46ade265607ea6572be7cc642a4c`이며 8개 전체 트리 SHA-256과 실제 호환성 `NOT_RUN`을 기록합니다. 2026-10-07에 저장소의 Skill 파일 24개와 모드가 해당 revision의 완전한 GitHub 트리와 일치함을 확인했습니다. 해시는 런타임과 같은 정렬된 경로·바이트 길이·실행 비트·내용 인코딩(`catalog-tree-sha256-v1`)을 사용하며 `skills-lock.json`의 설치기 해시와 다릅니다. [고정 설치 경로](INSTALL.ko.md#skill-reference)를 참고하세요.
 
 Beta.6은 이 내용 기준을 포함하며 이미 공개한 Beta.5 실행 파일이나 실제 provider 호환성을 소급 검증하지 않습니다. 향후 릴리스에는 정확한 CLI commit, manifest revision·해시, 실제 비실시간·실시간 검증 결과를 각각 기록하세요. 실제 모델 검증에는 제한된 범위의 승인이 필요합니다.
+
+## Beta.10 검증 기록
+
+릴리스 commit은 `89f47d831d63fad2d4c9246daf7f0513ffafc591`입니다. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39201303065), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/39201538230), [Beta.9 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/39201554787)를 2026-10-19에 확인했습니다.
+
+- Main CI: 릴리스 commit과 같은 SHA에서 `PASS`. formatting, Go tests, vet, CLI build와 기존 Python packaging test 4개를 검사했습니다. Annotated 태그가 해당 commit을 가리킵니다. 깨끗한 태그 소스에서 압축파일 두 개를 각각 한 번 생성했습니다. GitHub 업로드 digest와 다시 받은 공개 파일의 바이트가 통합 체크섬과 일치했으며 로컬이나 태그에서 전체 검사를 반복하지 않았습니다.
+- 신규 설치와 Beta.9 업그레이드: `PASS`. 두 dispatch에서 `public-install`과 집계 `verify`가 성공했고 `go`, `js-fixture`는 생략했습니다. 설치 JSON은 `0.10.0-beta.10`, commit `89f47d831d63fad2d4c9246daf7f0513ffafc591`, `darwin/arm64`와 일치했습니다. 이전 tap commit `1f0e370bc9779cb6cbaf73ef3fad4e67a9bf1f21`에서 업그레이드했으며 편집한 config schema 2와 seeded report schema 3의 바이트를 보존하고 지원하지 않는 보고서를 프로젝트 변경 없이 거부했습니다. 보고서는 호환성 fixture이며 실제 provider 실행 결과가 아닙니다.
+- [Formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/2cc54055d06cecf01d4f547fa69304789e5d689a)은 공개 소스 해시와 릴리스 commit을 고정합니다. 사용자의 로컬 Homebrew 설치도 Beta.9에서 Beta.10으로 업그레이드했습니다. `/opt/homebrew/bin/refactor-me version --json`의 버전, commit과 `darwin/arm64`가 릴리스와 일치했습니다. 설치 버전이 바뀐 formula는 요청한 항목뿐이며 다른 패키지, trust 설정과 전역 Skills는 보존했습니다.
+- standalone 압축파일과 로컬 설치는 Go `1.27.2`, 공개 Homebrew 빌드는 Go `1.27.1`을 사용했습니다. 기존 테스트와 설치 검사를 재사용했으며 릴리스를 위한 새 테스트 파일이나 검증 스크립트는 추가하지 않았습니다. 실제 provider 리팩토링과 새 취약점 검사는 `NOT_RUN`입니다. 검증 재사용은 모델 실행 지침이며 명령을 차단하는 캐시가 아닙니다. config/report schema와 내장 Skill 기준은 유지했습니다. 압축파일의 동봉 안내에는 게시 전 내용이 남으며 서명, 공증과 bottle은 제공하지 않습니다.
+
+```text
+c7e41a880c147853b86633802aed3b103c964a32c5d17645462f632e223e670e  refactor-me_0.10.0-beta.10_source.tar.gz
+16d4c78204488d74bfea3441ab7041c7601b700be6e1b93e50bc3e2634853ff4  refactor-me_0.10.0-beta.10_darwin_arm64.zip
+90f70a5b8728b4d079149df9eb3419ed0ec8661c0d2c1799256c90d2e71b450d  SHA256SUMS
+```
 
 ## Beta.9 검증 기록
 

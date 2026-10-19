@@ -4,9 +4,9 @@
 
 This Beta supports macOS Apple Silicon (`darwin/arm64`) only. Use Homebrew for a shared executable and install sharpen-me Skills separately.
 
-The public release is [`0.10.0-beta.9`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9), commit `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39198152860), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39198427620) and [Beta.8 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39198430208) passed for this exact version and commit.
+The public release is [`0.10.0-beta.10`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10), commit `89f47d831d63fad2d4c9246daf7f0513ffafc591`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39201303065), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39201538230) and [Beta.9 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39201554787) passed for this exact version and commit.
 
-The [Beta.9 verification record](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.md#beta9-verification-record) separates source, archive and installation evidence. The archive retains its pre-publication enclosed guide; these repository documentation updates do not change the published bytes. For an extracted archive, start with its enclosed metadata below.
+The [Beta.10 verification record](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.md#beta10-verification-record) separates source, archive and installation evidence. The archive retains its pre-publication enclosed guide; these repository documentation updates do not change the published bytes. For an extracted archive, start with its enclosed metadata below.
 
 ## Already extracted an archive
 
@@ -19,7 +19,7 @@ cat BUILD-INFO.txt
 
 Compare the enclosed `version` and `commit` with the JSON output; both must match. The executable must identify itself as `refactor-me`, with platform `darwin` and architecture `arm64`, also matching `BUILD-INFO.txt`. A public release archive must have `dirty=false`, `signed=no` and `notarized=no`. Stop if any value differs. Keep it outside the target repository and use its absolute path for later commands.
 
-A locally built candidate has its own enclosed version, commit and dirty state. Those values do not establish publication. For a public archive, compare its commit with the annotated tag for the enclosed version. The download section below gives the Beta.9 commands.
+A locally built candidate has its own enclosed version, commit and dirty state. Those values do not establish publication. For a public archive, compare its commit with the annotated tag for the enclosed version. The download section below gives the Beta.10 commands.
 
 Checksums verify archive bytes; `BUILD-INFO.txt` comparison detects a mismatched executable and metadata, not publisher identity. Later website or repository documentation updates do not change this enclosed guide.
 
@@ -38,7 +38,7 @@ Homebrew builds fixed release source with Go as a build dependency. Required Ski
 
 Tap registration and trust for this formula are one-time setup with Homebrew 6 or later. A new Homebrew environment needs them before `brew install refactor-me` can resolve the third-party formula. Trust only this formula; whole-tap trust is unnecessary.
 
-Confirm version `0.10.0-beta.9` and compare the executable's commit with the annotated tag's peeled commit before continuing; upgrade older installations first. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
+Confirm version `0.10.0-beta.10` and compare the executable's commit with the annotated tag's peeled commit before continuing; upgrade older installations first. Choose a model for every selected provider with command options or project configuration; there is no fixed model default. Offline `doctor --no-live-probe` needs no model and makes no model calls. Select a clean Git repository and set limits before starting `run`. Default doctor checks and `run` call models and consume provider usage.
 
 <a id="skill-reference"></a>
 
@@ -84,13 +84,13 @@ Beta.6 and later builds include the `skill-reference` diagnostic, which distingu
 
 ## Standalone download
 
-Create a new empty directory and download the archive and checksum file from the [Beta.9 release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9) there. Stop if either download fails.
+Create a new empty directory and download the archive and checksum file from the [Beta.10 release](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10) there. Stop if either download fails.
 
 ```sh
 release_url=https://github.com/soom-kang/refactor-me/releases/download
-archive=refactor-me_0.10.0-beta.9_darwin_arm64.zip
-curl -fLO "$release_url/v0.10.0-beta.9/$archive"
-curl -fLO "$release_url/v0.10.0-beta.9/SHA256SUMS"
+archive=refactor-me_0.10.0-beta.10_darwin_arm64.zip
+curl -fLO "$release_url/v0.10.0-beta.10/$archive"
+curl -fLO "$release_url/v0.10.0-beta.10/SHA256SUMS"
 awk -v file="$archive" '$2 == file {print; count++} END {if (count != 1) exit 1}' \
   SHA256SUMS > "$archive.sha256" &&
   shasum -a 256 -c "$archive.sha256"
@@ -103,10 +103,10 @@ unzip "$archive"
 cat BUILD-INFO.txt
 ./refactor-me version --json
 git ls-remote https://github.com/soom-kang/refactor-me.git \
-  'refs/tags/v0.10.0-beta.9^{}'
+  'refs/tags/v0.10.0-beta.10^{}'
 ```
 
-The last command prints the commit behind the annotated [Beta.9 tag](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.9), followed by its peeled ref. Its first field must match `commit` in both `BUILD-INFO.txt` and the JSON output. The version must be `0.10.0-beta.9`, platform `darwin` and architecture `arm64`; metadata must show `dirty=false`. Stop if the tag is missing or any value differs. For Homebrew, compare `refactor-me version --json` with the same tag commit.
+The last command prints the commit behind the annotated [Beta.10 tag](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.10), followed by its peeled ref. Its first field must match `commit` in both `BUILD-INFO.txt` and the JSON output. The version must be `0.10.0-beta.10`, platform `darwin` and architecture `arm64`; metadata must show `dirty=false`. Stop if the tag is missing or any value differs. For Homebrew, compare `refactor-me version --json` with the same tag commit.
 
 Use the extracted executable by absolute path with the same commands as the Homebrew CLI. Keep it outside the target repository.
 

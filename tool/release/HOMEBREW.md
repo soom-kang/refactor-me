@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.9`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9), commit `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.10`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10), commit `89f47d831d63fad2d4c9246daf7f0513ffafc591`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Optional local candidate
 
@@ -104,6 +104,21 @@ Only after public installation passes, update the published version and commit i
 The new diagnostic embeds `tool/go/internal/catalog/reference.json`: sharpen-me revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, eight full-tree SHA-256 hashes, live compatibility `NOT_RUN`. On 2026-10-07, all 24 checked-in Skill files and their modes matched the complete GitHub tree at that revision. These hashes use the runtime's sorted path/byte-length/executable-bit/content framing (`catalog-tree-sha256-v1`), not `skills-lock.json` installer hashes. See the [pinned installation path](INSTALL.md#skill-reference).
 
 Beta.6 embeds this content reference; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+
+## Beta.10 verification record
+
+Release commit: `89f47d831d63fad2d4c9246daf7f0513ffafc591`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39201303065) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39201538230) · [Beta.9 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39201554787). Verified on 2026-10-19.
+
+- Main CI: `PASS` for the exact release commit: formatting, Go tests, vet, CLI build and four existing Python packaging tests. The annotated tag resolves to that commit. Both archives were generated once from clean tagged source. Uploaded GitHub digests and downloaded public bytes match the combined checksums; the full suite was not repeated locally or for the tag.
+- Fresh installation and Beta.9 upgrade: `PASS`. Both dispatches passed `public-install` and aggregate `verify`, with `go` and `js-fixture` skipped. Installed JSON matched `0.10.0-beta.10`, commit `89f47d831d63fad2d4c9246daf7f0513ffafc591`, `darwin/arm64`. The upgrade started from tap commit `1f0e370bc9779cb6cbaf73ef3fad4e67a9bf1f21`; edited config schema 2 and seeded report schema 3 retained their bytes, and unsupported reports were rejected without project mutation. The report is a compatibility fixture, not a provider-run result.
+- The [formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/2cc54055d06cecf01d4f547fa69304789e5d689a) pins the public source hash and release commit. The user's local Homebrew installation was upgraded from Beta.9 to Beta.10; `/opt/homebrew/bin/refactor-me version --json` matched the release version, commit and `darwin/arm64`. Only the requested formula's installed versions changed. Unrelated packages, trust settings and global Skills were preserved.
+- The standalone archive and local installation used Go `1.27.2`; public Homebrew builds used Go `1.27.1`. Existing tests and installation checks were reused; no new test files or validation scripts were added for the release. Live-provider refactoring and a new vulnerability scan were `NOT_RUN`. Validation reuse is model-facing guidance, not a command-blocking cache. Config/report schemas and the embedded Skill reference remain unchanged. The archive's enclosed guide retains its pre-publication content; signing, notarization and bottles remain unavailable.
+
+```text
+c7e41a880c147853b86633802aed3b103c964a32c5d17645462f632e223e670e  refactor-me_0.10.0-beta.10_source.tar.gz
+16d4c78204488d74bfea3441ab7041c7601b700be6e1b93e50bc3e2634853ff4  refactor-me_0.10.0-beta.10_darwin_arm64.zip
+90f70a5b8728b4d079149df9eb3419ed0ec8661c0d2c1799256c90d2e71b450d  SHA256SUMS
+```
 
 ## Beta.9 verification record
 

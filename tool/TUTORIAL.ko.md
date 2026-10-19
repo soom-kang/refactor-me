@@ -4,7 +4,7 @@
 
 macOS Apple Silicon에서 아래 다섯 단계를 따르세요. `/path/to/target-repo`를 대상 저장소 경로로 바꾸고, 공백이 있는 경로는 따옴표로 감쌉니다.
 
-macOS Apple Silicon용 공개 Beta `0.10.0-beta.9` 사용법입니다. 릴리스 commit은 `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198152860), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198427620), [Beta.8에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198430208)이 통과했습니다.
+macOS Apple Silicon용 공개 Beta `0.10.0-beta.10` 사용법입니다. 릴리스 commit은 `89f47d831d63fad2d4c9246daf7f0513ffafc591`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201303065), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201538230), [Beta.9에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201554787)이 통과했습니다.
 
 <a id="prepare-the-target"></a>
 
@@ -41,7 +41,7 @@ brew install refactor-me
 refactor-me version --json
 ```
 
-Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.9`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
+Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. CLI 버전 `0.10.0-beta.10`, 플랫폼 `darwin`, 아키텍처 `arm64`, commit `89f47d831d63fad2d4c9246daf7f0513ffafc591`을 확인합니다. 필수 Skill 8종은 `~/.agents/skills`에서 읽습니다. 대상 프로젝트에 같은 Skill의 별도 복사본을 두면 충돌할 수 있으며 doctor가 경로를 알려줍니다.
 
 이전 버전이라면 먼저 업데이트하세요. 독립 실행 파일 압축파일은 [설치 검사](release/INSTALL.ko.md)를 마친 뒤 아래 명령의 `refactor-me`를 해당 실행 파일의 절대 경로로 바꿉니다. 실행 파일은 대상 저장소 밖에 보관하세요.
 
@@ -147,7 +147,7 @@ refactor-me run --repo /path/to/target-repo \
 
 ### 진행 로그 확인
 
-공개 Beta `0.10.0-beta.9`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
+공개 Beta `0.10.0-beta.10`에서는 아래 명령으로 진행 로그를 확인합니다. 앞서 설정한 저장소 준비와 실행 제한을 그대로 적용하세요.
 
 ```sh
 refactor-me run --repo /path/to/target-repo \
@@ -213,7 +213,7 @@ refactor-me doctor --repo /path/to/target-repo \
   --provider codex --fallback none --no-live-probe
 ```
 
-[Beta.8 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198430208)은 수정한 schema 2 설정과 seeded schema 3 보고서의 바이트를 upgrade, `init`, `report` 이후에도 그대로 보존했습니다. 지원하지 않는 보고서도 파일을 바꾸지 않고 거부했습니다. provider를 호출하지 않은 호환성 검사이며 이전 실제 실행의 근거는 아닙니다.
+[Beta.9 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201554787)은 수정한 schema 2 설정과 seeded schema 3 보고서의 바이트를 upgrade, `init`, `report` 이후에도 그대로 보존했습니다. 지원하지 않는 보고서도 파일을 바꾸지 않고 거부했습니다. provider를 호출하지 않은 호환성 검사이며 이전 실제 실행의 근거는 아닙니다.
 
 업데이트는 이 실행 파일을 쓰는 모든 프로젝트에 적용됩니다. Skills는 로컬 수정 사항과 기존 사용자 정의 설치를 보존하고 [고정된 설치 절차](release/INSTALL.ko.md#skill-reference)에 따라 별도로 관리합니다. 실행 도중에는 Skills를 바꾸지 마세요.
 

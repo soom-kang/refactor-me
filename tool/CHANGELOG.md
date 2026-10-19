@@ -4,6 +4,8 @@
 
 ## 0.10.0-beta.10
 
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39201538230) · [Beta.9 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39201554787). Release commit: `89f47d831d63fad2d4c9246daf7f0513ffafc591`. [Verification record](release/HOMEBREW.md#beta10-verification-record).
+
 - Pass measured post-edit validation evidence to review and reuse existing lint/typecheck results. Rerun only affected checks after relevant code/environment changes or new failure evidence; preserve failed and missing statuses, reset candidate evidence, and keep implementer rationale out of the independent review.
 
 ## 0.10.0-beta.9

@@ -6,7 +6,9 @@
 
 Follow the [guide](TUTORIAL.md) for installation.
 
-Public Beta.9 shares a minimal-test policy across audit, deep check and later phases. Proven unreachable deletions need no new tests; other edits require a concrete affected behavior and evidence gap before focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking. [Release verification](release/HOMEBREW.md#beta9-verification-record) records the exact commit and public installation results.
+Public Beta.10 shares a minimal-test policy across audit, deep check and later phases. Proven unreachable deletions need no new tests; other edits require a concrete affected behavior and evidence gap before focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking. [Release verification](release/HOMEBREW.md#beta10-verification-record) records the exact commit and public installation results.
+
+Beta.10 also passes measured validation results to review. Reuse lint/typecheck results unless relevant code/environment changes or new failure evidence justify a focused rerun; see [review evidence](WORKFLOW.md#from-checks-to-a-local-branch).
 
 ## Commands and repository selection
 
@@ -24,7 +26,7 @@ Public Beta.9 shares a minimal-test policy across audit, deep check and later ph
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
-This reference covers public Beta `0.10.0-beta.9`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
+This reference covers public Beta `0.10.0-beta.10`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
 
 <a id="run-time-selection"></a>
 
@@ -38,7 +40,7 @@ Priority is CLI option, terminal selection, then project/default configuration (
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.9`.
+These options are available in public Beta `0.10.0-beta.10`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -233,7 +235,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.9`.
+The following behavior is included in public Beta `0.10.0-beta.10`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.

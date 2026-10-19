@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.9-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.10-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.10) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](../LICENSE)
 
 refactor-me는 Codex 또는 Claude Code와 sharpen-me 스킬을 활용해, 기존 동작을 보존하는 리팩토링을 보수적인 절차로 진행하는 CLI입니다.
 
@@ -14,9 +14,9 @@ refactor-me는 Codex 또는 Claude Code와 sharpen-me 스킬을 활용해, 기�
 
 ## 설치
 
-공개 Beta **0.10.0-beta.9**는 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
+공개 Beta **0.10.0-beta.10**은 **macOS Apple Silicon**을 지원합니다. Homebrew, Git, 인증을 마친 Codex 또는 Claude Code CLI와 대상 프로젝트의 빌드·테스트 도구가 필요합니다.
 
-릴리스 commit은 `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198152860), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198427620), [Beta.8에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39198430208)이 통과했습니다. 설치 검증은 모델을 호출하지 않았으며 upgrade에는 저장된 프로젝트 상태를 확인하는 seeded 호환성 보고서를 사용했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
+릴리스 commit은 `89f47d831d63fad2d4c9246daf7f0513ffafc591`입니다. 이 버전의 [릴리스 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201303065), [새 설치 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201538230), [Beta.9에서의 upgrade 검증](https://github.com/soom-kang/refactor-me/actions/runs/39201554787)이 통과했습니다. 설치 검증은 모델을 호출하지 않았으며 upgrade에는 저장된 프로젝트 상태를 확인하는 seeded 호환성 보고서를 사용했습니다. Verify 배지는 CLI 저장소 `main`의 workflow 상태를 표시합니다.
 
 <a id="quick-start"></a>
 
@@ -37,7 +37,7 @@ Homebrew가 실행 파일을 관리하고, CLI는 `~/.agents/skills`에서 필�
 
 ## 첫 실행
 
-아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.9`를 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
+아래 명령을 실행하기 전에 `refactor-me version --json`이 `0.10.0-beta.10`을 표시하는지 확인하세요. 이전 버전이라면 먼저 `brew upgrade refactor-me`를 실행합니다.
 
 아래 경로를 커밋이 하나 이상 있는 깨끗한 Git 저장소로 바꾸세요. 프로젝트 의존성도 먼저 준비합니다. 예시는 Codex만 사용하며 Claude Code 검사에는 `--provider claude --fallback none`을 사용합니다.
 
@@ -62,7 +62,7 @@ refactor-me report --repo /path/to/target-repo --lang ko
 
 ## 읽기 쉬운 진행 로그
 
-공개 Beta `0.10.0-beta.9`는 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
+공개 Beta `0.10.0-beta.10`은 shell 명령 대신 현재 단계, 작업 항목과 확인된 결과를 표시합니다. 기존 `--lang en|ko`로 진행 로그, 종료 요약과 보고서의 언어를 선택하며 기본값은 영어입니다. 한국어 진행 로그에는 `--lang ko`를 추가하세요.
 
 진행 로그는 `stderr`로 출력하므로 `run --json`의 `stdout`에는 보고서 JSON만 남습니다. 조사할 때마다 제안된 후보 수와 진행 가능한 수를 표시하고, 긴 단계에서는 30초마다 경과 시간을 알립니다. provider 응답 원문과 검증 출력은 로컬 실행 기록에 보존합니다. 자세한 내용은 [진행 로그](../tool/README.ko.md#progress-logs)를 참고하세요.
 

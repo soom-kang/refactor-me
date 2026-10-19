@@ -4,7 +4,7 @@
 
 Maintain the source-built macOS Apple Silicon formula in `soom-kang/homebrew-refactor-me`. The generator fixes the source URL, SHA-256 and commit. Homebrew manages Go as a build dependency; it does not install Skills or change target repositories.
 
-The current public release is [`0.10.0-beta.8`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8), commit `e1ccf3bde29f063ec0334a3257870b61f8f16170`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
+The current public release is [`0.10.0-beta.9`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9), commit `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. A version change in the working tree is preparation, not publication; the procedure below applies to future releases too.
 
 ## 1. Optional local candidate
 
@@ -104,6 +104,21 @@ Only after public installation passes, update the published version and commit i
 The new diagnostic embeds `tool/go/internal/catalog/reference.json`: sharpen-me revision `fbb88aea30ff46ade265607ea6572be7cc642a4c`, eight full-tree SHA-256 hashes, live compatibility `NOT_RUN`. On 2026-10-07, all 24 checked-in Skill files and their modes matched the complete GitHub tree at that revision. These hashes use the runtime's sorted path/byte-length/executable-bit/content framing (`catalog-tree-sha256-v1`), not `skills-lock.json` installer hashes. See the [pinned installation path](INSTALL.md#skill-reference).
 
 Beta.6 embeds this content reference; it does not retrospectively certify the published Beta.5 binary or establish live provider compatibility. Record exact CLI commit, manifest revision/hashes and actual non-live/live results separately for future releases. Live checks require bounded authorization.
+
+## Beta.9 verification record
+
+Release commit: `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39198152860) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39198427620) · [Beta.8 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39198430208). Verified on 2026-10-19.
+
+- Main CI: `PASS` for the exact release commit: formatting, Go tests, vet, CLI build and four existing Python packaging tests. The annotated tag resolves to that commit. Both archives were generated once from the clean tagged source; GitHub asset digests and downloaded bytes match the combined checksums. The public source download also matched the source archive.
+- Fresh installation and Beta.8 upgrade: `PASS`. Both dispatches passed `public-install` and aggregate `verify`, with `go` and `js-fixture` skipped. Installed JSON matched version `0.10.0-beta.9`, commit `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`, `darwin/arm64`. The upgrade started from tap commit `f3e63d4c1075fe382055eb12a6074bbda6165d34`; edited config schema 2 and seeded report schema 3 retained their bytes, and unsupported reports were rejected without project mutation. The report is a compatibility fixture, not a provider-run result.
+- The [formula commit](https://github.com/soom-kang/homebrew-refactor-me/commit/5d734fc66dd7df0d56b409a9d657f87822d34686) pins the public source hash and release commit. The user's local Homebrew installation, trust settings and global Skills were preserved.
+- The standalone archive used Go `1.27.2`; public Homebrew builds used Go `1.27.1`. No new test files, validation scripts or live-provider calls were added for this release procedure. No new vulnerability scan was run. Config/report schema versions and the embedded Skill reference are unchanged. The enclosed archive guide retains its pre-publication notes; signing, notarization and bottles remain unavailable.
+
+```text
+26f2ea581c14392a3c378ff9da39010c1820e0e1556dc15458487ef6e0b0dfc3  refactor-me_0.10.0-beta.9_source.tar.gz
+97aef205cfce0934c6a3edf36ceb1531c36732eded0d22680f6f55f5fa4d65ca  refactor-me_0.10.0-beta.9_darwin_arm64.zip
+811c79d9db4b3fffb042132d861004126af4dadb8eac6214f9619e80da9a9868  SHA256SUMS
+```
 
 ## Beta.8 verification record
 

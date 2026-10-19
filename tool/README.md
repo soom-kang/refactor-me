@@ -6,7 +6,7 @@
 
 Follow the [guide](TUTORIAL.md) for installation.
 
-Public Beta.8 adds Astra pricing, corrects Sonnet cached-input pricing, links the full Markdown diff without a duplicate preview, and uses the active Git commit identity. The [12 Beta.7 QA fixes](../docs/qa/2026-10-12-remediation.md) remain included. [Release verification](release/HOMEBREW.md#beta8-verification-record) records the exact commit and public installation results.
+Public Beta.9 shares a minimal-test policy across audit, deep check and later phases. Proven unreachable deletions need no new tests; other edits require a concrete affected behavior and evidence gap before focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking. [Release verification](release/HOMEBREW.md#beta9-verification-record) records the exact commit and public installation results.
 
 ## Commands and repository selection
 
@@ -24,7 +24,7 @@ Public Beta.8 adds Astra pricing, corrects Sonnet cached-input pricing, links th
 
 Configuration, locks and runs belong to the selected repository, independently of the executable's Homebrew path.
 
-This reference covers public Beta `0.10.0-beta.8`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
+This reference covers public Beta `0.10.0-beta.9`, including run time selection, detailed activity logs, Markdown change checklists and standard API cost estimates.
 
 <a id="run-time-selection"></a>
 
@@ -38,7 +38,7 @@ Priority is CLI option, terminal selection, then project/default configuration (
 
 ## Model and effort selection
 
-These options are available in public Beta `0.10.0-beta.8`.
+These options are available in public Beta `0.10.0-beta.9`.
 
 `run` and live `doctor` require a model for every selected provider. There is no fixed model default. A command option overrides `agents.<provider>.model`; if both are empty, the command fails before making provider calls. Offline `doctor --no-live-probe` needs no model.
 
@@ -233,7 +233,7 @@ Each run writes one `report.md` and one `report.json`. `report --lang ko` render
 
 ### Progress logs
 
-The following behavior is included in public Beta `0.10.0-beta.8`.
+The following behavior is included in public Beta `0.10.0-beta.9`.
 
 - `run` reports environment checks, worktree preparation, baseline checks, audit, candidate checks, edits, validation, independent review and local commit publication. Each audit reports the proposed and eligible counts, plus the number inspected when a candidate cap applies. Later audits can find new candidates, so there is no fixed total or completion percentage.
 - Candidate labels use the translated category, unchanged `primary_symbol` and repository-relative path, falling back to `candidate_id` when needed. Validation messages identify the command name and area, without argv or command output. An unchanged readable baseline failure remains a failure; it is never labeled as passed.

@@ -2,7 +2,7 @@
 
 # refactor-me
 
-[![Release](https://img.shields.io/badge/Release-0.10.0--beta.8-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-0.10.0--beta.9-2f6f5e)](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9) [![Verify](https://img.shields.io/github/actions/workflow/status/soom-kang/refactor-me/verify.yml?branch=main&label=Verify)](https://github.com/soom-kang/refactor-me/actions/workflows/verify.yml) [![MIT License](https://img.shields.io/badge/License-MIT-555555)](LICENSE)
 
 refactor-me is a CLI that uses Codex or Claude Code with sharpen-me Skills to follow a conservative workflow for behavior-preserving refactoring.
 
@@ -14,9 +14,9 @@ Changes happen in an isolated Git worktree. Commits that pass validation and rev
 
 ## Install
 
-Public Beta **0.10.0-beta.8** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
+Public Beta **0.10.0-beta.9** supports **macOS Apple Silicon**. You need Homebrew, Git, an authenticated Codex or Claude Code CLI, and your target project's build and test tools.
 
-Release commit: `e1ccf3bde29f063ec0334a3257870b61f8f16170`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/38988653327), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/38988891975) and the [upgrade from Beta.7](https://github.com/soom-kang/refactor-me/actions/runs/38988894754) passed for this version. Installation checks make no model calls; the upgrade check uses a seeded compatibility report to verify saved project state. The Verify badge follows the CLI workflow on `main`.
+Release commit: `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. [Release verification](https://github.com/soom-kang/refactor-me/actions/runs/39198152860), [fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39198427620) and the [upgrade from Beta.8](https://github.com/soom-kang/refactor-me/actions/runs/39198430208) passed for this version. Installation checks make no model calls; the upgrade check uses a seeded compatibility report to verify saved project state. The Verify badge follows the CLI workflow on `main`.
 
 <a id="quick-start"></a>
 
@@ -37,7 +37,7 @@ Homebrew manages the executable. Required Skills resolve from `~/.agents/skills`
 
 ## First run
 
-Confirm `refactor-me version --json` reports `0.10.0-beta.8` before following these commands. If an older version is installed, run `brew upgrade refactor-me` first.
+Confirm `refactor-me version --json` reports `0.10.0-beta.9` before following these commands. If an older version is installed, run `brew upgrade refactor-me` first.
 
 Replace the path with a clean Git repository that has at least one commit. Prepare its dependencies first. The commands below select Codex only; a Claude Code check uses `--provider claude --fallback none`.
 
@@ -62,7 +62,7 @@ Choose a model for every selected provider, either with command options or in pr
 
 ## Readable progress logs
 
-Public Beta `0.10.0-beta.8` shows the current stage, candidate and confirmed result instead of shell commands. The existing `--lang en|ko` selects progress logs, the final summary and report language; English remains the default. Add `--lang ko` for Korean progress.
+Public Beta `0.10.0-beta.9` shows the current stage, candidate and confirmed result instead of shell commands. The existing `--lang en|ko` selects progress logs, the final summary and report language; English remains the default. Add `--lang ko` for Korean progress.
 
 Progress goes to `stderr`, so `run --json` keeps report JSON alone on `stdout`. Each audit reports its own proposed and eligible candidate counts; long stages report elapsed time every 30 seconds. Original provider transcripts and validation output remain in local run records. See [progress logs](tool/README.md#progress-logs).
 

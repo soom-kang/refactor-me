@@ -4,6 +4,8 @@
 
 ## 0.10.0-beta.9
 
+[GitHub prerelease](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9) · [Fresh installation](https://github.com/soom-kang/refactor-me/actions/runs/39198427620) · [Beta.8 upgrade](https://github.com/soom-kang/refactor-me/actions/runs/39198430208). Release commit: `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`. [Verification record](release/HOMEBREW.md#beta9-verification-record).
+
 - Share a minimal-test policy across audit, deep check and later candidate phases. Proven pure deletions need no new tests; other edits require a concrete affected behavior and evidence gap before adding focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking.
 
 ## 0.10.0-beta.8

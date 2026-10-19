@@ -4,9 +4,9 @@
 
 이 Beta는 macOS Apple Silicon(`darwin/arm64`)만 지원합니다. Homebrew로 전역 실행 파일을 설치하고 sharpen-me Skills는 따로 설치합니다.
 
-공개 버전은 [`0.10.0-beta.8`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8)이며 commit은 `e1ccf3bde29f063ec0334a3257870b61f8f16170`입니다. 이 버전과 commit의 [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/38988653327), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/38988891975), [Beta.7 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/38988894754)가 통과했습니다.
+공개 버전은 [`0.10.0-beta.9`](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9)이며 commit은 `b87bde4ca5d56dd2cdc4ee2e5a8453d814de40d0`입니다. 이 버전과 commit의 [Main CI](https://github.com/soom-kang/refactor-me/actions/runs/39198152860), [신규 설치](https://github.com/soom-kang/refactor-me/actions/runs/39198427620), [Beta.8 업그레이드](https://github.com/soom-kang/refactor-me/actions/runs/39198430208)가 통과했습니다.
 
-[Beta.8 검증 기록](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.ko.md#beta8-검증-기록)에 소스, 압축파일과 설치 근거를 구분했습니다. 압축파일에는 게시 전 안내가 그대로 남으며 저장소 문서 갱신이 공개한 바이트를 바꾸지는 않습니다. 압축을 풀었다면 아래 동봉 메타데이터 확인부터 시작하세요.
+[Beta.9 검증 기록](https://github.com/soom-kang/refactor-me/blob/main/tool/release/HOMEBREW.ko.md#beta9-검증-기록)에 소스, 압축파일과 설치 근거를 구분했습니다. 압축파일에는 게시 전 안내가 그대로 남으며 저장소 문서 갱신이 공개한 바이트를 바꾸지는 않습니다. 압축을 풀었다면 아래 동봉 메타데이터 확인부터 시작하세요.
 
 ## 이미 압축을 푼 경우
 
@@ -19,7 +19,7 @@ cat BUILD-INFO.txt
 
 동봉한 `version`, `commit`을 JSON 출력과 비교해 두 값이 모두 같은지 확인하세요. 실행 파일의 이름은 `refactor-me`, 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 하며 `BUILD-INFO.txt`와도 같아야 합니다. 공개 릴리스 압축파일에는 `dirty=false`, `signed=no`, `notarized=no`가 기록되어 있어야 합니다. 하나라도 다르면 중단합니다. 실행 파일은 대상 저장소 밖에 보관하고 이후 명령에는 절대 경로를 사용하세요.
 
-로컬에서 빌드한 후보에는 그 후보의 버전, commit과 dirty 상태가 들어 있습니다. 이 정보가 릴리스 게시를 뜻하지는 않습니다. 공개 압축파일이라면 동봉된 버전의 annotated 태그와 commit이 같은지도 확인하세요. 아래 다운로드 절에서는 Beta.8 명령을 안내합니다.
+로컬에서 빌드한 후보에는 그 후보의 버전, commit과 dirty 상태가 들어 있습니다. 이 정보가 릴리스 게시를 뜻하지는 않습니다. 공개 압축파일이라면 동봉된 버전의 annotated 태그와 commit이 같은지도 확인하세요. 아래 다운로드 절에서는 Beta.9 명령을 안내합니다.
 
 checksum은 압축파일의 바이트를 검사합니다. `BUILD-INFO.txt` 비교는 실행 파일과 메타데이터의 불일치를 찾으며 게시자를 인증하지 않습니다. 이후 웹이나 저장소의 문서를 갱신해도 동봉한 안내는 바뀌지 않습니다.
 
@@ -38,7 +38,7 @@ Homebrew는 고정한 릴리스 소스를 Go로 빌드합니다. 필수 Skills�
 
 Homebrew 6 이상에서 tap 등록과 해당 formula의 trust 설정은 처음 한 번만 합니다. 새 환경에서는 먼저 설정해야 `brew install refactor-me`가 외부 formula를 찾을 수 있습니다. 해당 formula만 신뢰하면 되며 tap 전체의 trust 설정은 필요하지 않습니다.
 
-버전 `0.10.0-beta.8`와 실행 파일의 commit을 annotated tag의 peeled commit과 비교한 뒤 계속하세요. 이전 버전이라면 먼저 업데이트합니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정합니다. 고정 기본 모델은 없습니다. `doctor --no-live-probe`에는 모델이 필요하지 않으며 모델을 호출하지 않습니다. 깨끗한 Git 저장소를 선택하고 제한을 설정한 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
+버전 `0.10.0-beta.9`와 실행 파일의 commit을 annotated tag의 peeled commit과 비교한 뒤 계속하세요. 이전 버전이라면 먼저 업데이트합니다. 선택한 provider마다 명령 옵션이나 프로젝트 설정으로 모델을 지정합니다. 고정 기본 모델은 없습니다. `doctor --no-live-probe`에는 모델이 필요하지 않으며 모델을 호출하지 않습니다. 깨끗한 Git 저장소를 선택하고 제한을 설정한 뒤 `run`을 시작하세요. 기본 doctor 검사와 `run`은 모델을 호출해 provider 사용량을 소비합니다.
 
 <a id="skill-reference"></a>
 
@@ -84,13 +84,13 @@ Beta.6 이후 빌드는 `skill-reference` 진단을 포함하며 `PASS`(기준 �
 
 ## 직접 다운로드
 
-새 빈 디렉터리를 준비해 [Beta.8 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.8)의 압축파일과 checksum을 내려받으세요. 다운로드 하나라도 실패하면 중단하세요.
+새 빈 디렉터리를 준비해 [Beta.9 릴리스](https://github.com/soom-kang/refactor-me/releases/tag/v0.10.0-beta.9)의 압축파일과 checksum을 내려받으세요. 다운로드 하나라도 실패하면 중단하세요.
 
 ```sh
 release_url=https://github.com/soom-kang/refactor-me/releases/download
-archive=refactor-me_0.10.0-beta.8_darwin_arm64.zip
-curl -fLO "$release_url/v0.10.0-beta.8/$archive"
-curl -fLO "$release_url/v0.10.0-beta.8/SHA256SUMS"
+archive=refactor-me_0.10.0-beta.9_darwin_arm64.zip
+curl -fLO "$release_url/v0.10.0-beta.9/$archive"
+curl -fLO "$release_url/v0.10.0-beta.9/SHA256SUMS"
 awk -v file="$archive" '$2 == file {print; count++} END {if (count != 1) exit 1}' \
   SHA256SUMS > "$archive.sha256" &&
   shasum -a 256 -c "$archive.sha256"
@@ -103,10 +103,10 @@ unzip "$archive"
 cat BUILD-INFO.txt
 ./refactor-me version --json
 git ls-remote https://github.com/soom-kang/refactor-me.git \
-  'refs/tags/v0.10.0-beta.8^{}'
+  'refs/tags/v0.10.0-beta.9^{}'
 ```
 
-마지막 명령은 annotated [Beta.8 태그](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.8)가 가리키는 commit과 peeled ref를 출력합니다. 첫 번째 값이 `BUILD-INFO.txt`와 JSON 출력의 `commit` 모두와 같아야 합니다. 버전은 `0.10.0-beta.8`, 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 하며 메타데이터에는 `dirty=false`가 있어야 합니다. 태그가 없거나 값이 다르면 중단하세요. Homebrew로 설치한 경우에도 `refactor-me version --json`의 commit을 같은 태그와 비교합니다.
+마지막 명령은 annotated [Beta.9 태그](https://github.com/soom-kang/refactor-me/tree/v0.10.0-beta.9)가 가리키는 commit과 peeled ref를 출력합니다. 첫 번째 값이 `BUILD-INFO.txt`와 JSON 출력의 `commit` 모두와 같아야 합니다. 버전은 `0.10.0-beta.9`, 플랫폼은 `darwin`, 아키텍처는 `arm64`여야 하며 메타데이터에는 `dirty=false`가 있어야 합니다. 태그가 없거나 값이 다르면 중단하세요. Homebrew로 설치한 경우에도 `refactor-me version --json`의 commit을 같은 태그와 비교합니다.
 
 실행 파일은 대상 저장소 밖에 보관하고 Homebrew CLI와 같은 명령에 절대 경로를 사용합니다.
 

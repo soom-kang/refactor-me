@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.10.0-beta.9
+
 - Share a minimal-test policy across audit, deep check and later candidate phases. Proven pure deletions need no new tests; other edits require a concrete affected behavior and evidence gap before adding focused characterization. Reuse existing test infrastructure and keep unresolved reachability or side effects blocking.
 
 ## 0.10.0-beta.8
